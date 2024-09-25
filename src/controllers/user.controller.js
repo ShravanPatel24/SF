@@ -248,7 +248,6 @@ const unfollowUser = catchAsync(async (req, res) => {
   return res.status(result.status).json({ message: result.message });
 });
 
-
 module.exports = {
   verifyMobileOtpToken,
   resendOTP,
@@ -271,5 +270,5 @@ module.exports = {
   updateById,
   deleteById,
   followUser,
-  unfollowUser
+  unfollowUser,
 };

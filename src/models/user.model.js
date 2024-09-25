@@ -45,7 +45,6 @@ const userSchema = new mongoose.Schema(
     ismobileBlockedFor: { type: Number, default: 0 }, // 0 For not blocked, 1 For 5 mint and 2 For 24 hours.
     otpAttemptCount: { type: Number, default: 0 },
     otpBlockedUntil: Date,
-    businessName: { type: String, required: false }, // Business Name
     businessType: { type: mongoose.Schema.Types.ObjectId, ref: 'businessType' },
     language: {
       type: String,
@@ -77,7 +76,7 @@ userSchema.plugin(mongoosePaginate);
 function arrayLimit(val) {
   return val.length <= 5; // Limit to 5 social media links
 }
- 
+
 userSchema.statics.isFieldValueTaken = async function (fieldName, value, excludeId) {
   const query = { [fieldName]: value };
   if (excludeId) {

@@ -5,6 +5,7 @@ module.exports.FAQModel = require("./faq.model");
 module.exports.Token = require("./token.model");
 module.exports.UserModel = require("./user.model");
 module.exports.BusinessTypeModel = require("./businessType.model");
+module.exports.BusinessDetailModel = require("./businessDetail.model");
 module.exports.RoleBaseAccessModel = require("./roleBaseAccess.model");
 module.exports.StaticContentModel = require("./staticContent.model");
  

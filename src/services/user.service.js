@@ -1,4 +1,4 @@
-const { UserModel, BusinessTypeModel } = require("../models");
+const { UserModel, BusinessTypeModel, BusinessDetailModel } = require("../models");
 const CONSTANT = require("../config/constant");
 const Token = require("../models/token.model");
 const { tokenTypes } = require("../config/tokens");
@@ -19,7 +19,6 @@ const getUserById = async (userId) => {
   console.log('Looking for user ID:', userId);
   return await UserModel.findOne({ _id: userId });
 };
-
 
 /**
  * Get user by email and type
@@ -106,7 +105,6 @@ const createUser = async (requestBody) => {
 
   return { data: user, code: 200, message: CONSTANT.USER_CREATE };
 };
-
 
 const createUserByAdmin = async (requestBody, files) => {
   // Check for email duplication
@@ -857,5 +855,5 @@ module.exports = {
   getUserByPhone,
   forgotPassword,
   followUser,
-  unfollowUser
+  unfollowUser,
 };
