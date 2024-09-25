@@ -1,0 +1,2533 @@
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: Basic authentication for login requests
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Bearer token for authenticated routes
+
+  schemas:
+    Token:
+      type: object
+      properties:
+        token:
+          type: string
+        expires:
+          type: string
+          format: date-time
+      example:
+        token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1ZWJhYzUzNDk1NGI1NDEzOTgwNmMxMTIiLCJpYXQiOjE1ODkyOTg0ODQsImV4cCI6MTU4OTMwMDI4NH0.m1U63blB0MLej_WfB7yC2FTMnCziif9X8yzwDEfJXAg
+        expires: 2020-05-12T16:18:04.793Z
+
+    AuthTokens:
+      type: object
+      properties:
+        access:
+          $ref: "#/components/schemas/Token"
+        refresh:
+          $ref: "#/components/schemas/Token"
+      example:
+        access:
+          token: "newAccessToken123"
+          expires: "2024-12-31T23:59:59Z"
+        refresh:
+          token: "newRefreshToken123"
+          expires: "2024-12-31T23:59:59Z"
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: number
+        message:
+          type: string
+
+    BusinessType:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the business type
+        name:
+          type: string
+          description: Name of the business type
+        status:
+          type: string
+          enum: [1, 0]
+          description: Status of the business type (1 for active, 0 for inactive)
+      example:
+        id: "613b6f7a84d1b7f2b09467c5"
+        name: "Retail"
+        status: "1"
+
+    ChangePasswordRequest:
+      type: object
+      properties:
+        oldPassword:
+          type: string
+          description: The current password of the user
+        password:
+          type: string
+          description: The new password
+      required:
+        - currentPassword
+        - password
+      example:
+        oldPassword: "oldPassword123"
+        password: "newPassword123"
+
+    VerifyOtpRequestAdmin:
+      type: object
+      required:
+        - email
+        - otp
+      properties:
+        email:
+          type: string
+        otp:
+          type: number
+          description: "The one-time password (OTP) for verification"
+
+    VerifyOtpRequestUser:
+      type: object
+      required:
+        - id
+        - otp
+      properties:
+        id:
+          type: string
+          description: "The user's unique ID (must be a valid MongoDB ObjectId)"
+          pattern: "^[a-fA-F0-9]{24}$" # Regex pattern for MongoDB ObjectId
+        otp:
+          type: number
+          description: "The one-time password (OTP) for verification"
+
+    ResendOtpRequest:
+      type: object
+      required:
+        - userId
+        - otpType
+      properties:
+        userId:
+          type: string
+          description: "The user's unique ID (must be a valid MongoDB ObjectId)"
+          pattern: "^[a-fA-F0-9]{24}$" # Regex pattern for MongoDB ObjectId
+        otpType:
+          type: string
+          description: "The OTP type to resend. Possible values are 'email' and 'passwordReset'."
+          enum:
+            - email
+            - passwordReset
+          example: email/passwordReset
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the user
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        bio:
+          type: string
+          description: Short bio or description of the user
+        socialMediaLinks:
+          type: array
+          items:
+            type: string
+            format: uri
+          maxItems: 5
+          description: Array of up to 5 social media links (e.g., Facebook, Instagram)
+        profilePhoto:
+          type: string
+          format: binary
+          description: URL of the user's profilePhoto image
+        followersCount:
+          type: integer
+          description: Number of followers the user has
+        followingCount:
+          type: integer
+          description: Number of users the user is following
+      required:
+        - id
+        - name
+        - email
+        - phone
+        - bio
+      example:
+        id: "user123"
+        name: "John Doe"
+        email: "johndoe@example.com"
+        phone: "+1234567890"
+        bio: "This is a short bio about John Doe."
+        profilePhoto: "/images/profile/johndoe.jpg"
+
+    Post:
+      type: object
+      properties:
+        userId:
+          type: string
+          description: ID of the user who created the post
+        caption:
+          type: string
+        image:
+          type: string
+          format: url
+        likes:
+          type: number
+        comments:
+          type: array
+          items:
+            type: object
+            properties:
+              text:
+                type: string
+              postedBy:
+                type: string
+                description: User ID of the person who commented
+              postedAt:
+                type: string
+                format: date-time
+        postedAt:
+          type: string
+          format: date-time
+
+    FAQ:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the FAQ
+        question:
+          type: string
+          description: The question of the FAQ
+        answer:
+          type: string
+          description: The answer to the FAQ
+        status:
+          type: string
+          enum: [active, inactive]
+          description: The status of the FAQ
+      required:
+        - id
+        - question
+        - answer
+      example:
+        id: "faq123"
+        question: "How can I reset my password?"
+        answer: "Go to the account settings and click on 'Reset Password'."
+        status: "active"
+
+    StaticContent:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the static content
+        type:
+          type: string
+          enum: [terms, refund_policy, shipping_policy, privacy]
+          description: Type of static content
+        title:
+          type: string
+          description: Title of the content
+        content:
+          type: string
+          description: The static content body
+        status:
+          type: string
+          enum: [active, inactive]
+          description: Status of the static content
+      required:
+        - id
+        - type
+        - title
+        - content
+      example:
+        id: "content123"
+        type: "terms"
+        title: "Terms and Conditions"
+        content: "These are the terms and conditions for using our service."
+        status: "active"
+    # Other schemas like Admin, VerifyOtpRequestUser, VerifyOtpRequestPartner...
+
+  responses:
+    DuplicateEmail:
+      description: Email already exists
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    Unauthorized:
+      description: Unauthorized access
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    PasswordMismatch:
+      description: The new password and confirm password do not match
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    InvalidCurrentPassword:
+      description: The current password is invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+paths:
+  /admin/auth/login:
+    post:
+      summary: Super Admin login with email or mobile and password
+      tags:
+        - Super Admin
+      security:
+        - basicAuth: [] # Use Basic Auth for login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailOrPhone:
+                  type: string
+                  format: email
+                password:
+                  type: string
+              required:
+                - emailOrPhone
+                - password
+      responses:
+        "200":
+          description: Super Admin logged in successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokens"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /admin/auth/refresh-tokens:
+    post:
+      summary: Refresh Token for Super Admin
+      tags:
+        - Super Admin
+      security:
+        - basicAuth: [] # Use Basic Auth for refreshing tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  description: The refresh token provided during login
+              required:
+                - refreshToken
+      responses:
+        "200":
+          description: New access token generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokens"
+        "400":
+          description: Invalid refresh token
+        "401":
+          description: Unauthorized
+
+  /admin/{id}:
+    get:
+      summary: Retrieve an admin by ID
+      tags:
+        - Super Admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the admin to retrieve
+          schema:
+            type: string
+      security:
+        - bearerAuth: [] # Use Bearer Token for authenticated routes
+      responses:
+        "200":
+          description: Admin retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Admin"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    patch:
+      summary: Update Super Admin profile by ID
+      tags:
+        - Super Admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the admin to update
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Admin"
+      security:
+        - bearerAuth: [] # Use Bearer Token for authenticated routes
+      responses:
+        "200":
+          description: Admin profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Admin"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "400":
+          description: Invalid request data
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /admin/auth/forgot-password:
+    post:
+      summary: Send reset password OTP to admin's email
+      tags:
+        - Super Admin
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+              required:
+                - email
+      responses:
+        "200":
+          description: Reset password link sent successfully
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /admin/auth/verify-email-otp:
+    post:
+      summary: Verify password reset email OTP for a admin
+      tags:
+        - Super Admin
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyOtpRequestAdmin"
+      responses:
+        "200":
+          description: OTP verified successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                example:
+                  message: "OTP verified successfully"
+        "400":
+          description: Invalid OTP or request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /admin/auth/reset-password:
+    post:
+      summary: Reset password using the provided token
+      tags:
+        - Super Admin
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: Reset password token
+                newPassword:
+                  type: string
+              required:
+                - token
+                - newPassword
+      responses:
+        "200":
+          description: Password reset successfully
+        "400":
+          description: Invalid token or new password
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /admin/change-password:
+    post:
+      summary: Super Admin change password
+      tags:
+        - Super Admin
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "200":
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                example:
+                  message: "Password changed successfully"
+        "400":
+          $ref: "#/components/responses/PasswordMismatch"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/InvalidCurrentPassword"
+
+  /business-type:
+    get:
+      summary: Get list of business types
+      tags:
+        - Business Type
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination
+        - name: sortBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+          description: Sort order for business types (asc or desc)
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+          description: Limit number of results per page
+        - name: searchBy
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search business types by name or any specific field
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [1, 0]
+          description: Filter by status (active or inactive)
+      responses:
+        "200":
+          description: List of business types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BusinessType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    post:
+      summary: Add a new business type
+      tags:
+        - Business Type
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BusinessType"
+      responses:
+        "201":
+          description: Business type added successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessType"
+        "400":
+          description: Invalid input
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Duplicate"
+
+  /business-type/{id}:
+    get:
+      summary: Get details of a specific business type
+      tags:
+        - Business Type
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the business type to retrieve
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      responses:
+        "200":
+          description: Business type details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessType"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    patch:
+      summary: Update a business type
+      tags:
+        - Business Type
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the business type to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BusinessType"
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      responses:
+        "200":
+          description: Business type updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessType"
+        "400":
+          description: Invalid input
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete a business type
+      tags:
+        - Business Type
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the business type to delete
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      responses:
+        "200":
+          description: Business type deleted successfully
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /business-type/for/user:
+    get:
+      summary: Get list of business types for users (Basic Auth)
+      tags:
+        - Business Type
+      security:
+        - basicAuth: [] # Basic authentication for user route
+      responses:
+        "200":
+          description: List of business types for users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BusinessType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # Users
+  /user/auth/register:
+    post:
+      summary: Register a new user
+      tags:
+        - User
+      security:
+        - basicAuth: [] # Use Basic Auth for login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                password:
+                  type: string
+                confirmPassword:
+                  type: string
+                type:
+                  type: string
+                  example: user
+              required:
+                - name
+                - email
+                - phone
+                - password
+                - confirmPassword
+                - type
+      responses:
+        "200":
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokens"
+        "400":
+          $ref: "#/components/responses/DuplicateEmail"
+
+  /user/auth/verify-mobile-otp:
+    post:
+      summary: Verify mobile OTP for a user
+      tags:
+        - User
+      security:
+        - basicAuth: [] # Use Basic Auth for login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyOtpRequestUser"
+      responses:
+        "200":
+          description: OTP verified successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                example:
+                  message: "OTP verified successfully"
+        "400":
+          description: Invalid OTP or request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /user/auth/verify-email-otp:
+    post:
+      summary: Verify email OTP for a user
+      tags:
+        - User
+      security:
+        - basicAuth: [] # Use Basic Auth for login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyOtpRequestUser"
+      responses:
+        "200":
+          description: OTP verified successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                example:
+                  message: "OTP verified successfully"
+        "400":
+          description: Invalid OTP or request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /user/auth/login:
+    post:
+      summary: Login with email or phone and password
+      tags:
+        - User
+      security:
+        - basicAuth: [] # Use Basic Auth for login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailOrPhone:
+                  type: string
+                password:
+                  type: string
+                type:
+                  type: string
+                  example: user
+                  enum:
+                    - user
+                    - partner
+              required:
+                - email
+                - password
+                - type
+      responses:
+        "200":
+          description: User logged in successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokens"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /user/auth/logout:
+    post:
+      summary: User logout
+      tags:
+        - User
+      security:
+        - basicAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  description: The refresh token to be invalidated
+              required:
+                - refreshToken
+      responses:
+        "200":
+          description: User logged out successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /user/auth/forgot-password:
+    post:
+      summary: Send forgot password otp to user's email/phone
+      tags:
+        - User
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailOrPhone:
+                  type: string
+                  format: email
+                type:
+                  type: string
+                  enum:
+                    - user
+              required:
+                - emailOrPhone
+                - type
+      responses:
+        "200":
+          description: Reset password link sent successfully
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /user/auth/reset-password:
+    post:
+      summary: Reset password using the provided token
+      tags:
+        - User
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: Reset password token
+                newPassword:
+                  type: string
+              required:
+                - token
+                - newPassword
+      responses:
+        "200":
+          description: Password reset successfully
+        "400":
+          description: Invalid token or new password
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /user/auth/resend-otp:
+    post:
+      summary: Resend OTP for user
+      tags:
+        - User
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResendOtpRequest"
+      responses:
+        "200":
+          description: OTP resent successfully
+        "400":
+          description: Invalid request data
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /user/change-password:
+    post:
+      summary: User change password
+      tags:
+        - User
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "200":
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                example:
+                  message: "Password changed successfully"
+        "400":
+          $ref: "#/components/responses/PasswordMismatch"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/InvalidCurrentPassword"
+
+  /user/follow:
+    post:
+      summary: Follow a user
+      tags:
+        - User
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetUserId:
+                  type: string
+                  example: Id_of_a_user_to_follow
+              required:
+                - targetUserId
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Successfully Followed User
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /user/unfollow:
+    post:
+      summary: Unfollow a user
+      tags:
+        - User
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetUserId:
+                  type: string
+                  example: Id_of_a_user_to_unfollow
+              required:
+                - targetUserId
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Successfully Unfollowed User
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # Update email
+  /user/update-email:
+    patch:
+      summary: Update user's email directly
+      tags:
+        - User
+      security:
+        - basicAuth: [] # Use Basic Auth for authenticated routes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                  description: The ID of the partner/user
+                email:
+                  type: string
+                  format: email
+              required:
+                - userId
+                - email
+      responses:
+        "200":
+          description: Email updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                example:
+                  message: "Email updated successfully"
+        "400":
+          description: Invalid email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # Update phone
+  /user/update-phone:
+    patch:
+      summary: Update user's phone directly
+      tags:
+        - User
+      security:
+        - basicAuth: [] # Use Basic Auth for authenticated routes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                  description: The ID of the partner/user
+                phone:
+                  type: string
+              required:
+                - phone
+                - userId
+      responses:
+        "200":
+          description: Phone number updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                example:
+                  message: "Phone number updated successfully"
+        "400":
+          description: Invalid phone number
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /user/profile/{id}:
+    get:
+      summary: Get user profile by ID
+      tags:
+        - User
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the user to retrieve
+          schema:
+            type: string
+      security:
+        - bearerAuth: [] # Use Bearer Token for authenticated routes
+      responses:
+        "200":
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    patch:
+      summary: Update user profile
+      tags:
+        - User
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the user to update
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the user
+                email:
+                  type: string
+                  format: email
+                  description: Email address of the user
+                phone:
+                  type: string
+                  description: Phone number of the user
+                bio:
+                  type: string
+                  description: Short bio or description of the user
+                businessName:
+                  type: string
+                socialMediaLinks[]:
+                  type: array
+                  items:
+                    type: string
+                    description: Social media link
+                  description: Array of up to 5 social media links (e.g., Facebook, Instagram)
+                profilePhoto:
+                  type: string
+                  format: binary
+                  description: Profile photo image file
+      security:
+        - bearerAuth: [] # Authentication mechanism
+      responses:
+        "200":
+          description: User profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          description: Invalid input
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # Partner
+  /partner/auth/register:
+    post:
+      summary: Register a new partner
+      tags:
+        - Partner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                password:
+                  type: string
+                confirmPassword:
+                  type: string
+                type:
+                  type: string
+                  example: partner
+                businessType:
+                  type: string
+                  example: business_type_Id
+                  description: The ID of the business type selected by the partner (ObjectId format)
+              required:
+                - name
+                - email
+                - phone
+                - password
+                - type
+                - businessType
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: Partner registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokens"
+        "400":
+          $ref: "#/components/responses/DuplicateEmail"
+
+  /partner/auth/verify-mobile-otp:
+    post:
+      summary: Verify mobile OTP for a Partner
+      tags:
+        - Partner
+      security:
+        - basicAuth: [] # Use Basic Auth for login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyOtpRequestUser"
+      responses:
+        "200":
+          description: OTP verified successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                example:
+                  message: "OTP verified successfully"
+        "400":
+          description: Invalid OTP or request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /partner/auth/verify-email-otp:
+    post:
+      summary: Verify email OTP for a partner
+      tags:
+        - Partner
+      security:
+        - basicAuth: [] # Use Basic Auth for login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyOtpRequestUser"
+      responses:
+        "200":
+          description: OTP verified successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                example:
+                  message: "OTP verified successfully"
+        "400":
+          description: Invalid OTP or request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /partner/auth/login:
+    post:
+      summary: Partner login with email or phone and password
+      tags:
+        - Partner
+      security:
+        - basicAuth: [] # Use Basic Auth for login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailOrPhone:
+                  type: string
+                password:
+                  type: string
+                type:
+                  type: string
+                  example: partner
+                  enum:
+                    - user
+                    - partner
+              required:
+                - emailOrPhone
+                - password
+                - type
+      responses:
+        "200":
+          description: Partner logged in successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokens"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /partner/auth/logout:
+    post:
+      summary: Partner logout
+      tags:
+        - Partner
+      security:
+        - basicAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  description: The refresh token to be invalidated
+              required:
+                - refreshToken
+      responses:
+        "200":
+          description: Partner logged out successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /partner/auth/forgot-password:
+    post:
+      summary: Send forgot password otp to partner's email/phone
+      tags:
+        - Partner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailOrPhone:
+                  type: string
+                  format: email
+                type:
+                  type: string
+                  enum:
+                    - partner
+              required:
+                - emailOrPhone
+                - type
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: Reset password link sent successfully
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /partner/auth/reset-password:
+    post:
+      summary: Reset password using the provided token
+      tags:
+        - Partner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: Reset password token
+                newPassword:
+                  type: string
+              required:
+                - token
+                - newPassword
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: Password reset successfully
+        "400":
+          description: Invalid token or new password
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /partner/auth/resend-otp:
+    post:
+      summary: Resend OTP for partner
+      tags:
+        - Partner
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResendOtpRequest"
+      responses:
+        "200":
+          description: OTP resent successfully
+        "400":
+          description: Invalid request data
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /partner/change-password:
+    post:
+      summary: Partner change password
+      tags:
+        - Partner
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "200":
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                example:
+                  message: "Password changed successfully"
+        "400":
+          $ref: "#/components/responses/PasswordMismatch"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/InvalidCurrentPassword"
+
+  /partner/follow:
+    post:
+      summary: Follow a partner
+      tags:
+        - Partner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetUserId:
+                  type: string
+                  example: Id_of_a_partner_to_follow
+              required:
+                - targetUserId
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Successfully Followed Partner
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /partner/unfollow:
+    post:
+      summary: Unfollow a partner
+      tags:
+        - Partner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetUserId:
+                  type: string
+                  example: Id_of_a_partner_to_unfollow
+              required:
+                - targetUserId
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Successfully Unfollowed Partner
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # Update email
+  /partner/update-email:
+    patch:
+      summary: Update partner's email directly
+      tags:
+        - Partner
+      security:
+        - basicAuth: [] # Use Basic Auth for authenticated routes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                  description: The ID of the partner/user
+                email:
+                  type: string
+                  format: email
+              required:
+                - email
+                - userId
+      responses:
+        "200":
+          description: Email updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                example:
+                  message: "Email updated successfully"
+        "400":
+          description: Invalid email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # Update phone
+  /partner/update-phone:
+    patch:
+      summary: Update partner's phone directly
+      tags:
+        - Partner
+      security:
+        - basicAuth: [] # Use Basic Auth for authenticated routes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                  description: The ID of the partner/user
+                phone:
+                  type: string
+              required:
+                - phone
+                - userId
+      responses:
+        "200":
+          description: Phone number updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                example:
+                  message: "Phone number updated successfully"
+        "400":
+          description: Invalid phone number
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /partner/profile/{id}:
+    get:
+      summary: Get partner profile by ID
+      tags:
+        - Partner
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the partner to retrieve
+          schema:
+            type: string
+      security:
+        - bearerAuth: [] # Use Bearer Token for authenticated routes
+      responses:
+        "200":
+          description: Partner profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    patch:
+      summary: Update partner profile
+      tags:
+        - Partner
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the partner to update
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the partner
+                email:
+                  type: string
+                  format: email
+                  description: Email address of the partner
+                phone:
+                  type: string
+                  description: Phone number of the partner
+                bio:
+                  type: string
+                  description: Short bio or description of the partner
+                businessName:
+                  type: string
+                socialMediaLinks[]:
+                  type: array
+                  items:
+                    type: string
+                    description: Social media link
+                  description: Array of up to 5 social media links (e.g., Facebook, Instagram)
+                profilePhoto:
+                  type: string
+                  format: binary
+                  description: Profile photo image file
+      security:
+        - bearerAuth: [] # Use Bearer Token for authenticated routes
+      responses:
+        "200":
+          description: Partner profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Invalid input data
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # Post
+  /posts:
+    post:
+      summary: Create a new post
+      tags:
+        - Post
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Post"
+      responses:
+        "201":
+          description: Post created successfully
+        "400":
+          description: Invalid input
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    get:
+      summary: Get list of all posts
+      tags:
+        - Post
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      responses:
+        "200":
+          description: List of posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /posts/{id}:
+    get:
+      summary: Get post by ID
+      tags:
+        - Post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Post ID
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Post found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "404":
+          description: Post not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    patch:
+      summary: Update a post by ID
+      tags:
+        - Post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the post to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Post"
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      responses:
+        "200":
+          description: Post updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "400":
+          description: Invalid input
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete a post
+      tags:
+        - Post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the post to delete
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      responses:
+        "200":
+          description: Post deleted successfully
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # FAQ
+  /faq:
+    get:
+      summary: Get a list of FAQs (Admin)
+      tags:
+        - FAQ (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: Page number for pagination
+          schema:
+            type: integer
+            default: 1
+        - name: sortBy
+          in: query
+          required: false
+          description: Sort order (asc/desc)
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+        - name: limit
+          in: query
+          required: false
+          description: Number of FAQs per page
+          schema:
+            type: integer
+            default: 10
+        - name: searchBy
+          in: query
+          required: false
+          description: Keyword to search by question or answer
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Filter by FAQ status
+          schema:
+            type: string
+            enum: [active, inactive]
+      responses:
+        "200":
+          description: List of FAQs retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FAQ"
+        "400":
+          description: Invalid query parameters
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      summary: Create a new FAQ (Admin)
+      tags:
+        - FAQ (Admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                question:
+                  type: string
+                  description: The question of the FAQ
+                answer:
+                  type: string
+                  description: The answer to the FAQ
+                status:
+                  type: string
+                  enum: [active, inactive]
+                  description: Status of the FAQ
+      security:
+        - bearerAuth: [] # Use Bearer Token for authenticated routes
+      responses:
+        "201":
+          description: FAQ created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FAQ"
+        "400":
+          description: Invalid input
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /faq/{id}:
+    get:
+      summary: Get FAQ by ID (Admin)
+      tags:
+        - FAQ (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the FAQ to retrieve
+          schema:
+            type: string
+      responses:
+        "200":
+          description: FAQ retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FAQ"
+        "404":
+          description: FAQ not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    patch:
+      summary: Update FAQ by ID (Admin)
+      tags:
+        - FAQ (Admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the FAQ to update
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                question:
+                  type: string
+                answer:
+                  type: string
+                status:
+                  type: string
+                  enum: [active, inactive]
+      security:
+        - bearerAuth: [] # Use Bearer Token for authenticated routes
+      responses:
+        "200":
+          description: FAQ updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FAQ"
+        "400":
+          description: Invalid input
+        "404":
+          description: FAQ not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    delete:
+      summary: Delete FAQ by ID (Admin)
+      tags:
+        - FAQ (Admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the FAQ to delete
+          schema:
+            type: string
+      security:
+        - bearerAuth: [] # Use Bearer Token for authenticated routes
+      responses:
+        "204":
+          description: FAQ deleted successfully
+        "404":
+          description: FAQ not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /faq/for/user:
+    get:
+      summary: Get a list of FAQs (User)
+      tags:
+        - FAQ (User)
+      security:
+        - basicAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: Page number for pagination
+          schema:
+            type: integer
+            default: 1
+        - name: sortBy
+          in: query
+          required: false
+          description: Sort order (asc/desc)
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+        - name: for
+          in: query
+          required: false
+          description: FAQ for (user or vendor) 0 For User, 1 For Vendor, and 2 For Both
+          schema:
+            type: string
+            enum: [0, 1, 2]
+            default: 0
+        - name: limit
+          in: query
+          required: false
+          description: Number of FAQs per page
+          schema:
+            type: integer
+            default: 10
+        - name: searchBy
+          in: query
+          required: false
+          description: Keyword to search by question or answer
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Filter by FAQ status (only "active" for users)
+          schema:
+            type: string
+            enum: [active]
+            default: active
+      responses:
+        "200":
+          description: List of FAQs retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FAQ"
+        "400":
+          description: Invalid query parameters
+
+  /static-content/for/admin:
+    get:
+      summary: Get a list of static content (Admin)
+      tags:
+        - Static Content (Admin)
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: Page number for pagination
+          schema:
+            type: integer
+            default: 1
+        - name: sortBy
+          in: query
+          required: false
+          description: Sort order (asc/desc)
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+        - name: limit
+          in: query
+          required: false
+          description: Number of items per page
+          schema:
+            type: integer
+            default: 10
+        - name: searchBy
+          in: query
+          required: false
+          description: Search keyword to filter static content by title or content
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Filter by status of the content
+          schema:
+            type: string
+            enum: [active, inactive]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of static content retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StaticContent"
+        "400":
+          description: Invalid query parameters
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /static-content/for/admin/terms:
+    get:
+      summary: Get Terms and Conditions (Admin)
+      tags:
+        - Static Content (Admin)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Terms and Conditions content retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaticContent"
+        "404":
+          description: Terms and Conditions content not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /static-content/for/admin/refund-policy:
+    get:
+      summary: Get Refund Policy (Admin)
+      tags:
+        - Static Content (Admin)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Refund Policy content retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaticContent"
+        "404":
+          description: Refund Policy content not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /static-content/for/admin/shipping-policy:
+    get:
+      summary: Get Shipping Policy (Admin)
+      tags:
+        - Static Content (Admin)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Shipping Policy content retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaticContent"
+        "404":
+          description: Shipping Policy content not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /static-content/for/admin/privacy:
+    get:
+      summary: Get Privacy Policy (Admin)
+      tags:
+        - Static Content (Admin)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Privacy Policy content retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaticContent"
+        "404":
+          description: Privacy Policy content not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /static-content/for-user/terms:
+    get:
+      summary: Get Terms and Conditions (User)
+      tags:
+        - Static Content (User)
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: Terms and Conditions content retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaticContent"
+        "404":
+          description: Terms and Conditions content not found
+
+  /static-content/for-user/refund-policy:
+    get:
+      summary: Get Refund Policy (User)
+      tags:
+        - Static Content (User)
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: Refund Policy content retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaticContent"
+        "404":
+          description: Refund Policy content not found
+
+  /static-content/for-user/shipping-policy:
+    get:
+      summary: Get Shipping Policy (User)
+      tags:
+        - Static Content (User)
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: Shipping Policy content retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaticContent"
+        "404":
+          description: Shipping Policy content not found
+
+  /static-content/for-user/privacy:
+    get:
+      summary: Get Privacy Policy (User)
+      tags:
+        - Static Content (User)
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: Privacy Policy content retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaticContent"
+        "404":
+          description: Privacy Policy content not found
+
+  /static-content/for-user/2/about-us:
+    get:
+      summary: Get Refund Policy (User)
+      tags:
+        - Static Content (User)
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: Refund Policy content retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaticContent"
+        "404":
+          description: Refund Policy content not found
+
+  # Contact US
+  /contact-us:
+    get:
+      summary: Get all list
+      tags:
+        - Contact Us
+      security:
+        - bearerAuth: [] # Admin Bearer token required for this route
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination
+        - name: sortBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+          description: Sort order for contact us (asc or desc)
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+          description: Limit number of results per page
+        - name: searchBy
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search contact us by name or any specific field
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [1, 0]
+          description: Filter by status (active or inactive)
+      responses:
+        "200":
+          description: List of contact us
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    post:
+      summary: Post a contact
+      tags:
+        - Contact Us
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                email:
+                  type: string
+                phone:
+                  type: string
+                subject:
+                  type: string
+                message:
+                  type: string
+              required:
+                - firstName
+                - lastName
+                - email
+                - message
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: Successfully Post Contact
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /contact-us/{id}:
+    get:
+      summary: Get details of a specific contact
+      tags:
+        - Contact Us
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the contact to retrieve
+      security:
+        - bearerAuth: [] # Admin Bearer token required for this route
+      responses:
+        "200":
+          description: Contact Us details
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    patch:
+      summary: Update Contact
+      tags:
+        - Contact Us
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the Contact to update
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                phone:
+                  type: string
+                subject:
+                  type: string
+                message:
+                  type: string
+      security:
+        - bearerAuth: [] # Admin Bearer Token for authenticated routes
+      responses:
+        "200":
+          description: Contact updated successfully
+        "400":
+          description: Invalid input
+        "404":
+          description: Contact not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    delete:
+      summary: Delete a contact
+      tags:
+        - Contact Us
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the contact to delete
+      security:
+        - bearerAuth: [] # Admin Bearer token required for this route
+      responses:
+        "200":
+          description: Contact deleted successfully
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # Other routes can be updated similarly for User and Partner with appropriate security mechanisms
