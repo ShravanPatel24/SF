@@ -9,7 +9,7 @@ const create = catchAsync(async (req, res) => {
 });
 
 const getLists = catchAsync(async (req, res) => {
-    const options = pick(req.query, ['sortBy', 'limit', 'page', 'searchBy', 'status']);
+    const options = pick(req.query, ['sortBy', 'limit', 'page', 'searchBy', 'status', 'filterDateRange']);
     const result = await BusinessTypeService.queries(options);
     res.send({ data: result, code: CONSTANT.SUCCESSFUL, message: CONSTANT.LIST });
 });

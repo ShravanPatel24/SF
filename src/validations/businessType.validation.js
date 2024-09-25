@@ -13,6 +13,11 @@ const getList = {
     status: Joi.string().allow('').allow(null),
     limit: Joi.number().integer(),
     page: Joi.number().integer(),
+    filterDateRange: Joi.alternatives().try(
+      Joi.string().valid('past_3_months', 'past_6_months', '2023', '2022'),
+      Joi.string().pattern(/^\d{4}-\d{2}-\d{2}-\d{4}-\d{2}-\d{2}$/)
+        .message('Custom date range must be in the format YYYY-MM-DD-YYYY-MM-DD')
+    ).optional(),
   }),
 };
 
@@ -48,7 +53,7 @@ const deleteById = {
 module.exports = {
   create,
   getList,
-     getById,
+  getById,
   update,
   deleteById,
 };
