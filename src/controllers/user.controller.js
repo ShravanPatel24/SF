@@ -19,9 +19,7 @@ const createUserByAdmin = catchAsync(async (req, res) => {
 
 const getUser = catchAsync(async (req, res) => {
   const user = await UserService.getUserById(req.params.userId);
-  if (!user) {
-    res.send({ data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.USER_NOT_FOUND });
-  }
+  if (!user) { res.send({ data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.USER_NOT_FOUND }) }
   res.send({ data: user, code: CONSTANT.SUCCESSFUL, message: CONSTANT.USER_DETAILS, });
 });
 
@@ -33,7 +31,6 @@ const updateUser = catchAsync(async (req, res) => {
 const updateUserEmail = catchAsync(async (req, res) => {
   const { userId, email } = req.body;
   if (!userId || !email) { return res.status(400).json({ message: "User ID and email are required." }) }
-  // Update the user's email using the userId
   const result = await UserService.updateUserEmail(userId, email);
   if (result.code === CONSTANT.NOT_FOUND) { return res.status(404).json({ message: "User not found." }) }
   return res.status(result.code).send(result);
@@ -43,7 +40,6 @@ const updateUserEmail = catchAsync(async (req, res) => {
 const updateUserPhone = catchAsync(async (req, res) => {
   const { userId, phone } = req.body;
   if (!userId || !phone) { return res.status(400).json({ message: "User ID and phone number are required." }) }
-  // Update the user's phone using the userId
   const result = await UserService.updateUserPhone(userId, phone);
   if (result.code === CONSTANT.NOT_FOUND) { return res.status(404).json({ message: "User not found." }) }
   return res.status(result.code).send(result);
@@ -59,23 +55,15 @@ const deleteUser = catchAsync(async (req, res) => {
 const login = catchAsync(async (req, res) => {
   try {
     let { emailOrPhone, password, type } = req.body;
-    // Ensure emailOrPhone is defined and a string
-    if (!emailOrPhone || typeof emailOrPhone !== 'string') {
-      return res.status(400).send({ data: {}, code: 400, message: 'Email or phone number is required and must be a string.', });
-    }
-    // Convert emailOrPhone to lowercase if it's an email
+    if (!emailOrPhone || typeof emailOrPhone !== 'string') { return res.status(400).send({ data: {}, code: 400, message: 'Email or phone number is required and must be a string.', }) }
     emailOrPhone = validator.isEmail(emailOrPhone)
       ? emailOrPhone.toLowerCase()
       : emailOrPhone;
     const user = await UserService.loginUserWithEmailOrPhoneAndPassword(emailOrPhone, password, type);
     if (user.code === 200) {
       const tokens = await tokenService.generateAuthTokens(user.data);
-      if (tokens) {
-        return res.send({ data: { user: user.data, tokens }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.USER_DETAILS });
-      }
-    } else {
-      return res.send(user);
-    }
+      if (tokens) { return res.send({ data: { user: user.data, tokens }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.USER_DETAILS }) }
+    } else { return res.send(user) }
   } catch (error) {
     console.error("Error in login function:", error);
     return res.status(500).send({ data: {}, code: CONSTANT.INTERNAL_SERVER_ERROR, message: error.message || CONSTANT.INTERNAL_SERVER_ERROR_MSG });
@@ -112,7 +100,6 @@ const verifyMobileOtpToken = catchAsync(async (req, res) => {
 
 const resetPassword = catchAsync(async (req, res) => {
   const { token, newPassword } = req.body;
-
   const result = await UserService.resetPassword(token, newPassword);
   return res.status(result.code).send(result);
 });
@@ -166,10 +153,7 @@ const getLists = catchAsync(async (req, res) => {
 
 const getById = catchAsync(async (req, res) => {
   const data = await UserService.getUserById(req.params.id);
-  console.log("🚀 ~ file: user.controller.js:139 ~ getById ~ data:", data);
-  if (!data) {
-    return res.send({ data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.NOT_FOUND_MSG });
-  }
+  if (!data) { return res.send({ data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.NOT_FOUND_MSG }) }
   const userData = {
     ...data.toObject(),
     id: data._id.toString(),
@@ -183,15 +167,12 @@ const getById = catchAsync(async (req, res) => {
 
 const updateById = catchAsync(async (req, res) => {
   const { phone, email, profilePhoto, bio, facebook, instagram, followersCount, followingCount, ...updateBody } = req.body;
-
-  // Upload profile photo to AWS S3 if provided
   let profilePhotoUrl = updateBody.profilePhoto;
   if (req.files && req.files.length > 0) {
     const s3Response = await awsS3Service.uploadProfile(req.files[0], 'profilePictures');
     profilePhotoUrl = s3Response ? s3Response.data.Location : updateBody.profilePhoto;
   }
 
-  // Update user and determine whether the phone number is updated
   const data = await UserService.updateUserById(req.params.id, {
     ...updateBody,
     phone, // Pass the phone to the service for OTP handling
@@ -204,17 +185,12 @@ const updateById = catchAsync(async (req, res) => {
     followingCount,
   }, req.files);
 
-  // Show message based on whether phone or email OTP is pending
   const updateMessages = [];
   if (data.phoneUpdated) updateMessages.push("Phone update pending verification. OTP sent to the new phone number.");
   if (data.emailUpdated) updateMessages.push("Email update pending verification. OTP sent to the new email address.");
 
   const message = updateMessages.length ? updateMessages.join(" ") : "Profile updated successfully.";
-
-  res.send({
-    data,
-    message,
-  });
+  res.send({ data, message });
 });
 
 const deleteById = catchAsync(async (req, res) => {

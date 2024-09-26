@@ -6,12 +6,12 @@ module.exports.userValidation = require('./user.validation');
 module.exports.contactValidation = require('./contactUs.validation');
 module.exports.faqValidation = require('./faq.validation');
 module.exports.businessTypeValidation = require('./businessType.validation');
- 
- 
+module.exports.businessValidation = require('./business.validation');
+
+
 // module.exports.sportsValidation = require('./sports.validation');
 // module.exports.matchesValidation = require('./matches.validation');
 // module.exports.newsValidation = require('./news.validation');
 // module.exports.teamValidation = require('./team.validation');
 // module.exports.venueValidation = require('./venue.validation');
 // module.exports.playerValidation = require('./player.validation');
- 

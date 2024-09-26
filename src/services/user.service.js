@@ -9,6 +9,7 @@ const config = require('../config/config');
 const moment = require("moment");
 var generator = require('generate-password');
 const validator = require("validator")
+const awsS3Service = require('../lib/aws_S3');
 
 /**
  * Get user by id
@@ -17,9 +18,9 @@ const validator = require("validator")
  */
 const getUserById = async (userId) => {
   console.log('Looking for user ID:', userId);
-  return await UserModel.findOne({ _id: userId });
+  return await UserModel.findOne({ _id: userId })
+    .populate('businessId', 'businessName mobile email');
 };
-
 
 /**
  * Get user by email and type
@@ -53,7 +54,6 @@ const getUserByPhone = async (phone, type) => {
   }
 };
 
-
 /**
  * Create a User
  * @param {Object} requestBody
@@ -61,62 +61,38 @@ const getUserByPhone = async (phone, type) => {
  */
 const createUser = async (requestBody) => {
   // Check if email or phone already exists
-  if (requestBody.email && await UserModel.isFieldValueTaken('email', requestBody.email)) {
-    return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_EMAIL_ALREADY_EXISTS };
-  }
-  if (requestBody.phone && await UserModel.isFieldValueTaken('phone', requestBody.phone)) {
-    return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_PHONE_ALREADY_EXISTS };
-  }
+  if (requestBody.email && await UserModel.isFieldValueTaken('email', requestBody.email)) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_EMAIL_ALREADY_EXISTS } }
+  if (requestBody.phone && await UserModel.isFieldValueTaken('phone', requestBody.phone)) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_PHONE_ALREADY_EXISTS } }
 
-  // Remove confirmPassword before creating the user
   delete requestBody.confirmPassword;
 
-  // Handle partner-specific logic
   if (requestBody.type === "partner") {
-    if (!requestBody.businessType) {
-      return { data: {}, code: CONSTANT.BAD_REQUEST, message: "Business type is required for partners" };
-    }
-
+    if (!requestBody.businessType) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: "Business type is required for partners" } }
     const businessTypeExists = await BusinessTypeModel.findById(requestBody.businessType);
-    if (!businessTypeExists) {
-      return { data: {}, code: CONSTANT.BAD_REQUEST, message: "Invalid business type selected" };
-    }
+    if (!businessTypeExists) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: "Invalid business type selected" } }
   }
 
-  // Generate 4-digit OTP for mobile
   const mobileOtp = config.env === 'development' ? '1234' : crypto.randomInt(1000, 9999).toString();
   requestBody['mobileOTP'] = mobileOtp;
 
-  // If email is provided, generate and send OTP for email
   if (requestBody.email) {
-    // Generate 4-digit OTP for email
     const emailOtp = crypto.randomInt(1000, 9999).toString();
     requestBody['emailOTP'] = emailOtp;
-    requestBody['emailOtpCreatedAt'] = new Date(); // Store the OTP creation time for email
-
-    // Send OTP to email for email verification
+    requestBody['emailOtpCreatedAt'] = new Date();
     await mailFunctions.sendOtpOnMail(requestBody.email, requestBody.name || requestBody.companyName, emailOtp);
   }
 
-  // Create the user record
   const user = await UserModel.create(requestBody);
-
-  // Send OTP to mobile via SMS or mobile communication method
   mailFunctions.sendOtpOnMail(user.phone, user.name || user.companyName, mobileOtp);
 
   return { data: user, code: 200, message: CONSTANT.USER_CREATE };
 };
 
-
 const createUserByAdmin = async (requestBody, files) => {
   // Check for email duplication
-  if (requestBody.email && (await UserModel.isFieldValueTaken('email', requestBody.email))) {
-    return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_EMAIL_ALREADY_EXISTS };
-  }
+  if (requestBody.email && (await UserModel.isFieldValueTaken('email', requestBody.email))) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_EMAIL_ALREADY_EXISTS } }
 
-  if (requestBody.phone && (await UserModel.isFieldValueTaken('phone', requestBody.phone))) {
-    return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_PHONE_ALREADY_EXISTS };
-  }
+  if (requestBody.phone && (await UserModel.isFieldValueTaken('phone', requestBody.phone))) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_PHONE_ALREADY_EXISTS } }
 
   // Upload and update profile photo if files are provided
   // if (files && files.length !== 0) {
@@ -125,14 +101,11 @@ const createUserByAdmin = async (requestBody, files) => {
   //     requestBody.profilePhoto = uploadResult[0].key;
   //   }
   // }
-  var password = generator.generate({
-    length: 10,
-    numbers: true
-  });
+  var password = generator.generate({ length: 10, numbers: true });
   requestBody['isVerifyMobileOtp'] = true;
   requestBody['emailVerificationStatus'] = true;
   requestBody['password'] = password;
-  // Create the user record
+
   const user = await UserModel.create(requestBody);
   return { data: user, code: 200, message: CONSTANT.USER_CREATE };
 }
@@ -145,12 +118,8 @@ const createUserByAdmin = async (requestBody, files) => {
  */
 const updateUserEmail = async (_id, newEmail) => {
   try {
-    // Ensure email is not already taken
     const isEmailTaken = await UserModel.isFieldValueTaken('email', newEmail, _id);
-    if (isEmailTaken) {
-      return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_EMAIL_ALREADY_EXISTS };
-    }
-    // Update the user's email by calling updateUserById
+    if (isEmailTaken) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_EMAIL_ALREADY_EXISTS } }
     return await updateUserById(_id, { email: newEmail });
   } catch (error) {
     console.error("Error updating email:", error);
@@ -166,12 +135,8 @@ const updateUserEmail = async (_id, newEmail) => {
  */
 const updateUserPhone = async (_id, newPhone) => {
   try {
-    // Ensure phone number is not already taken
     const isPhoneTaken = await UserModel.isFieldValueTaken('phone', newPhone, _id);
-    if (isPhoneTaken) {
-      return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_PHONE_ALREADY_EXISTS };
-    }
-    // Update the user's phone by calling updateUserById
+    if (isPhoneTaken) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_PHONE_ALREADY_EXISTS } }
     return await updateUserById(_id, { phone: newPhone });
   } catch (error) {
     console.error("Error updating phone:", error);
@@ -289,14 +254,11 @@ const queryUsers = async (options) => {
 const updateUserById = async (_id, updateBody, files) => {
   try {
     const user = await UserModel.findById(_id);
-    if (!user) {
-      return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.USER_NOT_FOUND };
-    }
+    if (!user) { return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.USER_NOT_FOUND } }
 
-    let phoneUpdated = false; // Track if the phone was updated
-    let emailUpdated = false; // Track if the email was updated
+    let phoneUpdated = false;
+    let emailUpdated = false;
 
-    // Handle phone OTP if phone is updated
     if (updateBody.phone && updateBody.phone !== user.phone) {
       const mobileOtp = config.env === 'development' ? '1234' : crypto.randomInt(1000, 9999).toString();
       updateBody.mobileOTP = mobileOtp;
@@ -306,7 +268,6 @@ const updateUserById = async (_id, updateBody, files) => {
       // await sendOtpToPhone(updateBody.phone, mobileOtp);
     }
 
-    // Handle email OTP if email is updated
     if (updateBody.email && updateBody.email !== user.email) {
       const emailOtp = crypto.randomInt(1000, 9999).toString();
       updateBody.emailOTP = emailOtp; // Set the OTP for the email
@@ -318,17 +279,14 @@ const updateUserById = async (_id, updateBody, files) => {
 
     }
 
-    // Check for email duplication if email is provided
     if (updateBody.email && updateBody.email !== '' && (await UserModel.isFieldValueTaken('email', updateBody.email, _id))) {
       return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_EMAIL_ALREADY_EXISTS };
     }
 
-    // Check for phone duplication if phone is provided
     if (updateBody.phone && updateBody.phone !== '' && (await UserModel.isFieldValueTaken('phone', updateBody.phone, _id))) {
       return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_PHONE_ALREADY_EXISTS };
     }
 
-    // Apply updates
     Object.assign(user, {
       ...updateBody,
       email: updateBody.email && updateBody.email !== '' ? updateBody.email : user.email,
@@ -336,7 +294,6 @@ const updateUserById = async (_id, updateBody, files) => {
       updatedAt: new Date(),
     });
 
-    // Handle social media links (array of links)
     if (updateBody.socialMediaLinks && Array.isArray(updateBody.socialMediaLinks)) {
       if (updateBody.socialMediaLinks.length <= 5) {
         user.socialMediaLinks = updateBody.socialMediaLinks;
@@ -355,9 +312,7 @@ const updateUserById = async (_id, updateBody, files) => {
       }
     }
 
-    // Save the updated document
     await user.save();
-
     return { data: user, phoneUpdated, emailUpdated, code: CONSTANT.SUCCESSFUL, message: CONSTANT.USER_UPDATE };
 
   } catch (error) {
@@ -394,11 +349,7 @@ const logout = async (refreshToken) => {
     type: tokenTypes.REFRESH,
     blacklisted: false,
   });
-
-  if (!refreshTokenDoc) {
-    return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.NOT_FOUND_MSG };
-  }
-
+  if (!refreshTokenDoc) { return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.NOT_FOUND_MSG } }
   await refreshTokenDoc.deleteOne();
 };
 
@@ -410,16 +361,11 @@ const logout = async (refreshToken) => {
 const refreshAuth = async (refreshToken) => {
   try {
     const refreshTokenDoc = await tokenService.verifyToken(refreshToken, tokenTypes.REFRESH);
-
     const user = await getUserById(refreshTokenDoc.user);
-    if (!user) {
-      throw new Error();
-    }
+    if (!user) { throw new Error() }
     await refreshTokenDoc.remove();
     return tokenService.generateAuthTokens(user);
-  } catch (error) {
-    return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.UNAUTHORIZED_MSG };
-  }
+  } catch (error) { return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.UNAUTHORIZED_MSG } }
 };
 
 /**
@@ -432,42 +378,23 @@ const refreshAuth = async (refreshToken) => {
 const loginUserWithEmailOrPhoneAndPassword = async (emailOrPhone, password, type) => {
   try {
     let user;
-
-    // Determine if the input is an email or a phone number, and fetch the user accordingly
     if (validator.isEmail(emailOrPhone)) {
       user = await UserModel.findOne({ email: emailOrPhone.toLowerCase(), type });
     } else {
       user = await UserModel.findOne({ phone: emailOrPhone, type });
     }
 
-    // If user is not found, return unauthorized error
-    if (!user) {
-      return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.UNAUTHORIZED_MSG };
-    }
+    if (!user) { return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.UNAUTHORIZED_MSG } }
 
-    // Validate the password
     const isPasswordValid = await user.isPasswordMatch(password);
-    if (!isPasswordValid) {
-      return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.UNAUTHORIZED_MSG };
-    }
+    if (!isPasswordValid) { return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.UNAUTHORIZED_MSG } }
 
-    // Check mobile verification
     if (!user.mobileVerificationStatus) {
-      return {
-        data: { phone: user.phone },
-        code: CONSTANT.BAD_REQUEST,
-        message: CONSTANT.MOB_VERIFICATION_REQUIRED_MSG
-      };
+      return { data: { phone: user.phone }, code: CONSTANT.BAD_REQUEST, message: CONSTANT.MOB_VERIFICATION_REQUIRED_MSG }
     }
 
-    // If everything is fine (either phone or email is verified), generate tokens
     const tokens = await tokenService.generateAuthTokens(user);
-    return {
-      data: { user, tokens },
-      code: CONSTANT.SUCCESS,
-      message: CONSTANT.LOGIN_SUCCESS
-    };
-
+    return { data: { user, tokens }, code: CONSTANT.SUCCESS, message: CONSTANT.LOGIN_SUCCESS };
   } catch (error) {
     console.error("Error in loginUserWithEmailOrPhoneAndPassword:", error);
     return { data: {}, code: CONSTANT.INTERNAL_SERVER_ERROR, message: error.message || CONSTANT.INTERNAL_SERVER_ERROR_MSG };
@@ -476,81 +403,50 @@ const loginUserWithEmailOrPhoneAndPassword = async (emailOrPhone, password, type
 
 const verifyUserEmailOtp = async (id, otp) => {
   try {
-    if (typeof otp !== 'number') {
-      return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.OTP_STRING_VERIFICATION };
-    }
+    if (typeof otp !== 'number') { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.OTP_STRING_VERIFICATION } }
     const user = await getUserById(id);
-    if (!user) {
-      return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_NOT_FOUND };
-    }
+    if (!user) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_NOT_FOUND } }
 
-    // Get the current time
     const currentTime = moment();
-
-    // Validate email OTP if it exists
     if (user.emailOTP) {
       const emailOtpCreationTime = moment(user.emailOtpCreatedAt); // Email OTP creation time
       const emailOtpExpirationTime = 14; // Expiration time in minutes
-
-      // Calculate time difference in seconds
       const emailTimeDifference = currentTime.diff(emailOtpCreationTime, 'seconds');
-
-      // Check if the email OTP has expired (convert expiration time to seconds for finer control)
       const emailOtpExpirationTimeInSeconds = emailOtpExpirationTime * 60;
 
-      if (emailTimeDifference > emailOtpExpirationTimeInSeconds) {
-        return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.EXPIRE_OTP };
-      }
+      if (emailTimeDifference > emailOtpExpirationTimeInSeconds) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.EXPIRE_OTP } }
 
-      // Verify email OTP
       if (user.emailOTP === otp) {
-        if (user.emailVerificationStatus) {
-          return { data: {}, code: CONSTANT.SUCCESSFUL, message: CONSTANT.USER_ALREADY_VERIFIED };
-        }
-
-        // Update the user's email verification status
+        if (user.emailVerificationStatus) { return { data: {}, code: CONSTANT.SUCCESSFUL, message: CONSTANT.USER_ALREADY_VERIFIED } }
         await updateUserById(id, {
           emailVerificationStatus: true,
           emailOTP: null,
           isVerifyEmailOtp: true,
           emailOtpCreatedAt: null
         });
-
         const tokens = await tokenService.generateAuthTokens(user);
         return { data: { user, tokens }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.OTP_VERIFIED };
       }
     }
 
-    // Validate password reset OTP if it exists
     if (user.passwordResetEmailOTP) {
       const passwordResetOtpCreationTime = moment(user.passwordResetEmailOtpCreatedAt);
       const passwordResetOtpExpirationTime = 14; // Expiration time in minutes
-
-      // Calculate time difference in seconds
       const passwordResetTimeDifference = currentTime.diff(passwordResetOtpCreationTime, 'seconds');
-
-      // Check if the password reset OTP has expired (convert expiration time to seconds)
       const passwordResetOtpExpirationTimeInSeconds = passwordResetOtpExpirationTime * 60;
 
-      if (passwordResetTimeDifference > passwordResetOtpExpirationTimeInSeconds) {
-        return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.EXPIRE_OTP };
-      }
+      if (passwordResetTimeDifference > passwordResetOtpExpirationTimeInSeconds) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.EXPIRE_OTP } }
 
-      // Verify password reset OTP
       if (user.passwordResetEmailOTP === otp) {
         await updateUserById(id, {
           isPasswordResetOtpVerified: true,
           passwordResetEmailOTP: null,
           passwordResetEmailOtpCreatedAt: null
         });
-
         return { data: { user }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.PASSWORD_RESET_OTP_VERIFIED };
       }
     }
-
-    // If no OTP matches, return an error
     return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.INVALID_OTP };
-
   } catch (error) {
     console.error("Error verifying OTP:", error);
     return { data: {}, code: CONSTANT.INTERNAL_SERVER_ERROR, message: CONSTANT.USER_EMAIL_VERIFY_FAIL };
@@ -566,15 +462,11 @@ const verifyUserEmailOtp = async (id, otp) => {
 const verifyMobileOtpToken = async (_id, otp) => {
   try {
     if (typeof otp !== 'number') { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.OTP_STRING_VERIFICATION } }
-
     const user = await getUserById(_id);
     if (!user) { return { code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_NOT_FOUND } }
-
-    // Handle the case where the OTP matches either the email verification OTP or the password reset OTP
     if (user.mobileOTP === otp) {
-      // Check if the email is already verified
       if (user.mobileVerificationStatus === true) { return { data: {}, code: CONSTANT.SUCCESSFUL, message: CONSTANT.USER_ALREADY_VERIFIED } }
-      // Mark the user's email as verified and clear the mobileOTP
+
       await updateUserById(_id, {
         mobileVerificationStatus: true,
         isVerifyMobileOtp: true,
@@ -585,20 +477,14 @@ const verifyMobileOtpToken = async (_id, otp) => {
       return { data: { user, tokens }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.OTP_VERIFIED };
     }
 
-    // Check if the OTP matches the password reset OTP
     if (user.passwordResetMobileOTP === otp) {
-      // Mark the password reset OTP as verified and clear the OTP
       await updateUserById(_id, {
         isPasswordResetOtpVerified: true,
         passwordResetMobileOTP: null // Clear OTP after verification
       });
-
       return { data: { user }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.PASSWORD_RESET_OTP_VERIFIED };
     }
-
-    // If no OTP matches, return an error
     return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.INVALID_OTP };
-
   } catch (error) {
     console.error("Error verifying OTP:", error);
     return { data: {}, code: CONSTANT.INTERNAL_SERVER_ERROR, message: CONSTANT.USER_PHONE_VERIFY_FAIL };
@@ -613,25 +499,15 @@ const verifyMobileOtpToken = async (_id, otp) => {
  */
 const resetPassword = async (resetPasswordToken, newPassword) => {
   try {
-    // Verify the reset password token
     const resetPasswordTokenDoc = await tokenService.verifyToken(resetPasswordToken, tokenTypes.RESET_PASSWORD);
-    // Find the user by the token's associated user ID
     const user = await UserModel.findOne({ _id: resetPasswordTokenDoc.user });
-    // Check if the password reset OTP has been verified
-    if (!user.isPasswordResetOtpVerified) {
-      return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.PASSWORD_RESET_OTP_NOT_VERIFIED };
-    }
-    // Check if the new password is the same as the old password
+    if (!user.isPasswordResetOtpVerified) { return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.PASSWORD_RESET_OTP_NOT_VERIFIED } }
+
     const isSameAsOldPassword = await user.isPasswordMatch(newPassword);
-    if (isSameAsOldPassword) {
-      return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.SAME_PASSWORD_ERROR_MSG };
-    }
-    // Update the user's password
+    if (isSameAsOldPassword) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.SAME_PASSWORD_ERROR_MSG } }
     await updateUserById(user._id, { password: newPassword, isPasswordResetOtpVerified: false });
 
-    // Remove the token after successful password reset
     await Token.deleteMany({ user: user._id, type: tokenTypes.RESET_PASSWORD });
-
     return { data: {}, code: CONSTANT.SUCCESSFUL, message: CONSTANT.CHANGE_PASSWORD };
   } catch (error) {
     console.error("Error resetting password:", error);
@@ -641,25 +517,15 @@ const resetPassword = async (resetPasswordToken, newPassword) => {
 
 const resendOTPUsingId = async (userId, requestBody) => {
   try {
-    // Find the user data by their ID
     const data = await UserModel.findOne({ _id: userId });
+    if (!data) { return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.INVALID_OTP } }
 
-    // Check if the user exists
-    if (!data) {
-      return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.INVALID_OTP };
-    }
+    if (data.otpAttemptCount >= 4 && moment().isBefore(moment(data.otpBlockedUntil).add(5, 'm'))) { return { data: {}, code: CONSTANT.TOO_MANY_REQUESTS, message: CONSTANT.USER_BLOCKED_FOR_5_WRONG } }
 
-    // Block user logic if they attempt too many times
-    if (data.otpAttemptCount >= 4 && moment().isBefore(moment(data.otpBlockedUntil).add(5, 'm'))) {
-      return { data: {}, code: CONSTANT.TOO_MANY_REQUESTS, message: CONSTANT.USER_BLOCKED_FOR_5_WRONG };
-    }
-
-    // Create field names based on the OTP type (e.g., mobile OTP)
     const resendAttemptField = `mobileResendAttempt`;
     const resendBlockedUntilField = `mobileResendBlockedUntil`;
     const blockedFor = `ismobileBlockedFor`;
 
-    // Handle resend attempts
     if (data[resendAttemptField] >= 3) {
       if (moment().isBefore(moment(data[resendBlockedUntilField]))) {
         return { data: {}, code: CONSTANT.TOO_MANY_REQUESTS, message: CONSTANT.RESEND_BLOCK_FOR_24_HOURS };
@@ -680,36 +546,23 @@ const resendOTPUsingId = async (userId, requestBody) => {
       }
     }
 
-    // Generate new OTPs based on OTP type
     if (requestBody.otpType === 'email') {
       const emailOtp = Math.floor(1000 + Math.random() * 9000).toString();
       data.emailOTP = emailOtp;
-      data.emailOtpCreatedAt = new Date(); // Reset email OTP creation time
-
-      // Send OTP to the user's email
+      data.emailOtpCreatedAt = new Date();
       await mailFunctions.sendOtpOnMail(data.email, data.name || data.companyName, emailOtp);
-
-      console.log(`Email OTP Resent: ${emailOtp}`);
     }
 
     if (requestBody.otpType === 'passwordReset') {
       const passwordResetOtp = Math.floor(1000 + Math.random() * 9000).toString();
       data.passwordResetEmailOTP = passwordResetOtp;
-      data.passwordResetEmailOtpCreatedAt = new Date(); // Reset password reset OTP creation time
-
-      // Send password reset OTP to the user's email
+      data.passwordResetEmailOtpCreatedAt = new Date();
       await mailFunctions.sendOtpOnMail(data.email, data.name || data.companyName, passwordResetOtp);
-
-      console.log(`Password Reset OTP Resent: ${passwordResetOtp}`);
     }
-
-    // Save the updated user data with new OTPs in the database
     await data.save();
 
-    // Return success response
     return { data: data, code: CONSTANT.SUCCESSFUL, message: CONSTANT.OTP_RESEND };
   } catch (error) {
-    // Handle any errors that might occur during the process
     return { data: {}, code: CONSTANT.ERROR_CODE, message: error.message };
   }
 };
@@ -724,8 +577,6 @@ const resendOTPUsingId = async (userId, requestBody) => {
 const forgotPassword = async (emailOrPhone, type) => {
   try {
     let user;
-
-    // Check if the input is an email or phone number
     if (validator.isEmail(emailOrPhone)) {
       user = await getUserByEmail(emailOrPhone.toLowerCase(), type);
     } else if (validator.isMobilePhone(emailOrPhone)) {
@@ -736,42 +587,26 @@ const forgotPassword = async (emailOrPhone, type) => {
 
     if (user) {
       let otp, updateData = {};
-
-      // If the input is an email, generate an email OTP and update passwordResetEmailOTP
       if (validator.isEmail(emailOrPhone)) {
         otp = crypto.randomInt(1000, 9999).toString();
         updateData = {
           passwordResetEmailOTP: otp,
-          passwordResetEmailOtpCreatedAt: new Date() // Set OTP creation time
+          passwordResetEmailOtpCreatedAt: new Date()
         };
-
-        // Send email OTP
         await mailFunctions.sendOtpOnMail(user.email, user.name || "User", otp);
       }
-
-      // If the input is a mobile number, generate a mobile OTP and update passwordResetMobileOTP
       else if (validator.isMobilePhone(emailOrPhone)) {
         otp = config.env === 'development' ? '4321' : crypto.randomInt(1000, 9999).toString();
         updateData = {
           passwordResetMobileOTP: otp,
-          passwordResetMobileOtpCreatedAt: new Date() // Set OTP creation time
+          passwordResetMobileOtpCreatedAt: new Date()
         };
-
         // Send mobile OTP via SMS (if enabled)
         // await sendOtpViaSMS(user.phone, otp);
       }
-
-      // Update the user document with the appropriate OTP and creation time
       await updateUserById(user._id, updateData);
-
-      // Generate reset password token (if needed)
       const resetPasswordToken = await tokenService.generateResetPasswordToken(user._id);
-
-      return {
-        data: { id: user._id, token: resetPasswordToken },
-        code: CONSTANT.SUCCESSFUL,
-        message: CONSTANT.FORGOT_PASSWORD
-      };
+      return { data: { id: user._id, token: resetPasswordToken }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.FORGOT_PASSWORD };
     } else {
       return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.NON_REGISTERED_EMAIL_CHECK };
     }
@@ -785,31 +620,20 @@ const followUser = async (userId, targetUserId) => {
   try {
     const user = await UserModel.findById(userId);
     const targetUser = await UserModel.findById(targetUserId);
+    if (!user || !targetUser) { return { success: false, status: 404, message: 'User not found' } }
 
-    if (!user || !targetUser) {
-      return { success: false, status: 404, message: 'User not found' };
-    }
+    if (user.following.includes(targetUserId)) { return { success: false, status: 400, message: `Already following user: ${targetUser.name}` } }
 
-    // Check if already following
-    if (user.following.includes(targetUserId)) {
-      return { success: false, status: 400, message: `Already following user: ${targetUser.name}` };
-    }
-
-    // Proceed to follow the user
     user.following.push(targetUserId);
     user.followingCount += 1;
-    // Check if the user is already in the followers array to avoid duplicates
     if (!targetUser.followers.includes(userId)) {
       targetUser.followers.push(userId);
       targetUser.followersCount += 1;
     }
     targetUser.followers.push(userId);
     targetUser.followersCount += 1;
-
-    // Save both users
     await user.save();
     await targetUser.save();
-
     return { success: true, status: 200, message: `Successfully followed user: ${targetUser.name}` };
   } catch (error) {
     return { success: false, status: 500, message: 'Internal server error' };
@@ -822,7 +646,6 @@ const unfollowUser = async (userId, targetUserId) => {
     const targetUser = await UserModel.findById(targetUserId);
     if (!user || !targetUser) { return { success: false, status: 404, message: "User not found" } }
     if (!user.following.includes(targetUserId)) { return { success: false, status: 400, message: "You are not following this user" } }
-
     user.following = user.following.filter(id => id.toString() !== targetUserId);
     user.followingCount -= 1;
     targetUser.followers = targetUser.followers.filter(id => id.toString() !== userId);

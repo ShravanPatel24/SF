@@ -18,10 +18,6 @@ const userSchema = new mongoose.Schema(
     },
     phone: { type: String, required: true },
     password: { type: String, required: true },
-    mobileOTP: Number,
-    emailOTP: Number,
-    emailOtpCreatedAt: { type: Date },
-    passwordResetEmailOtpCreatedAt: { type: Date },
     profilePhoto: String,
     bio: { type: String, default: "" },
     followersCount: { type: Number, default: 0 },
@@ -40,13 +36,8 @@ const userSchema = new mongoose.Schema(
     passwordResetMobileOTP: Number,
     isPasswordResetOtpVerified: { type: Boolean, default: false },
     type: { type: String, enum: ["user", "partner"], default: "user" },
-    mobileResendAttempt: { type: Number, default: 0 },
-    mobileResendBlockedUntil: Date,
-    ismobileBlockedFor: { type: Number, default: 0 }, // 0 For not blocked, 1 For 5 mint and 2 For 24 hours.
-    otpAttemptCount: { type: Number, default: 0 },
-    otpBlockedUntil: Date,
-    businessName: { type: String, required: false }, // Business Name
-    businessType: { type: mongoose.Schema.Types.ObjectId, ref: 'businessType' },
+    businessType: { type: mongoose.Schema.Types.ObjectId, ref: 'businessType' }, // Reference to business type
+    businessId: { type: mongoose.Schema.Types.ObjectId, ref: 'Business' }, // Reference to the Business model
     language: {
       type: String,
       enum: [
@@ -62,8 +53,8 @@ const userSchema = new mongoose.Schema(
       ],
       default: "English",
     },
-    status: { type: Number, default: 1 }, //0 is Inactive, 1 is Active
-    isDelete: { type: Number, default: 1 } //0 is delete, 1 is Active
+    status: { type: Number, default: 1 }, // 0 is Inactive, 1 is Active
+    isDelete: { type: Number, default: 1 } // 0 is delete, 1 is Active
   },
   {
     timestamps: true,
@@ -77,7 +68,7 @@ userSchema.plugin(mongoosePaginate);
 function arrayLimit(val) {
   return val.length <= 5; // Limit to 5 social media links
 }
- 
+
 userSchema.statics.isFieldValueTaken = async function (fieldName, value, excludeId) {
   const query = { [fieldName]: value };
   if (excludeId) {

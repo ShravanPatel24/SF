@@ -39,5 +39,4 @@ router.patch('/update-phone', userController.updateUserPhone);
 router.post('/follow', userAuth('followUser'), userController.followUser);
 router.post('/unfollow', userAuth('unfollowUser'), userController.unfollowUser);
 
-
 module.exports = router;

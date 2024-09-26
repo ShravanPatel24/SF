@@ -3,6 +3,7 @@ const userRoute = require('./user.routes');
 const businessTypeRoute = require('./businessType.route');
 const MediaRoute = require('./media.route');
 const PostRoute =  require('./posts.route')
+const businessRoute = require('./business.routes');
  
 const AdminAuthRoute = require("./admin/auth.route");
 const AdminRoleRoute = require("./admin/role.route");
@@ -33,6 +34,8 @@ const defaultRoutes = [
   { path: "/faq", route: FAQRoute },
   { path: '/static-content', route: StaticContentRoute },
   { path: '/business-type', route: businessTypeRoute },
+  { path: '/business', route: businessRoute },
+  
   { path: '/posts', route: PostRoute }
 ];
  
