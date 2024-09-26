@@ -38,11 +38,13 @@ const getBusinessesForPartner = async (partnerId) => {
     return businesses;
 };
 
-const queryBusinesses = async (options) => {
+const queryBusinesses = async (partnerId, options) => {
+    const partner = await UserModel.findById(partnerId);
+    if (!partner || partner.type !== 'partner') { throw new Error('Partner not found or not a valid partner') }
     const { page = 1, limit = 10, sortBy, searchBy, businessType } = options;
-    let query = {};
-    if (businessType) { query.businessType = businessType }
+    let query = { partner: partnerId };
 
+    if (businessType) { query.businessType = businessType }
     if (searchBy) { query.businessName = { $regex: searchBy, $options: 'i' } }
 
     const businesses = await BusinessModel.paginate(query, {
@@ -51,7 +53,7 @@ const queryBusinesses = async (options) => {
         sort: { createdAt: sortBy === 'desc' ? -1 : 1 },
         populate: [
             { path: 'businessType', select: 'businessType _id' },
-            { path: 'partner', select: 'name _id' }
+            { path: 'partner', select: 'name _id' },
         ],
     });
     return businesses;
