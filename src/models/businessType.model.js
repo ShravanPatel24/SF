@@ -44,7 +44,7 @@ async function inIt() {
       { name: "Companies", isProduct: false },
       { name: "Transportation", isProduct: false },
       { name: "Markets and Shopping", isProduct: false },
-      // { name: "Others" }
+      { name: "Others" }
     ];
 
     await BUSINESSTYPE.insertMany(businessTypes);

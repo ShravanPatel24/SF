@@ -2,7 +2,7 @@ const { BusinessModel, UserModel, BusinessTypeModel } = require("../models");
 const CONSTANT = require("../config/constant");
 const awsS3Service = require("../lib/aws_S3");
 
-const createBusinessForPartner = async (partnerId, businessName, businessType, businessDescription, mobile, email, businessAddress, openingDays, openingTime, closingTime, images) => {
+const createBusinessForPartner = async (partnerId, businessName, businessType, businessDescription, mobile, email, businessAddress, openingDays, sameTimeForAllDays, uniformTiming, daywiseTimings, images) => {
     const partner = await UserModel.findById(partnerId);
     if (!partner || partner.type !== "partner") { throw new Error('Partner not found or not a valid partner') }
     if (partner.name === businessName) { throw new Error('Business name cannot be the same as the partner\'s name') }
@@ -19,8 +19,9 @@ const createBusinessForPartner = async (partnerId, businessName, businessType, b
         email,
         businessAddress,
         openingDays,
-        openingTime,
-        closingTime,
+        sameTimeForAllDays,
+        uniformTiming,
+        daywiseTimings,
         businessImages: images || [],
     });
     await business.save();
@@ -67,7 +68,7 @@ const queryBusinesses = async (partnerId, options) => {
  * @returns {Promise<Business>}
  */
 const updateBusinessById = async (businessId, updateBody, files) => {
-    const { businessName, businessDescription, mobile, email, businessAddress, openingDays, openingTime, closingTime, images } = updateBody;
+    const { businessName, businessDescription, mobile, email, businessAddress, openingDays, sameTimeForAllDays, uniformTiming, daywiseTimings, images } = updateBody;
     const business = await BusinessModel.findById(businessId);
     if (!business) { throw new Error('Business not found') }
     const owner = await UserModel.findById(business.partner);
@@ -79,8 +80,9 @@ const updateBusinessById = async (businessId, updateBody, files) => {
     business.email = email || business.email;
     business.businessAddress = businessAddress || business.businessAddress;
     business.openingDays = openingDays || business.openingDays;
-    business.openingTime = openingTime || business.openingTime;
-    business.closingTime = closingTime || business.closingTime;
+    business.sameTimeForAllDays = sameTimeForAllDays !== undefined ? sameTimeForAllDays : business.sameTimeForAllDays;
+    business.uniformTiming = uniformTiming || business.uniformTiming;
+    business.daywiseTimings = daywiseTimings || business.daywiseTimings;
 
     // If images are uploaded
     if (files && files.length > 0) {

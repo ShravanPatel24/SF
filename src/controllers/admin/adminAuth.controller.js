@@ -1,11 +1,10 @@
 const catchAsync = require('../../utils/catchAsync');
 const { adminAuthService, adminStaffService, tokenService, s3Service } = require('../../services');
 const CONSTANT = require('../../config/constant');
-const { MailFunction } = require('../../helpers');
 
 const login = catchAsync(async (req, res) => {
   var { emailOrPhone, password } = req.body;
-  const admin = await adminAuthService.loginUserWithEmailOrPhone(emailOrPhone, password);
+  const admin = await adminAuthService.loginUserWithEmailOrPhone(emailOrPhone, password, req);
   if (admin && admin.data && admin.code == 200) {
     const tokens = await tokenService.generateAuthTokens(admin.data);
     if (admin && tokens) {

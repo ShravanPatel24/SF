@@ -55,11 +55,9 @@ const deleteUser = catchAsync(async (req, res) => {
 const login = catchAsync(async (req, res) => {
   try {
     let { emailOrPhone, password, type } = req.body;
-    if (!emailOrPhone || typeof emailOrPhone !== 'string') { return res.status(400).send({ data: {}, code: 400, message: 'Email or phone number is required and must be a string.', }) }
-    emailOrPhone = validator.isEmail(emailOrPhone)
-      ? emailOrPhone.toLowerCase()
-      : emailOrPhone;
-    const user = await UserService.loginUserWithEmailOrPhoneAndPassword(emailOrPhone, password, type);
+    if (!emailOrPhone || typeof emailOrPhone !== 'string') { return res.status(400).send({ data: {}, code: 400, message: 'Email or phone number is required and must be a string.' }) }
+    emailOrPhone = validator.isEmail(emailOrPhone) ? emailOrPhone.toLowerCase() : emailOrPhone;
+    const user = await UserService.loginUserWithEmailOrPhoneAndPassword(emailOrPhone, password, type, req);
     if (user.code === 200) {
       const tokens = await tokenService.generateAuthTokens(user.data);
       if (tokens) { return res.send({ data: { user: user.data, tokens }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.USER_DETAILS }) }

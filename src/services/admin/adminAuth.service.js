@@ -68,15 +68,12 @@ const getAdminByPhone = async (phone) => {
  * @param {string} password
  * @returns {Promise<User>}
  */
-const loginUserWithEmailOrPhone = async (emailOrPhone, password) => {
+const loginUserWithEmailOrPhone = async (emailOrPhone, password, req) => {
   let details;
-  // Regex to check if the input is an email
   const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailOrPhone);
-
   if (isEmail) {
     details = await getAdminByEmail(emailOrPhone);
   } else {
-    // Assuming phone number is numeric and at least 10 digits
     const isPhone = /^\d{10,}$/.test(emailOrPhone);
     if (isPhone) {
       details = await getAdminByPhone(emailOrPhone);
@@ -85,9 +82,13 @@ const loginUserWithEmailOrPhone = async (emailOrPhone, password) => {
     }
   }
   if (!details || !(await details.isPasswordMatch(password))) { return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.UNAUTHORIZED_MSG } }
+
+  const device = req.headers['user-agent'] || 'Unknown Device';
+  const time = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+  const ipAddress = req.ip;
+  mailFunctions.sendLoginNotificationEmail(details.email, device, time, ipAddress);
   return { data: details, code: CONSTANT.SUCCESSFUL, message: CONSTANT.LOGIN_MSG };
 };
-
 
 /**
  * Login with username and password

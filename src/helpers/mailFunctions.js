@@ -1,12 +1,8 @@
 const config = require('../config/config');
-const CONSTANT = require('../config/constant');
 var Mailgen = require('mailgen');
 var nodemailer = require('nodemailer');
 var sgMail = require('@sendgrid/mail');
 sgMail.setApiKey(config.SENDGRID_API_KEY);
-
-
-
 
 // console.log('config.SENDGRID_API_KEY==', config.SENDGRID_API_KEY)
 var mailGenerator = new Mailgen({
@@ -14,7 +10,7 @@ var mailGenerator = new Mailgen({
     product: {
         // Appears in header & footer of e-mails
         logo: 'https://res.cloudinary.com/df7gwlrj4/image/upload/v1684304257/Image_3_hayqvl.png',
-        name: 'Omnist Techhub Solutions',
+        name: 'Ocean',
         link: 'https://omnisttechhub.com/'
     }
 });
@@ -36,12 +32,11 @@ const sendEmail = async (to, subject, htmlBody) => {
     }
 };
 
-
 async function send_mail(to, template, subject, attachments) {
     var emailBody = mailGenerator.generate(template);
     var emailText = mailGenerator.generatePlaintext(template);
     let mailOptions = {
-        from: 'Omnist Techhub Solutions <noreply@apikart.co>',
+        from: 'Ocean <noreply@apikart.co>',
         to: to,
         subject: subject, // Subject line
         text: emailText, // plain text body
@@ -76,6 +71,7 @@ function sendOtpOnMail(userEmail, name, otp) {
         send_mail(userEmail, emailTemplate, 'Registration - Welcome to Social Feed NearBy');
     }
 }
+
 // sendOtpOnMail('akash@yopmail.com', 'Akash', 12345);
 function sendResetPasswordEmail(userEmail, token, type) {
     var url = '';
@@ -106,10 +102,6 @@ function sendResetPasswordEmail(userEmail, token, type) {
 }
 // sendResetPasswordEmail('susheelyadav@yopmail.com', 'Akash')
 
-
-
-
-
 function sendVerificationEmail(user, token) {
     let name = user.name ? user.name : user.companyName;
 
@@ -137,9 +129,7 @@ function sendVerificationEmail(user, token) {
         }
     };
     send_mail(user.email, emailTemplate, 'Verify Your Account: Pleae Verify Your Account');
-
 }
-
 
 const sendTicketReplyEmail = async (userEmail, name, ticketDetails) => {
     // Create the HTML body with ticket details
@@ -177,11 +167,68 @@ const sendTicketConfirmationEmail = async (userEmail, name, ticketDetails) => {
     await sendEmail(userEmail, subject, htmlBody);
 };
 
+const sendWelcomeEmail = async (userEmail, userName) => {
+    const emailTemplate = {
+        body: {
+            title: 'Thank you for joining us!',
+            intro: `Hi ${userName},<br/><br/>Thank you for joining us at Ocean! We’re excited to have you as part of our community.`,
+            outro: `Your account has been successfully created, and you’re all set to start enjoying our services. If you have any questions or need assistance, don’t hesitate to reach out to our support team.<br/><br/>We look forward to helping you.<br/>`
+        }
+    };
+    await send_mail(userEmail, emailTemplate, 'Welcome to Ocean');
+};
+
+function sendLoginNotificationEmail(userEmail, device, time, ipAddress) {
+    const emailTemplate = {
+        body: {
+            title: 'We noticed a login to your account',
+            intro: `Hello,<br/><br/>We noticed a login to your account associated with Ocean - ${userEmail}. Below are the details:`,
+            table: {
+                data: [
+                    {
+                        item: 'Device',
+                        description: device,
+                    },
+                    {
+                        item: 'Time',
+                        description: time,
+                    },
+                    {
+                        item: 'IP address',
+                        description: ipAddress,
+                    },
+                ],
+                columns: {
+                    customAlignment: { item: 'left', description: 'right' },
+                },
+            },
+            outro: `If this was you, You can ignore this message. There's no need to take any action. <br/><br/> If this wasn't you, protect your account by clicking <a href="${config.SITE_URL}/authentication/logout-all">here</a>. You'll be logged out of all your active sessions.`
+        }
+    };
+
+    send_mail(userEmail, emailTemplate, 'Login Notification: We noticed a login to your account');
+}
+
+function sendActivationEmail(userEmail, userName) {
+    const emailTemplate = {
+        body: {
+            title: 'Your Ocean App account has been reactivated!',
+            intro: `Hi ${userName},<br/><br/>We're excited to inform you that your Ocean account has been successfully reactivated! You can now log in and enjoy all the features and benefits of the Ocean App once again.`,
+            outro: `If you have any questions or need assistance, our support team is here to help.<br/><br/>Thank you for choosing Ocean App. We're glad to have you back!`
+        }
+    };
+
+    send_mail(userEmail, emailTemplate, 'Your Ocean Account Has Been Reactivated');
+}
+
 module.exports = {
     sendEmail,
     sendOtpOnMail: sendOtpOnMail,
     sendResetPasswordEmail: sendResetPasswordEmail,
     sendVerificationEmail: sendVerificationEmail,
     sendTicketConfirmationEmail: sendTicketConfirmationEmail,
-    sendTicketReplyEmail: sendTicketReplyEmail
+    sendTicketReplyEmail: sendTicketReplyEmail,
+    sendWelcomeEmail: sendWelcomeEmail,
+    sendLoginNotificationEmail: sendLoginNotificationEmail,
+    sendActivationEmail: sendActivationEmail
 };

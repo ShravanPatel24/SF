@@ -10,8 +10,16 @@ const create = {
         email: Joi.string().email().required(),
         businessAddress: Joi.string().required(),
         openingDays: Joi.array().items(Joi.string().required()).min(1).required(),
-        openingTime: Joi.string().required(),
-        closingTime: Joi.string().required(),
+        sameTimeForAllDays: Joi.boolean().required(),
+        uniformTiming: Joi.object({
+            openingTime: Joi.string().optional(),
+            closingTime: Joi.string().optional(),
+        }).optional(),
+        daywiseTimings: Joi.array().items(Joi.object({
+            day: Joi.string().required(),
+            openingTime: Joi.string().required(),
+            closingTime: Joi.string().required()
+        })).optional(),
         images: Joi.array().items(Joi.string()).optional(),
     }),
 };
@@ -35,8 +43,16 @@ const update = {
             email: Joi.string().email(),
             businessAddress: Joi.string(),
             openingDays: Joi.array().items(Joi.string()),
-            openingTime: Joi.string(),
-            closingTime: Joi.string(),
+            sameTimeForAllDays: Joi.boolean(),
+            uniformTiming: Joi.object({
+                openingTime: Joi.string().optional(),
+                closingTime: Joi.string().optional(),
+            }),
+            daywiseTimings: Joi.array().items(Joi.object({
+                day: Joi.string(),
+                openingTime: Joi.string(),
+                closingTime: Joi.string(),
+            })),
             images: Joi.array().items(Joi.string()).optional(),
         })
         .min(1),

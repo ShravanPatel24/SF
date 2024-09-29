@@ -7,7 +7,7 @@ const awsS3Service = require("../lib/aws_S3");
 const createBusinessForPartner = catchAsync(async (req, res) => {
     try {
         const partnerId = req.user._id;
-        const { businessName, businessType, businessDescription, mobile, email, businessAddress, openingDays, openingTime, closingTime } = req.body;
+        const { businessName, businessType, businessDescription, mobile, email, businessAddress, openingDays, sameTimeForAllDays, uniformTiming, daywiseTimings } = req.body;
         let imageUrls = [];
 
         if (req.files && req.files.length > 0) {
@@ -23,8 +23,9 @@ const createBusinessForPartner = catchAsync(async (req, res) => {
             email,
             businessAddress,
             openingDays,
-            openingTime,
-            closingTime,
+            sameTimeForAllDays,
+            uniformTiming,
+            daywiseTimings,
             imageUrls
         );
         res.status(201).json({ message: "Business created successfully", business });
@@ -43,11 +44,10 @@ const getBusinessesForPartner = catchAsync(async (req, res) => {
 
 const updateBusiness = catchAsync(async (req, res) => {
     const { businessId } = req.params;
-    const { businessName, businessDescription, mobile, email, businessAddress, openingDays, openingTime, closingTime, images } = req.body;
-    try {
+    const { businessName, businessDescription, mobile, email, businessAddress, openingDays, sameTimeForAllDays, uniformTiming, daywiseTimings, images } = req.body; try {
         const updatedBusiness = await BusinessService.updateBusinessById(
             businessId,
-            { businessName, businessDescription, mobile, email, businessAddress, openingDays, openingTime, closingTime, images },
+            { businessName, businessDescription, mobile, email, businessAddress, openingDays, sameTimeForAllDays, uniformTiming, daywiseTimings, images },
             req.files
         );
         res.status(200).json({ code: 200, message: "Business updated successfully", business: updatedBusiness });

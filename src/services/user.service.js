@@ -84,7 +84,6 @@ const createUser = async (requestBody) => {
 
   const user = await UserModel.create(requestBody);
   mailFunctions.sendOtpOnMail(user.phone, user.name || user.companyName, mobileOtp);
-
   return { data: user, code: 200, message: CONSTANT.USER_CREATE };
 };
 
@@ -256,6 +255,8 @@ const updateUserById = async (_id, updateBody, files) => {
     const user = await UserModel.findById(_id);
     if (!user) { return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.USER_NOT_FOUND } }
 
+    const previousStatus = user.status; // Store the current status before updating
+
     let phoneUpdated = false;
     let emailUpdated = false;
 
@@ -313,6 +314,11 @@ const updateUserById = async (_id, updateBody, files) => {
     }
 
     await user.save();
+    // Check if the user was deactivated (status = 0) and is now activated (status = 1)
+    if (previousStatus === 0 && user.status === 1) {
+      // Send the activation email
+      await mailFunctions.sendActivationEmail(user.email, user.name);
+    }
     return { data: user, phoneUpdated, emailUpdated, code: CONSTANT.SUCCESSFUL, message: CONSTANT.USER_UPDATE };
 
   } catch (error) {
@@ -374,26 +380,24 @@ const refreshAuth = async (refreshToken) => {
  * @param {string} password
  * @returns {Promise<User>}
  */
-// verification of user email
-const loginUserWithEmailOrPhoneAndPassword = async (emailOrPhone, password, type) => {
+const loginUserWithEmailOrPhoneAndPassword = async (emailOrPhone, password, type, req) => {
   try {
     let user;
-    if (validator.isEmail(emailOrPhone)) {
-      user = await UserModel.findOne({ email: emailOrPhone.toLowerCase(), type });
-    } else {
-      user = await UserModel.findOne({ phone: emailOrPhone, type });
-    }
-
+    if (validator.isEmail(emailOrPhone)) { user = await UserModel.findOne({ email: emailOrPhone.toLowerCase(), type }) } else { user = await UserModel.findOne({ phone: emailOrPhone, type }) }
     if (!user) { return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.UNAUTHORIZED_MSG } }
 
     const isPasswordValid = await user.isPasswordMatch(password);
     if (!isPasswordValid) { return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.UNAUTHORIZED_MSG } }
 
-    if (!user.mobileVerificationStatus) {
-      return { data: { phone: user.phone }, code: CONSTANT.BAD_REQUEST, message: CONSTANT.MOB_VERIFICATION_REQUIRED_MSG }
-    }
+    if (!user.mobileVerificationStatus) { return { data: { phone: user.phone }, code: CONSTANT.BAD_REQUEST, message: CONSTANT.MOB_VERIFICATION_REQUIRED_MSG } }
 
     const tokens = await tokenService.generateAuthTokens(user);
+
+    const device = req.headers['user-agent'] || 'Unknown Device';
+    const time = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+    const ipAddress = req.ip;
+    mailFunctions.sendLoginNotificationEmail(user.email, device, time, ipAddress);
+
     return { data: { user, tokens }, code: CONSTANT.SUCCESS, message: CONSTANT.LOGIN_SUCCESS };
   } catch (error) {
     console.error("Error in loginUserWithEmailOrPhoneAndPassword:", error);
@@ -425,6 +429,7 @@ const verifyUserEmailOtp = async (id, otp) => {
           emailOtpCreatedAt: null
         });
         const tokens = await tokenService.generateAuthTokens(user);
+        await mailFunctions.sendWelcomeEmail(user.email, user.name);
         return { data: { user, tokens }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.OTP_VERIFIED };
       }
     }
