@@ -9,10 +9,16 @@ const phoneValidation = Joi.string()
     .pattern(new RegExp('^[0-9]{10,15}$'))
     .message('Phone number must be between 10 and 15 digits and contain only numbers.');
 
+const countryCodeValidation = Joi.string()
+    .pattern(/^\+\d{1,4}$/)
+    .message('Country code must be in the format +<digits>, with 1 to 4 digits.')
+    .required();
+
 const createUser = {
     body: Joi.object().keys({
         name: Joi.string(),
         email: Joi.string().email(),
+        countryCode: countryCodeValidation,
         phone: phoneValidation.required(),
         password: passwordComplexity.required(),
         confirmPassword: Joi.string().required().valid(Joi.ref('password')),
@@ -56,6 +62,10 @@ const updateUser = {
         }),
         email: Joi.string().email().allow(null, '').optional().messages({
             'string.email': 'Invalid email format.',
+        }),
+        countryCode: Joi.string().optional().allow(null, '').messages({
+            'string.empty': 'Country code cannot be empty.',
+            'string.pattern.base': 'Country code must be in the format +<digits>, with 1 to 4 digits.'
         }),
         phone: Joi.string().optional().allow(null, '').messages({
             'string.empty': 'Phone cannot be empty',
@@ -147,6 +157,22 @@ const verifyPhoneOtpValidation = {
     }),
 };
 
+const updateAboutUs = {
+    params: Joi.object().keys({
+        id: Joi.string().custom(objectId).required(),
+    }),
+    body: Joi.object().keys({
+        title: Joi.string().required(),
+        description: Joi.string().required(),
+    }),
+};
+
+const getAboutUs = {
+    params: Joi.object().keys({
+        id: Joi.string().custom(objectId).required(),
+    }),
+};
+
 module.exports = {
     createUser,
     getUsers,
@@ -160,5 +186,7 @@ module.exports = {
     logout,
     verifyEmail,
     changePassword,
-    verifyPhoneOtpValidation
+    verifyPhoneOtpValidation,
+    updateAboutUs,
+    getAboutUs
 };

@@ -4,6 +4,7 @@ const businessTypeRoute = require('./businessType.route');
 const MediaRoute = require('./media.route');
 const PostRoute =  require('./posts.route')
 const businessRoute = require('./business.routes');
+const itemsRoute = require('./item.routes');
  
 const AdminAuthRoute = require("./admin/auth.route");
 const AdminRoleRoute = require("./admin/role.route");
@@ -35,6 +36,7 @@ const defaultRoutes = [
   { path: '/static-content', route: StaticContentRoute },
   { path: '/business-type', route: businessTypeRoute },
   { path: '/business', route: businessRoute },
+  { path: '/items', route: itemsRoute },
   
   { path: '/posts', route: PostRoute }
 ];

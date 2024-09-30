@@ -222,6 +222,23 @@ const unfollowUser = catchAsync(async (req, res) => {
   return res.status(result.status).json({ message: result.message });
 });
 
+// Add or Update "About Us" for a partner
+const addOrUpdateAboutUs = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { title, description } = req.body;
+  const updatedPartner = await UserService.addOrUpdateAboutUs(id, title, description);
+  if (!updatedPartner) { return res.status(404).json({ message: 'Partner not found' }) }
+  res.status(200).json({ message: 'About Us updated successfully', data: updatedPartner });
+});
+
+// Get "About Us" for a partner
+const getAboutUs = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const partner = await UserService.getAboutUs(id);
+  if (!partner) { return res.status(404).json({ message: 'Partner not found' }) }
+  res.status(200).json({ data: partner.aboutUs });
+});
+
 
 module.exports = {
   verifyMobileOtpToken,
@@ -245,5 +262,7 @@ module.exports = {
   updateById,
   deleteById,
   followUser,
-  unfollowUser
+  unfollowUser,
+  addOrUpdateAboutUs,
+  getAboutUs
 };

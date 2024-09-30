@@ -16,6 +16,18 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ['Web', 'Android', 'IOS'],
     },
+    // New fields for country code and phone
+    countryCode: {
+      type: String,
+      required: true,
+      validate: {
+        validator: function (v) {
+          return /^\+\d{1,4}$/.test(v); // Ensure the country code starts with '+' and has 1 to 4 digits
+        },
+        message: props => `${props.value} is not a valid country code!`
+      },
+      example: "+1"
+    },
     phone: { type: String, required: true },
     password: { type: String, required: true },
     mobileOTP: Number,
@@ -48,6 +60,10 @@ const userSchema = new mongoose.Schema(
     // Business-related fields for partners
     businessType: { type: mongoose.Schema.Types.ObjectId, ref: 'businessType' },
     businessId: { type: mongoose.Schema.Types.ObjectId, ref: 'Business' },
+    aboutUs: {
+      title: { type: String, required: false },
+      description: { type: String, required: false }
+    },
     language: {
       type: String,
       enum: [
@@ -113,6 +129,14 @@ userSchema.pre("save", async function (next) {
   }
   next();
 });
+
+userSchema.pre("save", function (next) {
+  const fullPhoneNumber = `${this.countryCode}${this.phone}`;
+  console.log(`Full phone number: ${fullPhoneNumber}`);
+
+  next();
+});
+
 
 /**
  * @typedef USER

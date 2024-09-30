@@ -171,6 +171,163 @@ components:
         bio: "This is a short bio about John Doe."
         profilePhoto: "/images/profile/johndoe.jpg"
 
+    Items:
+      type: object
+      properties:
+        itemType:
+          type: string
+          description: The type of the item (food, room, product)
+          enum:
+            - food
+            - room
+            - product
+          example: food
+        images:
+          type: array
+          items:
+            type: string
+          description: List of image URLs
+          example:
+            - "https://example.com/image1.jpg"
+            - "https://example.com/image2.jpg"
+        available:
+          type: boolean
+          description: Availability status of the item
+          default: true
+        business:
+          type: string
+          description: The ID of the associated business (ObjectId)
+          example: 60d0fe4f5311236168a109ca
+        businessType:
+          type: string
+          description: The ID of the associated business type (ObjectId)
+          example: 60d0fe4f5311236168a109cb
+        # Fields for food items
+        dishName:
+          type: string
+          description: Name of the dish (food items only)
+          example: Pizza
+        dishDescription:
+          type: string
+          description: Description of the dish (food items only)
+          example: "Delicious pizza with extra cheese"
+        dishPrice:
+          type: number
+          description: Price of the dish (food items only)
+          example: 10.99
+        # Fields for room items
+        roomName:
+          type: string
+          description: Name of the room (room items only)
+          example: "Deluxe Room"
+        roomType:
+          type: string
+          description: Type of the room (room items only)
+          example: "Suite"
+        roomDescription:
+          type: string
+          description: Description of the room (room items only)
+          example: "Spacious room with sea view"
+        roomPrice:
+          type: number
+          description: Price of the room (room items only)
+          example: 150
+        roomTax:
+          type: number
+          description: Tax applicable for the room (room items only)
+          example: 20
+        checkIn:
+          type: string
+          description: Check-in time (room items only)
+          example: "2:00 PM"
+        checkOut:
+          type: string
+          description: Check-out time (room items only)
+          example: "11:00 AM"
+        amenities:
+          type: array
+          items:
+            type: string
+          description: List of amenities available for the room
+          example:
+            - "WiFi"
+            - "Air Conditioning"
+            - "Pool"
+        # Fields for product items
+        productName:
+          type: string
+          description: Name of the product (product items only)
+          example: "T-Shirt"
+        productCategory:
+          type: string
+          description: Category of the product (product items only)
+          example: "Clothing"
+        productDescription:
+          type: string
+          description: Description of the product (product items only)
+          example: "Comfortable cotton t-shirt"
+        size:
+          type: array
+          items:
+            type: string
+          description: Available sizes for the product (product items only)
+          example:
+            - "S"
+            - "M"
+            - "L"
+        color:
+          type: array
+          items:
+            type: string
+          description: Available colors for the product (product items only)
+          example:
+            - "Red"
+            - "Blue"
+            - "Black"
+        productPrice:
+          type: number
+          description: Price of the product (product items only)
+          example: 25.99
+        nonReturnable:
+          type: boolean
+          description: Indicates if the product is non-returnable (product items only)
+          default: false
+        # Operating details for food items
+        dineInStatus:
+          type: boolean
+          description: Toggle for dine-in availability (food items only)
+          default: false
+        operatingDetails:
+          type: array
+          description: Operating hours for food items
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                example: "2024-10-01"
+              startTime:
+                type: string
+                example: "10:00 AM"
+              endTime:
+                type: string
+                example: "10:00 PM"
+        tableManagement:
+          type: array
+          description: Table management details for food items
+          items:
+            type: object
+            properties:
+              tableNumber:
+                type: string
+                example: "Table 1"
+              seatingCapacity:
+                type: number
+                example: 4
+      required:
+        - itemType
+        - businessType
+
     PartnerBusiness:
       type: object
       properties:
@@ -792,6 +949,9 @@ paths:
                 email:
                   type: string
                   format: email
+                countryCode:
+                  type: string
+                  example: "+91"
                 phone:
                   type: string
                 password:
@@ -1309,6 +1469,9 @@ paths:
                 email:
                   type: string
                   format: email
+                countryCode:
+                  type: string
+                  example: "+91"
                 phone:
                   type: string
                 password:
@@ -1822,7 +1985,209 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-    # Partner Business
+  # About Us
+  /partner/auth/{id}/about-us:
+    patch:
+      summary: Add or Update Partner's About Us
+      tags:
+        - Partner
+      security:
+        - basicAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the partner to add/update about us
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+      responses:
+        "200":
+          description: About Us information updated successfully
+        "400":
+          description: Invalid input data
+        "404":
+          description: Partner not found
+
+    get:
+      summary: Get Partner's about us by ID
+      tags:
+        - Partner
+      security:
+        - basicAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Partner's About Us retrieved successfully
+        "404":
+          description: Partner not found
+
+  #Items
+  /items/create:
+    post:
+      summary: Create a new item (Food, Room, or Product)
+      tags:
+        - Partner Items
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Items"
+      responses:
+        "201":
+          description: Item created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Items"
+        "400":
+          description: Invalid request data
+      security:
+        - bearerAuth: []
+
+  /items/{itemId}:
+    get:
+      summary: Get an item by its ID
+      tags:
+        - Partner Items
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the item to retrieve
+      responses:
+        "200":
+          description: Item retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Items"
+        "404":
+          description: Item not found
+      security:
+        - bearerAuth: []
+
+    patch:
+      summary: Update an item by its ID
+      tags:
+        - Partner Items
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the item to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Items"
+      responses:
+        "200":
+          description: Item updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Items"
+        "400":
+          description: Invalid request data
+        "404":
+          description: Item not found
+      security:
+        - bearerAuth: []
+
+    delete:
+      summary: Delete an item by its ID
+      tags:
+        - Partner Items
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the item to delete
+      responses:
+        "200":
+          description: Item deleted successfully
+        "404":
+          description: Item not found
+      security:
+        - bearerAuth: []
+
+  /items/business/{businessId}:
+    get:
+      summary: Get items by business ID
+      tags:
+        - Partner Items
+      parameters:
+        - name: businessId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the business to retrieve items for
+      responses:
+        "200":
+          description: List of items retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Items"
+        "404":
+          description: Business not found
+      security:
+        - bearerAuth: []
+
+  /items/business-type/{businessTypeId}:
+    get:
+      summary: Get items by business type ID
+      tags:
+        - Partner Items
+      parameters:
+        - name: businessTypeId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the business type to retrieve items for
+      responses:
+        "200":
+          description: List of items retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Items"
+        "404":
+          description: Business Type not found
+      security:
+        - bearerAuth: []
+
+  # Partner Business
   /business:
     post:
       summary: Create a new business - Require Partner's Authentication

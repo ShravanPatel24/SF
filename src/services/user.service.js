@@ -17,7 +17,6 @@ const awsS3Service = require('../lib/aws_S3');
  * @returns {Promise<User>}
  */
 const getUserById = async (userId) => {
-  console.log('Looking for user ID:', userId);
   return await UserModel.findOne({ _id: userId })
     .populate('businessId', 'businessName mobile email');
 };
@@ -665,6 +664,18 @@ const unfollowUser = async (userId, targetUserId) => {
   }
 };
 
+// Add or update "About Us" information
+const addOrUpdateAboutUs = async (userId, title, description) => {
+  const updatedPartner = await UserModel.findByIdAndUpdate(userId, { aboutUs: { title, description } }, { new: true, runValidators: true });
+  return updatedPartner;
+};
+
+// Get "About Us" information
+const getAboutUs = async (userId) => {
+  const partner = await UserModel.findById(userId, 'aboutUs');
+  return partner;
+};
+
 module.exports = {
   createUser,
   createUserByAdmin,
@@ -685,5 +696,7 @@ module.exports = {
   getUserByPhone,
   forgotPassword,
   followUser,
-  unfollowUser
+  unfollowUser,
+  addOrUpdateAboutUs,
+  getAboutUs
 };

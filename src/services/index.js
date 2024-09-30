@@ -6,5 +6,6 @@ module.exports.tokenService = require('./token.service');
 module.exports.UserService = require('./user.service');
 module.exports.BusinessTypeService = require('./businessType.service');
 module.exports.BusinessService = require('./business.service');
+module.exports.ItemService = require('./item.service');
 module.exports.ContactUsService = require('./contactUs.service');
 module.exports.FAQService = require('./faq.service');

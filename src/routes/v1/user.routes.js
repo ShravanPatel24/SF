@@ -19,6 +19,8 @@ router.post('/auth/reset-password', basicAuth(), validate(userValidation.resetPa
 router.post("/auth/verify-mobile-otp", basicAuth(), userController.verifyMobileOtpToken);
 router.post('/auth/resend-otp', basicAuth(), userController.resendOTP);
 router.post('/auth/verify-email-otp', basicAuth(), validate(userValidation.verifyEmail), userController.verifyEmailOtp);
+router.patch('/auth/:id/about-us', basicAuth(), validate(userValidation.updateAboutUs), userController.addOrUpdateAboutUs);
+router.get('/auth/:id/about-us', basicAuth(), validate(userValidation.getAboutUs), userController.getAboutUs);
 
 // Password routes
 router

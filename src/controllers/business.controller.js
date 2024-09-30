@@ -34,7 +34,6 @@ const createBusinessForPartner = catchAsync(async (req, res) => {
     }
 });
 
-
 const getBusinessesForPartner = catchAsync(async (req, res) => {
     const { partnerId } = req.params;
     const options = pick(req.query, ["page", "limit", "sortBy", "status", "searchBy", "businessType"]);
