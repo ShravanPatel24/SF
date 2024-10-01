@@ -38,7 +38,7 @@ router.patch('/update-email', userController.updateUserEmail);
 router.patch('/update-phone', userController.updateUserPhone);
 
 // Follow and unfollow routes
-router.post('/follow', userAuth('followUser'), userController.followUser);
-router.post('/unfollow', userAuth('unfollowUser'), userController.unfollowUser);
+router.post('/follow/:followingId', userAuth('followUser'), userController.followUser);
+router.post('/unfollow/:followingId', userAuth('unfollowUser'), userController.unfollowUser);
 
 module.exports = router;

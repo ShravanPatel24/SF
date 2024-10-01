@@ -1291,55 +1291,53 @@ paths:
         "403":
           $ref: "#/components/responses/InvalidCurrentPassword"
 
-  /user/follow:
+  /user/follow/{followingId}:
     post:
       summary: Follow a user
       tags:
         - User
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                targetUserId:
-                  type: string
-                  example: Id_of_a_user_to_follow
-              required:
-                - targetUserId
+      parameters:
+        - in: path
+          name: followingId
+          required: true
+          schema:
+            type: string
+          description: ID of the user to follow
       security:
         - bearerAuth: []
       responses:
         "200":
           description: Successfully Followed User
+        "400":
+          description: Bad Request (e.g., trying to follow a partner or yourself)
         "404":
-          $ref: "#/components/responses/NotFound"
+          description: User Not Found
+        "500":
+          description: Internal Server Error
 
-  /user/unfollow:
+  /user/unfollow/{followingId}:
     post:
       summary: Unfollow a user
       tags:
         - User
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                targetUserId:
-                  type: string
-                  example: Id_of_a_user_to_unfollow
-              required:
-                - targetUserId
+      parameters:
+        - in: path
+          name: followingId
+          required: true
+          schema:
+            type: string
+          description: ID of the user to unfollow
       security:
         - bearerAuth: []
       responses:
         "200":
           description: Successfully Unfollowed User
+        "400":
+          description: Bad Request (e.g., not following the user)
         "404":
-          $ref: "#/components/responses/NotFound"
+          description: User Not Found
+        "500":
+          description: Internal Server Error
 
   # Update email
   /user/update-email:
@@ -1872,56 +1870,6 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/InvalidCurrentPassword"
-
-  /partner/follow:
-    post:
-      summary: Follow a partner
-      tags:
-        - Partner
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                targetUserId:
-                  type: string
-                  example: Id_of_a_partner_to_follow
-              required:
-                - targetUserId
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Successfully Followed Partner
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-  /partner/unfollow:
-    post:
-      summary: Unfollow a partner
-      tags:
-        - Partner
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                targetUserId:
-                  type: string
-                  example: Id_of_a_partner_to_unfollow
-              required:
-                - targetUserId
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Successfully Unfollowed Partner
-        "404":
-          $ref: "#/components/responses/NotFound"
 
   # Update email
   /partner/update-email:

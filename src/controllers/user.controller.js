@@ -149,14 +149,15 @@ const getLists = catchAsync(async (req, res) => {
 });
 
 const getById = catchAsync(async (req, res) => {
-  const data = await UserService.getUserById(req.params.id);
-  if (!data) { return res.send({ data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.NOT_FOUND_MSG }) }
+  const result = await UserService.getUserById(req.params.id);
+  if (!result || !result.user) { return res.send({ data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.NOT_FOUND_MSG }) }
+  const { user, followersCount, followingCount } = result;
   const userData = {
-    ...data.toObject(),
-    id: data._id.toString(),
-    profilePhoto: data.profilePhoto ? `${req.protocol}://${req.get('host')}/${data.profilePhoto}` : null,
-    followersCount: data.followersCount,
-    followingCount: data.followingCount,
+    ...user.toObject(),
+    id: user._id.toString(),
+    profilePhoto: user.profilePhoto ? `${req.protocol}://${req.get('host')}/${user.profilePhoto}` : null,
+    followersCount: followersCount,
+    followingCount: followingCount,
   };
   delete userData._id;
   res.send({ data: userData, code: CONSTANT.SUCCESSFUL, message: CONSTANT.DETAILS });
@@ -205,19 +206,17 @@ const deleteById = catchAsync(async (req, res) => {
 // });
 
 const followUser = catchAsync(async (req, res) => {
-  const { targetUserId } = req.body;
-  const userId = req.user._id;
-  const result = await UserService.followUser(userId, targetUserId);
-  if (!result.success) { return res.status(result.status).json({ message: result.message }); }
-  return res.status(result.status).json({ message: result.message });
+  const { followingId } = req.params;
+  const followerId = req.user._id;
+  const result = await UserService.followUser(followerId, followingId);
+  return res.status(result.code).send({ message: result.message });
 });
 
 const unfollowUser = catchAsync(async (req, res) => {
-  const { targetUserId } = req.body;
-  const userId = req.user._id;
-  const result = await UserService.unfollowUser(userId, targetUserId);
-  if (!result.success) { return res.status(result.status).json({ message: result.message }); }
-  return res.status(result.status).json({ message: result.message });
+  const { followingId } = req.params;
+  const followerId = req.user._id;
+  const result = await UserService.unfollowUser(followerId, followingId);
+  return res.status(result.code).send({ message: result.message });
 });
 
 // Add or Update "About Us" for a partner
@@ -258,8 +257,8 @@ module.exports = {
   getById,
   updateById,
   deleteById,
+  addOrUpdateAboutUs,
   followUser,
   unfollowUser,
-  addOrUpdateAboutUs,
   getAboutUs
 };

@@ -1,4 +1,4 @@
-const { UserModel, BusinessTypeModel } = require("../models");
+const { UserModel, BusinessTypeModel, FollowModel } = require("../models");
 const CONSTANT = require("../config/constant");
 const Token = require("../models/token.model");
 const { tokenTypes } = require("../config/tokens");
@@ -17,8 +17,16 @@ const awsS3Service = require('../lib/aws_S3');
  * @returns {Promise<User>}
  */
 const getUserById = async (userId) => {
-  return await UserModel.findOne({ _id: userId })
-    .populate('businessId', 'businessName mobile email');
+  try {
+    const user = await UserModel.findOne({ _id: userId })
+      .populate('businessId', 'businessName mobile email');
+    const followersCount = await FollowModel.countDocuments({ following: userId });
+    const followingCount = await FollowModel.countDocuments({ follower: userId });
+    return { user, followersCount, followingCount };
+  } catch (error) {
+    console.error('Error fetching user details:', error);
+    throw new Error('Internal Server Error');
+  }
 };
 
 /**
@@ -406,21 +414,25 @@ const loginUserWithEmailOrPhoneAndPassword = async (emailOrPhone, password, type
 
 const verifyUserEmailOtp = async (id, otp) => {
   try {
-    if (typeof otp !== 'number') { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.OTP_STRING_VERIFICATION } }
-    const user = await getUserById(id);
+    if (typeof otp !== 'number') {
+      return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.OTP_STRING_VERIFICATION };
+    }
+    const result = await getUserById(id);
+    const user = result.user;
     if (!user) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_NOT_FOUND } }
 
     const currentTime = moment();
+    // Check if the email OTP is present
     if (user.emailOTP) {
       const emailOtpCreationTime = moment(user.emailOtpCreatedAt); // Email OTP creation time
       const emailOtpExpirationTime = 14; // Expiration time in minutes
       const emailTimeDifference = currentTime.diff(emailOtpCreationTime, 'seconds');
       const emailOtpExpirationTimeInSeconds = emailOtpExpirationTime * 60;
-
       if (emailTimeDifference > emailOtpExpirationTimeInSeconds) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.EXPIRE_OTP } }
-
+      // Check if the OTP matches
       if (user.emailOTP === otp) {
         if (user.emailVerificationStatus) { return { data: {}, code: CONSTANT.SUCCESSFUL, message: CONSTANT.USER_ALREADY_VERIFIED } }
+        // Update user's verification status and clear OTP
         await updateUserById(id, {
           emailVerificationStatus: true,
           emailOTP: null,
@@ -432,7 +444,7 @@ const verifyUserEmailOtp = async (id, otp) => {
         return { data: { user, tokens }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.OTP_VERIFIED };
       }
     }
-
+    // Check if the OTP is for password reset
     if (user.passwordResetEmailOTP) {
       const passwordResetOtpCreationTime = moment(user.passwordResetEmailOtpCreatedAt);
       const passwordResetOtpExpirationTime = 14; // Expiration time in minutes
@@ -440,7 +452,6 @@ const verifyUserEmailOtp = async (id, otp) => {
       const passwordResetOtpExpirationTimeInSeconds = passwordResetOtpExpirationTime * 60;
 
       if (passwordResetTimeDifference > passwordResetOtpExpirationTimeInSeconds) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.EXPIRE_OTP } }
-
       if (user.passwordResetEmailOTP === otp) {
         await updateUserById(id, {
           isPasswordResetOtpVerified: true,
@@ -466,17 +477,20 @@ const verifyUserEmailOtp = async (id, otp) => {
 const verifyMobileOtpToken = async (_id, otp) => {
   try {
     if (typeof otp !== 'number') { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.OTP_STRING_VERIFICATION } }
-    const user = await getUserById(_id);
+    // Fetch the user, followers, and following count
+    const result = await getUserById(_id);
+    const user = result.user; // Extract the user object
+
     if (!user) { return { code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_NOT_FOUND } }
+
     if (user.mobileOTP === otp) {
       if (user.mobileVerificationStatus === true) { return { data: {}, code: CONSTANT.SUCCESSFUL, message: CONSTANT.USER_ALREADY_VERIFIED } }
-
+      // Update user's verification status and clear OTP
       await updateUserById(_id, {
         mobileVerificationStatus: true,
         isVerifyMobileOtp: true,
-        mobileOTP: null // Remove email OTP to prevent future use
+        mobileOTP: null // Remove mobile OTP after verification
       });
-
       const tokens = await tokenService.generateAuthTokens(user);
       return { data: { user, tokens }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.OTP_VERIFIED };
     }
@@ -620,47 +634,59 @@ const forgotPassword = async (emailOrPhone, type) => {
   }
 };
 
-const followUser = async (userId, targetUserId) => {
+/**
+ * Follow a user
+ * @param {ObjectId} followerId - The ID of the user following
+ * @param {ObjectId} followingId - The ID of the user being followed
+ * @returns {Promise<Object>}
+ */
+const followUser = async (followerId, followingId) => {
   try {
-    const user = await UserModel.findById(userId);
-    const targetUser = await UserModel.findById(targetUserId);
-    if (!user || !targetUser) { return { success: false, status: 404, message: 'User not found' } }
+    if (followerId.toString() === followingId.toString()) { return { code: 400, message: "You cannot follow yourself" } }
+    const followingUser = await UserModel.findById(followingId);
+    // Check if the following user is a partner
+    if (!followingUser) { return { code: 404, message: "User to follow not found" } }
 
-    if (user.following.includes(targetUserId)) { return { success: false, status: 400, message: `Already following user: ${targetUser.name}` } }
+    if (followingUser.type === "partner") { return { code: 400, message: "You cannot follow a partner" } }
 
-    user.following.push(targetUserId);
-    user.followingCount += 1;
-    if (!targetUser.followers.includes(userId)) {
-      targetUser.followers.push(userId);
-      targetUser.followersCount += 1;
-    }
-    targetUser.followers.push(userId);
-    targetUser.followersCount += 1;
-    await user.save();
-    await targetUser.save();
-    return { success: true, status: 200, message: `Successfully followed user: ${targetUser.name}` };
+    const existingFollow = await FollowModel.findOne({ follower: followerId, following: followingId });
+    if (existingFollow) { return { code: 400, message: "You are already following this user" } }
+
+    // Create the follow relationship
+    const follow = new FollowModel({ follower: followerId, following: followingId });
+    await follow.save();
+
+    // Increment follower and following counts
+    await UserModel.findByIdAndUpdate(followerId, { $inc: { followingCount: 1 } });
+    await UserModel.findByIdAndUpdate(followingId, { $inc: { followerCount: 1 } });
+    return { code: 200, message: "Followed successfully" };
   } catch (error) {
-    return { success: false, status: 500, message: 'Internal server error' };
+    console.error("Error in followUser:", error);
+    return { code: 500, message: "Internal server error" };
   }
 };
 
-const unfollowUser = async (userId, targetUserId) => {
+/**
+ * Unfollow a user
+ * @param {ObjectId} followerId - The ID of the user unfollowing
+ * @param {ObjectId} followingId - The ID of the user being unfollowed
+ * @returns {Promise<Object>}
+ */
+const unfollowUser = async (followerId, followingId) => {
   try {
-    const user = await UserModel.findById(userId);
-    const targetUser = await UserModel.findById(targetUserId);
-    if (!user || !targetUser) { return { success: false, status: 404, message: "User not found" } }
-    if (!user.following.includes(targetUserId)) { return { success: false, status: 400, message: "You are not following this user" } }
-    user.following = user.following.filter(id => id.toString() !== targetUserId);
-    user.followingCount -= 1;
-    targetUser.followers = targetUser.followers.filter(id => id.toString() !== userId);
-    targetUser.followersCount -= 1;
+    const followRecord = await FollowModel.findOneAndDelete({ follower: followerId, following: followingId });
+    if (!followRecord) {
+      return { code: 400, message: "You are not following this user" };
+    }
 
-    await user.save();
-    await targetUser.save();
-    return { success: true, status: 200, message: `Successfully Unfollowed user: ${targetUser.name}` };
+    // Decrement following and follower counts
+    await UserModel.findByIdAndUpdate(followerId, { $inc: { followingCount: -1 } });
+    await UserModel.findByIdAndUpdate(followingId, { $inc: { followerCount: -1 } });
+
+    return { code: 200, message: "Unfollowed successfully" };
   } catch (error) {
-    console.error("Error unfollowing user:", error);
-    return { success: false, status: 500, message: "Internal server error" };
+    console.error("Error in unfollowUser:", error);
+    return { code: 500, message: "Internal server error" };
   }
 };
 

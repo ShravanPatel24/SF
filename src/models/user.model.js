@@ -16,13 +16,12 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ['Web', 'Android', 'IOS'],
     },
-    // New fields for country code and phone
     countryCode: {
       type: String,
       required: true,
       validate: {
         validator: function (v) {
-          return /^\+\d{1,4}$/.test(v); // Ensure the country code starts with '+' and has 1 to 4 digits
+          return /^\+\d{1,4}$/.test(v);
         },
         message: props => `${props.value} is not a valid country code!`
       },
@@ -36,10 +35,6 @@ const userSchema = new mongoose.Schema(
     passwordResetEmailOtpCreatedAt: { type: Date },
     profilePhoto: String,
     bio: { type: String, default: "" },
-    followersCount: { type: Number, default: 0 },
-    followingCount: { type: Number, default: 0 },
-    followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'user' }],
-    following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'user' }],
     socialMediaLinks: {
       type: [String],
       validate: [arrayLimit, 'You can add up to 5 social media links only'],
@@ -137,6 +132,21 @@ userSchema.pre("save", function (next) {
   next();
 });
 
+// Virtual for followers
+userSchema.virtual('followerCount', {
+  ref: 'follow',
+  localField: '_id',
+  foreignField: 'following',
+  count: true
+});
+
+// Virtual for following
+userSchema.virtual('followingCount', {
+  ref: 'follow',
+  localField: '_id',
+  foreignField: 'follower',
+  count: true
+});
 
 /**
  * @typedef USER

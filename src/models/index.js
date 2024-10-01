@@ -4,6 +4,7 @@ module.exports.ContactUsModel = require("./contactUs.model");
 module.exports.FAQModel = require("./faq.model");
 module.exports.Token = require("./token.model");
 module.exports.UserModel = require("./user.model");
+module.exports.FollowModel = require("./follow.model");
 module.exports.BusinessTypeModel = require("./businessType.model");
 module.exports.BusinessModel = require("./business.model");
 module.exports.ItemModel = require("./item.model");
