@@ -6,6 +6,7 @@ module.exports.Token = require("./token.model");
 module.exports.UserModel = require("./user.model");
 module.exports.BusinessTypeModel = require("./businessType.model");
 module.exports.BusinessModel = require("./business.model");
+module.exports.ItemModel = require("./item.model");
+module.exports.DineOutModel = require("./dineOut.model");
 module.exports.RoleBaseAccessModel = require("./roleBaseAccess.model");
 module.exports.StaticContentModel = require("./staticContent.model");
- 

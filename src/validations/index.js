@@ -7,8 +7,9 @@ module.exports.contactValidation = require('./contactUs.validation');
 module.exports.faqValidation = require('./faq.validation');
 module.exports.businessTypeValidation = require('./businessType.validation');
 module.exports.businessValidation = require('./business.validation');
-
-
+module.exports.postsValidation = require('./posts.validation');
+module.exports.itemsValidation = require('./item.validation');
+module.exports.dineOutValidation = require('./dineOut.validation');
 // module.exports.sportsValidation = require('./sports.validation');
 // module.exports.matchesValidation = require('./matches.validation');
 // module.exports.newsValidation = require('./news.validation');

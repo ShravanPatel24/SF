@@ -7,5 +7,6 @@ module.exports.UserService = require('./user.service');
 module.exports.BusinessTypeService = require('./businessType.service');
 module.exports.BusinessService = require('./business.service');
 module.exports.ItemService = require('./item.service');
+module.exports.DineOutRequestService = require('./dineOut.service');
 module.exports.ContactUsService = require('./contactUs.service');
 module.exports.FAQService = require('./faq.service');

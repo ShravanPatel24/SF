@@ -2,7 +2,7 @@ const { BusinessModel, UserModel, BusinessTypeModel } = require("../models");
 const CONSTANT = require("../config/constant");
 const awsS3Service = require("../lib/aws_S3");
 
-const createBusinessForPartner = async (partnerId, businessName, businessType, businessDescription, mobile, email, businessAddress, openingDays, sameTimeForAllDays, uniformTiming, daywiseTimings, images) => {
+const createBusinessForPartner = async (partnerId, businessName, businessType, businessDescription, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, images) => {
     const partner = await UserModel.findById(partnerId);
     if (!partner || partner.type !== "partner") { throw new Error('Partner not found or not a valid partner') }
     if (partner.name === businessName) { throw new Error('Business name cannot be the same as the partner\'s name') }
@@ -19,6 +19,8 @@ const createBusinessForPartner = async (partnerId, businessName, businessType, b
         email,
         businessAddress,
         openingDays,
+        openingTime,
+        closingTime,
         sameTimeForAllDays,
         uniformTiming,
         daywiseTimings,
@@ -80,6 +82,8 @@ const updateBusinessById = async (businessId, updateBody, files) => {
     business.email = email || business.email;
     business.businessAddress = businessAddress || business.businessAddress;
     business.openingDays = openingDays || business.openingDays;
+    business.openingTime = openingTime || business.openingTime;
+    business.closingTime = closingTime || business.closingTime;
     business.sameTimeForAllDays = sameTimeForAllDays !== undefined ? sameTimeForAllDays : business.sameTimeForAllDays;
     business.uniformTiming = uniformTiming || business.uniformTiming;
     business.daywiseTimings = daywiseTimings || business.daywiseTimings;
@@ -105,10 +109,26 @@ const deleteBusinessById = async (businessId) => {
     await BusinessModel.findByIdAndDelete(businessId);
 };
 
+const findBusinessesNearUser = async (userLatitude, userLongitude, radiusInKm) => {
+    const businesses = await BusinessModel.find({
+        "businessAddress.location": {
+            $near: {
+                $geometry: {
+                    type: "Point",
+                    coordinates: [userLongitude, userLatitude]
+                },
+                $maxDistance: radiusInKm * 1000
+            }
+        }
+    });
+    return businesses;
+};
+
 module.exports = {
     createBusinessForPartner,
     getBusinessesForPartner,
     queryBusinesses,
     updateBusinessById,
-    deleteBusinessById
+    deleteBusinessById,
+    findBusinessesNearUser
 };

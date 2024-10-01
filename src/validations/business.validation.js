@@ -11,6 +11,17 @@ const create = {
         businessAddress: Joi.string().required(),
         openingDays: Joi.array().items(Joi.string().required()).min(1).required(),
         sameTimeForAllDays: Joi.boolean().required(),
+        // Include openingTime and closingTime when sameTimeForAllDays is true
+        openingTime: Joi.string().when('sameTimeForAllDays', {
+            is: true,
+            then: Joi.string().required(),
+            otherwise: Joi.forbidden(),
+        }),
+        closingTime: Joi.string().when('sameTimeForAllDays', {
+            is: true,
+            then: Joi.string().required(),
+            otherwise: Joi.forbidden(),
+        }),
         uniformTiming: Joi.object({
             openingTime: Joi.string().optional(),
             closingTime: Joi.string().optional(),
@@ -44,6 +55,17 @@ const update = {
             businessAddress: Joi.string(),
             openingDays: Joi.array().items(Joi.string()),
             sameTimeForAllDays: Joi.boolean(),
+            // Add openingTime and closingTime validation here
+            openingTime: Joi.string().when('sameTimeForAllDays', {
+                is: true,
+                then: Joi.string().required(),
+                otherwise: Joi.forbidden(),
+            }),
+            closingTime: Joi.string().when('sameTimeForAllDays', {
+                is: true,
+                then: Joi.string().required(),
+                otherwise: Joi.forbidden(),
+            }),
             uniformTiming: Joi.object({
                 openingTime: Joi.string().optional(),
                 closingTime: Joi.string().optional(),
@@ -64,9 +86,40 @@ const deleteById = {
     }),
 };
 
+const getBusinessesNearUser = {
+    query: Joi.object().keys({
+        latitude: Joi.number()
+            .required()
+            .min(-90)
+            .max(90)
+            .messages({
+                'any.required': 'Latitude is required',
+                'number.min': 'Latitude must be between -90 and 90 degrees',
+                'number.max': 'Latitude must be between -90 and 90 degrees',
+            }),
+        longitude: Joi.number()
+            .required()
+            .min(-180)
+            .max(180)
+            .messages({
+                'any.required': 'Longitude is required',
+                'number.min': 'Longitude must be between -180 and 180 degrees',
+                'number.max': 'Longitude must be between -180 and 180 degrees',
+            }),
+        radiusInKm: Joi.number()
+            .required()
+            .min(0)
+            .messages({
+                'any.required': 'Radius is required',
+                'number.min': 'Radius must be greater than or equal to 0',
+            }),
+    }),
+};
+
 module.exports = {
     create,
     getBusinessByPartnerId,
     update,
     deleteById,
+    getBusinessesNearUser
 };

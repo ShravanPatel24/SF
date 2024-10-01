@@ -36,7 +36,6 @@ const updateUserEmail = catchAsync(async (req, res) => {
   return res.status(result.code).send(result);
 });
 
-
 const updateUserPhone = catchAsync(async (req, res) => {
   const { userId, phone } = req.body;
   if (!userId || !phone) { return res.status(400).json({ message: "User ID and phone number are required." }) }
@@ -213,7 +212,6 @@ const followUser = catchAsync(async (req, res) => {
   return res.status(result.status).json({ message: result.message });
 });
 
-
 const unfollowUser = catchAsync(async (req, res) => {
   const { targetUserId } = req.body;
   const userId = req.user._id;
@@ -238,7 +236,6 @@ const getAboutUs = catchAsync(async (req, res) => {
   if (!partner) { return res.status(404).json({ message: 'Partner not found' }) }
   res.status(200).json({ data: partner.aboutUs });
 });
-
 
 module.exports = {
   verifyMobileOtpToken,

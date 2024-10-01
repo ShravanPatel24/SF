@@ -395,7 +395,7 @@ const loginUserWithEmailOrPhoneAndPassword = async (emailOrPhone, password, type
     const device = req.headers['user-agent'] || 'Unknown Device';
     const time = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
     const ipAddress = req.ip;
-    mailFunctions.sendLoginNotificationEmail(user.email, device, time, ipAddress);
+    // mailFunctions.sendLoginNotificationEmail(user.email, device, time, ipAddress);
 
     return { data: { user, tokens }, code: CONSTANT.SUCCESS, message: CONSTANT.LOGIN_SUCCESS };
   } catch (error) {
