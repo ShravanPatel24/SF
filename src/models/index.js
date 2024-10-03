@@ -8,6 +8,7 @@ module.exports.FollowModel = require("./follow.model");
 module.exports.BusinessTypeModel = require("./businessType.model");
 module.exports.BusinessModel = require("./business.model");
 module.exports.ItemModel = require("./item.model");
+module.exports.CartModel = require("./cart.model");
 module.exports.DineOutModel = require("./dineOut.model");
 module.exports.RoleBaseAccessModel = require("./roleBaseAccess.model");
 module.exports.StaticContentModel = require("./staticContent.model");

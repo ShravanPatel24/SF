@@ -4,17 +4,9 @@ const { objectId } = require('./custom.validation'); // Assuming you have object
 // Validation for creating a post
 const createPost = {
     body: Joi.object().keys({
-        userId: Joi.string().required().custom(objectId).messages({
-            'string.empty': 'User ID is required.',
-            'any.required': 'User ID is required.'
-        }),
         caption: Joi.string().required().max(500).messages({
             'string.empty': 'Caption cannot be empty.',
             'string.max': 'Caption cannot exceed 500 characters.'
-        }),
-        image: Joi.string().uri().required().messages({
-            'string.uri': 'Image must be a valid URL.',
-            'string.empty': 'Image URL is required.'
         }),
         likes: Joi.number().optional().default(0).messages({
             'number.base': 'Likes must be a number.',
@@ -56,16 +48,19 @@ const getPost = {
 // Validation for updating a post
 const updatePost = {
     params: Joi.object().keys({
-        id: Joi.string().required().custom(objectId),
+        id: Joi.string().required().custom(objectId).messages({
+            'any.required': 'Post ID is required.',
+            'string.empty': 'Post ID is required.',
+        }),
     }),
     body: Joi.object().keys({
         caption: Joi.string().max(500).optional().messages({
             'string.max': 'Caption cannot exceed 500 characters.',
         }),
-        image: Joi.string().uri().optional().messages({
-            'string.uri': 'Image must be a valid URL.',
-        }),
-    }).min(1), // At least one field is required to update
+        // No images validation here because images are part of req.files
+    }).messages({
+        'object.min': 'At least one field (caption or images) must be provided for update.',
+    }),
 };
 
 // Validation for deleting a post

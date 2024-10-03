@@ -260,82 +260,120 @@ const queryUsers = async (options) => {
 const updateUserById = async (_id, updateBody, files) => {
   try {
     const user = await UserModel.findById(_id);
-    if (!user) { return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.USER_NOT_FOUND } }
+    if (!user) {
+      return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.USER_NOT_FOUND };
+    }
 
-    const previousStatus = user.status; // Store the current status before updating
-
+    const previousStatus = user.status;
     let phoneUpdated = false;
     let emailUpdated = false;
 
+    // Handle phone update and OTP
     if (updateBody.phone && updateBody.phone !== user.phone) {
-      const mobileOtp = config.env === 'development' ? '1234' : crypto.randomInt(1000, 9999).toString();
-      updateBody.mobileOTP = mobileOtp;
-      updateBody.mobileVerificationStatus = false;
-      phoneUpdated = true;
-      // Send OTP via SMS
-      // await sendOtpToPhone(updateBody.phone, mobileOtp);
+      phoneUpdated = await handlePhoneUpdate(updateBody);
     }
 
+    // Handle email update and OTP
     if (updateBody.email && updateBody.email !== user.email) {
-      const emailOtp = crypto.randomInt(1000, 9999).toString();
-      updateBody.emailOTP = emailOtp; // Set the OTP for the email
-      updateBody.emailVerificationStatus = false; // Mark as unverified
-      emailUpdated = true;
-      // Send OTP via email
-      // await sendOtpToEmail(updateBody.email, emailOtp);
-      await mailFunctions.sendOtpOnMail(updateBody.email, emailOtp);
-
+      emailUpdated = await handleEmailUpdate(updateBody);
     }
 
-    if (updateBody.email && updateBody.email !== '' && (await UserModel.isFieldValueTaken('email', updateBody.email, _id))) {
+    // Validate unique email and phone if needed
+    if (await checkIfFieldTaken(updateBody.email, 'email', _id)) {
       return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_EMAIL_ALREADY_EXISTS };
     }
-
-    if (updateBody.phone && updateBody.phone !== '' && (await UserModel.isFieldValueTaken('phone', updateBody.phone, _id))) {
+    if (await checkIfFieldTaken(updateBody.phone, 'phone', _id)) {
       return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_PHONE_ALREADY_EXISTS };
     }
 
+    // Handle the assignment of updateBody fields
     Object.assign(user, {
       ...updateBody,
-      email: updateBody.email && updateBody.email !== '' ? updateBody.email : user.email,
-      phone: updateBody.phone && updateBody.phone !== '' ? updateBody.phone : user.phone,
+      email: updateBody.email || user.email,
+      phone: updateBody.phone || user.phone,
       updatedAt: new Date(),
     });
 
+    // Handle social media links validation
     if (updateBody.socialMediaLinks && Array.isArray(updateBody.socialMediaLinks)) {
-      if (updateBody.socialMediaLinks.length <= 5) {
-        user.socialMediaLinks = updateBody.socialMediaLinks;
-      } else {
+      if (updateBody.socialMediaLinks.length > 5) {
         return { data: {}, code: CONSTANT.BAD_REQUEST, message: 'You can add up to 5 social media links only' };
       }
+      user.socialMediaLinks = updateBody.socialMediaLinks;
     }
 
-    // If files were uploaded, upload to AWS S3 instead of local storage
-    if (files && files.length > 0) {
-      const s3Response = await uploadProfileToS3(files[0], 'profilePictures');
-      if (s3Response && s3Response.data) {
-        user.profilePhoto = s3Response.data.Location; // Save the S3 URL to the user's profilePhoto field
-      } else {
-        return { data: {}, code: CONSTANT.BAD_REQUEST, message: 'Failed to upload profile photo to S3' };
-      }
-    }
+    // Upload images: profile photo, banner images, and gallery images
+    await handleImageUploads(user, files);
 
     await user.save();
-    // Check if the user was deactivated (status = 0) and is now activated (status = 1)
+
+    // Handle activation email
     if (previousStatus === 0 && user.status === 1) {
-      // Send the activation email
       await mailFunctions.sendActivationEmail(user.email, user.name);
     }
+
     return { data: user, phoneUpdated, emailUpdated, code: CONSTANT.SUCCESSFUL, message: CONSTANT.USER_UPDATE };
 
   } catch (error) {
-    console.error("Error updating user:", error);
-    if (error.name === 'ValidationError') {
-      const errorMessages = Object.values(error.errors).map(err => err.message);
-      return { data: {}, code: CONSTANT.BAD_REQUEST, message: errorMessages.join(', ') };
-    }
-    return { data: {}, code: CONSTANT.INTERNAL_SERVER_ERROR, message: CONSTANT.INTERNAL_SERVER_ERROR_MSG };
+    console.error('Error updating user:', error);
+    return handleServiceError(error);
   }
+};
+
+// Helper function to handle phone update and OTP
+const handlePhoneUpdate = async (updateBody) => {
+  const mobileOtp = config.env === 'development' ? '1234' : crypto.randomInt(1000, 9999).toString();
+  updateBody.mobileOTP = mobileOtp;
+  updateBody.mobileVerificationStatus = false;
+  // Send OTP via SMS here if needed
+  return true;
+};
+
+// Helper function to handle email update and OTP
+const handleEmailUpdate = async (updateBody) => {
+  const emailOtp = crypto.randomInt(1000, 9999).toString();
+  updateBody.emailOTP = emailOtp;
+  updateBody.emailVerificationStatus = false;
+  await mailFunctions.sendOtpOnMail(updateBody.email, emailOtp);
+  return true;
+};
+
+// Helper function to check if field is already taken (email/phone)
+const checkIfFieldTaken = async (value, field, excludeId) => {
+  return value && await UserModel.isFieldValueTaken(field, value, excludeId);
+};
+
+// Helper function to handle profile, banner, and gallery image uploads
+const handleImageUploads = async (user, files) => {
+  if (files && files['profilePhoto'] && files['profilePhoto'].length > 0) {
+    const s3Response = await awsS3Service.uploadProfile(files['profilePhoto'][0], 'profilePictures');
+    if (s3Response && s3Response.data) {
+      user.profilePhoto = s3Response.data.Location;
+    } else {
+      throw new Error('Failed to upload profile photo to S3');
+    }
+  }
+
+  // if (files && files['bannerImages'] && files['bannerImages'].length > 0) {
+  //   const bannerUploadResponse = await awsS3Service.uploadDocuments(files['bannerImages'], 'profileBanners');
+  //   const bannerImageUrls = bannerUploadResponse.map(file => file.location);
+  //   user.bannerImages = bannerImageUrls;
+  // }
+
+  // if (files && files['galleryImages'] && files['galleryImages'].length > 0) {
+  //   const galleryUploadResponse = await awsS3Service.uploadDocuments(files['galleryImages'], 'profileGallery');
+  //   const galleryImageUrls = galleryUploadResponse.map(file => file.location);
+  //   user.galleryImages = galleryImageUrls;
+  // }
+};
+
+// Handle service errors
+const handleServiceError = (error) => {
+  if (error.name === 'ValidationError') {
+    const errorMessages = Object.values(error.errors).map(err => err.message);
+    return { data: {}, code: CONSTANT.BAD_REQUEST, message: errorMessages.join(', ') };
+  }
+  return { data: {}, code: CONSTANT.INTERNAL_SERVER_ERROR, message: CONSTANT.INTERNAL_SERVER_ERROR_MSG };
 };
 
 /**

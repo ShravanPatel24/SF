@@ -1,23 +1,16 @@
 const express = require('express');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 const postController = require('../../controllers/posts.controller');
 const router = express.Router();
 const { userAuth } = require('../../middlewares');
 const validate = require('../../middlewares/validate');
 const { postsValidation } = require('../../validations');
 
-// Route for creating a new post
-router.post('/', userAuth(), validate(postsValidation.createPost), postController.createPost);
-
-// Route for getting all posts
+router.post('/', userAuth(), upload.array('images', 10), validate(postsValidation.createPost), postController.createPost);
 router.get('/', userAuth(), validate(postsValidation.getPosts), postController.getAllPosts);
-
-// Route for getting a post by ID
 router.get('/:id', userAuth(), validate(postsValidation.getPost), postController.getPostById);
-
-// Route for updating a post by ID
-router.patch('/:id', userAuth(), validate(postsValidation.updatePost), postController.updatePost);
-
-// Route for deleting a post by ID
+router.patch('/:id', userAuth(), upload.array('images', 10), validate(postsValidation.updatePost), postController.updatePost);
 router.delete('/:id', userAuth(), validate(postsValidation.deletePost), postController.deletePost);
 
 module.exports = router;

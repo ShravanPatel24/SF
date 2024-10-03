@@ -171,6 +171,62 @@ components:
         bio: "This is a short bio about John Doe."
         profilePhoto: "/images/profile/johndoe.jpg"
 
+    CartItem:
+      type: object
+      properties:
+        productId:
+          type: string
+          description: The ID of the product or food item
+          example: 66fc32743be26b54e9be9085
+        quantity:
+          type: integer
+          description: Quantity of the item to add to the cart
+          example: 2
+        selectedSize:
+          type: string
+          description: Size of the item (if applicable)
+          example: M
+        selectedColor:
+          type: string
+          description: Color of the item (if applicable)
+          example: Red
+        price:
+          type: number
+          description: The price of the item
+          example: 10.99
+
+    DeliveryAddress:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the person receiving the order
+          example: John Doe
+        street:
+          type: string
+          description: Street address
+          example: 123 Main St
+        city:
+          type: string
+          description: City of the delivery address
+          example: New York
+        state:
+          type: string
+          description: State of the delivery address
+          example: NY
+        country:
+          type: string
+          description: Country of the delivery address
+          example: USA
+        postalCode:
+          type: string
+          description: Postal code
+          example: 10001
+        phone:
+          type: string
+          description: Contact phone number
+          example: 555-1234
+
     Items:
       type: object
       properties:
@@ -343,30 +399,73 @@ components:
           type: string
           description: A brief description of the business
           example: "We provide high-quality services and offer a wide range of services and products for our customers."
+        countryCode:
+          type: string
+          example: "+91"
         mobile:
           type: string
           description: Business mobile number
-          example: "+1234567890"
+          example: "1234567890"
         email:
           type: string
           description: Business email address
           example: "business@example.com"
         businessAddress:
-          type: string
-          description: Business address
-          example: "123 Business St, City, Country"
+          type: object
+          description: Business address details
+          properties:
+            street:
+              type: string
+              description: Street address of the business
+              example: "123 Business St"
+            city:
+              type: string
+              description: City where the business is located
+              example: "City"
+            state:
+              type: string
+              description: State where the business is located
+              example: "State"
+            country:
+              type: string
+              description: Country where the business is located
+              example: "Country"
+            postalCode:
+              type: string
+              description: Postal code of the business location
+              example: "12345"
+            latitude:
+              type: number
+              description: Latitude of the business location
+              example: 28.6139
+            longitude:
+              type: number
+              description: Longitude of the business location
+              example: 77.2090
+            location:
+              type: object
+              description: GeoJSON location data
+              properties:
+                type:
+                  type: string
+                  example: "Point"
+                coordinates:
+                  type: array
+                  items:
+                    type: number
+                  description: Coordinates [longitude, latitude] for the location
+                  example: [77.2090, 28.6139]
+        openingDays:
+          type: array
+          description: Days of the week when the business is open
+          items:
+            type: string
+            example: "Monday"
+          example: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
         sameTimeForAllDays:
           type: boolean
           description: Indicates if the same opening and closing times apply for all days
-          example: true
-        openingTime:
-          type: string
-          description: Opening time of the business
-          example: "09:00 AM"
-        closingTime:
-          type: string
-          description: Closing time of the business
-          example: "06:00 PM"
+          example: false
         uniformTiming:
           type: object
           description: The uniform opening and closing timings if `sameTimeForAllDays` is true
@@ -377,7 +476,7 @@ components:
             closingTime:
               type: string
               example: "06:00 PM"
-        dayWiseTiming:
+        daywiseTimings:
           type: array
           description: Daywise timings for the business if `sameTimeForAllDays` is false
           items:
@@ -395,12 +494,12 @@ components:
                 type: string
                 description: Closing time for that day
                 example: "06:00 PM"
-        # images:
-        #   type: array
-        #   description: List of image URLs for the business
-        #   items:
-        #     type: string
-        #     example: "https://example.com/image1.jpg"
+        images:
+          type: array
+          description: List of image URLs for the business
+          items:
+            type: string
+            example: "https://example.com/image1.jpg"
 
     DineOutRequest:
       type: object
@@ -452,9 +551,11 @@ components:
           description: ID of the user who created the post
         caption:
           type: string
-        image:
-          type: string
-          format: url
+        images:
+          type: array
+          items:
+            type: string
+            format: binary
         likes:
           type: number
         comments:
@@ -1573,6 +1674,251 @@ paths:
         "400":
           description: Invalid request (e.g., missing required fields, invalid businessId)
 
+  # Cart
+  /cart/add:
+    post:
+      tags:
+        - Cart
+      security:
+        - bearerAuth: []
+      summary: Add an item to the cart (Product/Food)
+      requestBody:
+        description: The data required to add an item to the cart
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                productId:
+                  type: string
+                  description: The ID of the product or food item
+                  example: 66fc32743be26b54e9be9085
+                quantity:
+                  type: integer
+                  description: The quantity to add to the cart
+                  example: 2
+                selectedSize:
+                  type: string
+                  description: Size of the product (if applicable)
+                  example: M
+                selectedColor:
+                  type: string
+                  description: Color of the product (if applicable)
+                  example: Red
+                deliveryAddress:
+                  $ref: "#/components/schemas/DeliveryAddress"
+      responses:
+        "200":
+          description: Item added to cart successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Product added to cart successfully
+                  cart:
+                    $ref: "#/components/schemas/CartItem"
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "500":
+          description: Internal server error
+
+  /cart:
+    get:
+      tags:
+        - Cart
+      security:
+        - bearerAuth: []
+      summary: Get the current user's cart
+      description: Retrieve the cart for the authenticated user, including all items and price details.
+      responses:
+        "200":
+          description: Cart retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            productId:
+                              type: string
+                              description: The ID of the product or food item
+                              example: 66fc32743be26b54e9be9085
+                            quantity:
+                              type: integer
+                              description: Quantity of the item in the cart
+                              example: 2
+                            selectedSize:
+                              type: string
+                              description: Size of the product (if applicable)
+                              example: M
+                            selectedColor:
+                              type: string
+                              description: Color of the product (if applicable)
+                              example: Red
+                            price:
+                              type: number
+                              description: The price of the item
+                              example: 10.99
+                      subtotal:
+                        type: number
+                        description: Subtotal for the cart (before tax and delivery charge)
+                        example: 54.95
+                      tax:
+                        type: number
+                        description: Tax applied to the cart
+                        example: 2.7475
+                      deliveryCharge:
+                        type: number
+                        description: Delivery charge applied to the cart
+                        example: 5
+                      totalPrice:
+                        type: number
+                        description: Total price of the cart (subtotal + tax + delivery charge)
+                        example: 62.6975
+                      deliveryAddress:
+                        $ref: "#/components/schemas/DeliveryAddress"
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Cart not found
+        "500":
+          description: Internal server error
+
+  /cart/remove:
+    delete:
+      tags:
+        - Cart
+      security:
+        - bearerAuth: []
+      summary: Remove an item from the cart
+      requestBody:
+        description: The data required to remove an item from the cart
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                productId:
+                  type: string
+                  description: The ID of the product to remove
+                  example: 66fc32743be26b54e9be9085
+      responses:
+        "200":
+          description: Item removed from cart successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Product removed from cart successfully
+                  cart:
+                    type: object
+                    example: null
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Item not found in cart
+        "500":
+          description: Internal server error
+
+  /cart/update:
+    patch:
+      tags:
+        - Cart
+      security:
+        - bearerAuth: []
+      summary: Update the quantity of an item in the cart
+      requestBody:
+        description: The data required to update the quantity of an item in the cart
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                productId:
+                  type: string
+                  description: The ID of the product or food item
+                  example: 66fc32743be26b54e9be9085
+                quantity:
+                  type: integer
+                  description: The new quantity for the item
+                  example: 3
+      responses:
+        "200":
+          description: Item quantity updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Cart item updated successfully
+                  cart:
+                    $ref: "#/components/schemas/CartItem"
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Item not found in cart
+        "500":
+          description: Internal server error
+
+  /cart/clear:
+    delete:
+      tags:
+        - Cart
+      security:
+        - bearerAuth: []
+      summary: Clear all items from the cart
+      responses:
+        "200":
+          description: Cart cleared successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Cart cleared successfully
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "500":
+          description: Internal server error
+
   # Partner
   /partner/auth/register:
     post:
@@ -2506,9 +2852,19 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data: # Use multipart/form-data for file uploads
             schema:
-              $ref: "#/components/schemas/Post"
+              type: object
+              properties:
+                caption:
+                  type: string
+                  description: Caption of the post
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary # For file uploads (images)
+                  description: Array of image files
       responses:
         "201":
           description: Post created successfully

@@ -30,8 +30,15 @@ router
 // Profile routes
 router
     .route('/profile/:id')
-    .patch(userAuth('updateProfile'), upload.any(), validate(userValidation.updateUser), userController.updateById)
-    .get(userAuth('updateProfile'), userController.getById)
+    .patch(userAuth('updateProfile'),
+        upload.fields([
+            { name: 'profilePhoto', maxCount: 1 },    // Single profile photo
+            // { name: 'bannerImages', maxCount: 5 },    // Up to 5 banner images
+            // { name: 'galleryImages', maxCount: 10 }   // Up to 10 gallery images
+        ]),
+        validate(userValidation.updateUser),
+        userController.updateById)
+    .get(userAuth('updateProfile'), userController.getById);
 
 // Routes for updating email and phone without authentication
 router.patch('/update-email', userController.updateUserEmail);

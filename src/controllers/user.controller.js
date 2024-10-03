@@ -156,6 +156,8 @@ const getById = catchAsync(async (req, res) => {
     ...user.toObject(),
     id: user._id.toString(),
     profilePhoto: user.profilePhoto ? `${req.protocol}://${req.get('host')}/${user.profilePhoto}` : null,
+    // bannerImages: user.bannerImages ? user.bannerImages.map(image => `${req.protocol}://${req.get('host')}/${image}`) : [],
+    // galleryImages: user.galleryImages ? user.galleryImages.map(image => `${req.protocol}://${req.get('host')}/${image}`) : [],
     followersCount: followersCount,
     followingCount: followingCount,
   };
@@ -165,17 +167,10 @@ const getById = catchAsync(async (req, res) => {
 
 const updateById = catchAsync(async (req, res) => {
   const { phone, email, profilePhoto, bio, facebook, instagram, followersCount, followingCount, ...updateBody } = req.body;
-  let profilePhotoUrl = updateBody.profilePhoto;
-  if (req.files && req.files.length > 0) {
-    const s3Response = await awsS3Service.uploadProfile(req.files[0], 'profilePictures');
-    profilePhotoUrl = s3Response ? s3Response.data.Location : updateBody.profilePhoto;
-  }
-
   const data = await UserService.updateUserById(req.params.id, {
     ...updateBody,
-    phone, // Pass the phone to the service for OTP handling
-    email, // Pass email to the service for OTP handling
-    profilePhoto: profilePhotoUrl,
+    phone,
+    email,
     bio,
     facebook,
     instagram,

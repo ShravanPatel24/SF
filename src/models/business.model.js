@@ -29,6 +29,17 @@ const businessSchema = new mongoose.Schema(
         businessName: { type: String, required: true },
         businessType: { type: mongoose.Schema.Types.ObjectId, ref: 'businessType' },
         businessDescription: { type: String, required: true },
+        countryCode: {
+            type: String,
+            required: true,
+            validate: {
+                validator: function (v) {
+                    return /^\+\d{1,4}$/.test(v);
+                },
+                message: props => `${props.value} is not a valid country code!`
+            },
+            example: "+1"
+        },
         mobile: { type: String, required: true },
         email: { type: String, required: true },
         businessAddress: { type: addressSchema, required: true },
@@ -38,13 +49,33 @@ const businessSchema = new mongoose.Schema(
             openingTime: { type: String },
             closingTime: { type: String }
         },
-        daywiseTimings: [daywiseTimingSchema], // Only required if sameTimeForAllDays is false
+        daywiseTimings: {
+            type: [daywiseTimingSchema],
+            validate: {
+                validator: function (value) {
+                    // If sameTimeForAllDays is false, daywiseTimings must have values
+                    if (!this.sameTimeForAllDays && (!value || value.length === 0)) {
+                        return false;
+                    }
+                    // If sameTimeForAllDays is true, daywiseTimings should not be required
+                    return true;
+                },
+                message: 'daywiseTimings is required when sameTimeForAllDays is false.'
+            }
+        },
+        images: [{ type: String }],
         status: { type: Number, default: 1 },
     },
     {
         timestamps: true
     }
 );
+
+businessSchema.pre("save", function (next) {
+    const fullPhoneNumber = `${this.countryCode}${this.mobile}`;
+    console.log(`Full phone number: ${fullPhoneNumber}`);
+    next();
+});
 
 businessSchema.plugin(mongoosePaginate);
 

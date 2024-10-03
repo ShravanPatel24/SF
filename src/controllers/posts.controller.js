@@ -3,34 +3,13 @@ const catchAsync = require("../utils/catchAsync");
 
 // Create a new post
 const createPost = catchAsync(async (req, res) => {
-    const { userId, caption, image } = req.body;
-
-    const postData = { userId, caption, image, likes: 0, comments: [] };
-
-    // If comments are included in the request, automatically set `postedAt` for each comment
-    if (req.body.comments && Array.isArray(req.body.comments)) {
-        postData.comments = req.body.comments.map(comment => ({
-            text: comment.text,
-            postedBy: comment.postedBy,
-            postedAt: new Date(),  // Set postedAt to the current date
-        }));
-    }
-
-    const newPost = await postService.createPost(postData);
+    const { user } = req;
+    if (!user || !user._id) { return res.status(400).json({ message: 'User authentication required' }) }
+    const { caption } = req.body;
+    const files = req.files;
+    const newPost = await postService.createPost(user._id, caption, files);
     res.status(201).json(newPost);
 });
-
-// Code for S3 bucket image
-// const createPost = catchAsync(async (req, res) => {
-//     const postData = {
-//         userId: req.body.userId,  // User ID comes from the request body
-//         caption: req.body.caption // Caption comes from the request body
-//     };
-
-//     const newPost = await postService.createPost(postData, req.files); // Pass files to handle image upload
-//     res.status(201).json(newPost);
-// });
-
 
 // Get all posts
 const getAllPosts = catchAsync(async (req, res) => {
@@ -57,21 +36,15 @@ const getPostById = catchAsync(async (req, res) => {
 
 // Update a post
 const updatePost = catchAsync(async (req, res) => {
-    const allowedUpdates = ['caption', 'image'];
-    const updates = Object.keys(req.body);
-    const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
-
-    if (!isValidOperation) {
-        return res.status(400).json({ error: 'Invalid updates!' });
-    }
-
-    const updatedPost = await postService.updatePost(req.params.id, req.body);
-    if (!updatedPost) {
-        return res.status(404).json({ error: 'Post not found' });
-    }
+    const { caption } = req.body;
+    const files = req.files;
+    if (!caption && (!files || files.length === 0)) { return res.status(400).json({ error: 'At least one field (caption or images) must be provided for update.' }) }
+    const postId = req.params.id;
+    const updatedPost = await postService.updatePost(postId, caption, files);
+    if (!updatedPost) { return res.status(404).json({ error: 'Post not found' }) }
     res.status(200).json({
         code: 200,
-        message: 'Post updated successfully.',
+        message: 'Post updated successfully, including S3 image handling.',
         data: updatedPost
     });
 });
@@ -84,7 +57,7 @@ const deletePost = catchAsync(async (req, res) => {
     }
     res.status(200).json({
         code: 200,
-        message: 'Post deleted successfully.',
+        message: 'Post and associated images deleted successfully.',
         data: deletedPost
     });
 });

@@ -7,7 +7,7 @@ const awsS3Service = require("../lib/aws_S3");
 const createBusinessForPartner = catchAsync(async (req, res) => {
     try {
         const partnerId = req.user._id;
-        const { businessName, businessType, businessDescription, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings } = req.body;
+        const { businessName, businessType, businessDescription, countryCode, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings } = req.body;
         let imageUrls = [];
 
         if (req.files && req.files.length > 0) {
@@ -19,6 +19,7 @@ const createBusinessForPartner = catchAsync(async (req, res) => {
             businessName,
             businessType,
             businessDescription,
+            countryCode,
             mobile,
             email,
             businessAddress,

@@ -6,6 +6,7 @@ const PostRoute = require('./posts.route')
 const businessRoute = require('./business.routes');
 const itemsRoute = require('./item.routes');
 const dineOutRoute = require('./dineOut.routes');
+const cartRoute = require('./cart.routes')
 
 const AdminAuthRoute = require("./admin/auth.route");
 const AdminRoleRoute = require("./admin/role.route");
@@ -39,7 +40,7 @@ const defaultRoutes = [
   { path: '/business', route: businessRoute },
   { path: '/items', route: itemsRoute },
   { path: '/dine-out', route: dineOutRoute },
-
+  { path: '/cart', route: cartRoute },
   { path: '/posts', route: PostRoute }
 ];
 

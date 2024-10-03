@@ -2,7 +2,7 @@ const { BusinessModel, UserModel, BusinessTypeModel } = require("../models");
 const CONSTANT = require("../config/constant");
 const awsS3Service = require("../lib/aws_S3");
 
-const createBusinessForPartner = async (partnerId, businessName, businessType, businessDescription, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, images) => {
+const createBusinessForPartner = async (partnerId, businessName, businessType, businessDescription, countryCode, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, images) => {
     const partner = await UserModel.findById(partnerId);
     if (!partner || partner.type !== "partner") { throw new Error('Partner not found or not a valid partner') }
     if (partner.name === businessName) { throw new Error('Business name cannot be the same as the partner\'s name') }
@@ -15,6 +15,7 @@ const createBusinessForPartner = async (partnerId, businessName, businessType, b
         partner: partnerId,
         businessType,
         businessDescription,
+        countryCode,
         mobile,
         email,
         businessAddress,

@@ -43,7 +43,7 @@ const uploadProfile = async (file, path) => {
     try {
         const uniqueFileName = `${uuidv4()}-${file.originalname}`;
         const params = {
-            Bucket: `${config.S3_BUCKET}/${path}`, 
+            Bucket: `${config.S3_BUCKET}/${path}`,
             Key: uniqueFileName,
             ContentType: file.mimetype,
             Body: file.buffer, // File content from multer
@@ -56,13 +56,48 @@ const uploadProfile = async (file, path) => {
     }
 };
 
+// const uploadDocuments = async (files, path, mineType, filename) => {
+//     const uploadPromises = files.map(async (file) => {
+//         console.log('check file===', mineType, file?.mimetype, file.originalname);
+//         const uniqueFileName = filename ? filename + '.' + file.mimetype.split('/')[1] : `${uuidv4()}-${file.originalname}`;
+//         // console.log(filename,'>>>>>>>');
+//         const params = {
+//             Bucket: `${config.S3_BUCKET}/${path}`,
+//             Key: uniqueFileName,
+//             ContentType: mineType || file.mimetype,
+//             Body: file.buffer,
+//         };
 
+//         try {
+//             const data = await s3.upload(params).promise();
+//             const response = {
+//                 mimetype: params.ContentType,
+//                 key: data.Key,
+//                 bucket: data.Bucket,
+//                 location: data.Location,
+//                 fieldname: file.fieldname,
+//             };
+//             return response;
+//         } catch (err) {
+//             console.log(err);
+//             return null;
+//         }
+//     });
 
-const uploadDocuments = async (files, path, mineType, filename) => {
+//     try {
+//         const responseData = await Promise.all(uploadPromises);
+//         console.log('All files uploaded');
+//         return responseData.filter((response) => response !== null);
+//     } catch (err) {
+//         console.log(err);
+//         return [];
+//     }
+// };
+
+const uploadDocuments = async (files, path, mineType, download) => {
     const uploadPromises = files.map(async (file) => {
         console.log('check file===', mineType, file?.mimetype, file.originalname);
-        const uniqueFileName = filename ? filename + '.' + file.mimetype.split('/')[1] : `${uuidv4()}-${file.originalname}`;
-        // console.log(filename,'>>>>>>>');
+        const uniqueFileName = `${uuidv4()}-${file.originalname}`;
         const params = {
             Bucket: `${config.S3_BUCKET}/${path}`,
             Key: uniqueFileName,
@@ -79,6 +114,20 @@ const uploadDocuments = async (files, path, mineType, filename) => {
                 location: data.Location,
                 fieldname: file.fieldname,
             };
+            if (download) {
+                // Generate a pre-signed URL for downloading the uploaded file
+                const oneWeekInSeconds = 60 * 60 * 24 * 7; // One week in seconds
+
+                const downloadParams = {
+                    Bucket: data.Bucket,
+                    Key: data.Key,
+                    Expires: oneWeekInSeconds,
+                    ResponseContentDisposition: 'attachment', // URL will expire in 1 Week (adjust as needed)
+                };
+                const downloadUrl = s3.getSignedUrl('getObject', downloadParams);
+                response.downloadUrl = downloadUrl;
+            }
+
             return response;
         } catch (err) {
             console.log(err);
@@ -95,56 +144,6 @@ const uploadDocuments = async (files, path, mineType, filename) => {
         return [];
     }
 };
-// const uploadDocuments = async (files, path, mineType,download) => {
-//   const uploadPromises = files.map(async (file) => {
-//     console.log('check file===', mineType, file?.mimetype, file.originalname);
-//     const uniqueFileName = `${uuidv4()}-${file.originalname}`;
-//     const params = {
-//       Bucket: `${config.S3_BUCKET}/${path}`,
-//       Key: uniqueFileName,
-//       ContentType: mineType || file.mimetype,
-//       Body: file.buffer,
-//     };
-
-//     try {
-//       const data = await s3.upload(params).promise();
-//       const response = {
-//         mimetype: params.ContentType,
-//         key: data.Key,
-//         bucket: data.Bucket,
-//         location: data.Location,
-//         fieldname: file.fieldname,
-//       };
-//       if (download) {
-//         // Generate a pre-signed URL for downloading the uploaded file
-//         const oneWeekInSeconds = 60 * 60 * 24 * 7; // One week in seconds
-
-//         const downloadParams = {
-//           Bucket: data.Bucket,
-//           Key: data.Key,
-//           Expires: oneWeekInSeconds,
-//           ResponseContentDisposition: 'attachment', // URL will expire in 1 Week (adjust as needed)
-//         };
-//         const downloadUrl = s3.getSignedUrl('getObject', downloadParams);
-//         response.downloadUrl = downloadUrl;
-//       }
-
-//       return response;
-//     } catch (err) {
-//       console.log(err);
-//       return null;
-//     }
-//   });
-
-//   try {
-//     const responseData = await Promise.all(uploadPromises);
-//     console.log('All files uploaded');
-//     return responseData.filter((response) => response !== null);
-//   } catch (err) {
-//     console.log(err);
-//     return [];
-//   }
-// };
 
 const deleteFromS3 = async (path) => {
     var data;
@@ -233,6 +232,7 @@ const uploadBufferPdf = async (buf, name, path) => {
         console.log(err);
     }
 };
+
 const uploadBufferUsingBase64 = async (buffer, name, path) => {
     try {
         console.log(name, config.S3_BUCKET + path);

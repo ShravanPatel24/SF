@@ -52,43 +52,58 @@ const getUser = {
 
 const updateUser = {
     params: Joi.object().keys({
-        id: Joi.string().required().custom(objectId),
+        id: Joi.string().required().custom(objectId).messages({
+            'any.required': 'User ID is required.',
+            'string.empty': 'User ID cannot be empty.',
+        }),
     }),
     body: Joi.object().keys({
-        name: Joi.string().allow(null, '').optional().messages({
-            'string.empty': 'Name is required.',
-            'string.min': 'Name should be at least 2 characters',
-            'string.max': 'Name should be at most 50 characters',
+        name: Joi.string().allow(null, '').min(2).max(50).optional().messages({
+            'string.min': 'Name should be at least 2 characters.',
+            'string.max': 'Name should be at most 50 characters.',
         }),
         email: Joi.string().email().allow(null, '').optional().messages({
             'string.email': 'Invalid email format.',
         }),
-        countryCode: Joi.string().optional().allow(null, '').messages({
+        countryCode: Joi.string().optional().allow(null, '').pattern(/^\+\d{1,4}$/).messages({
             'string.empty': 'Country code cannot be empty.',
             'string.pattern.base': 'Country code must be in the format +<digits>, with 1 to 4 digits.'
         }),
         phone: Joi.string().optional().allow(null, '').messages({
-            'string.empty': 'Phone cannot be empty',
+            'string.empty': 'Phone number cannot be empty.',
         }),
         bio: Joi.string().max(1000).optional().allow(null, '').messages({
-            'string.max': 'Bio cannot exceed 1000 characters',
+            'string.max': 'Bio cannot exceed 1000 characters.',
         }),
         businessName: Joi.string().optional().allow(null, '').messages({
             'string.empty': 'Business Name cannot be empty.',
         }),
         socialMediaLinks: Joi.array()
-            .items(Joi.string().uri())
+            .items(Joi.string().uri().messages({
+                'string.uri': 'Each social media link must be a valid URL.'
+            }))
             .max(5)
             .optional()
             .allow(null, '')
             .messages({
-                'array.base': 'socialMediaLinks must be an array',
-                'string.uri': 'Each social media link must be a valid URL',
-                'array.max': 'You can add up to 5 social media links',
+                'array.base': 'Social media links must be an array.',
+                'array.max': 'You can add up to 5 social media links.',
             }),
-        password: Joi.string().optional(),
-        profilePhoto: Joi.any().optional(),
-    }).min(1),
+        password: Joi.string().optional().messages({
+            'string.empty': 'Password cannot be empty.'
+        }),
+        profilePhoto: Joi.any().optional().messages({
+            'any.required': 'Profile photo is required.'
+        }),
+        bannerImages: Joi.any().optional().messages({
+            'any.required': 'Banner images are required.'
+        }),
+        galleryImages: Joi.any().optional().messages({
+            'any.required': 'Gallery images are required.'
+        })
+    }).min(1).messages({
+        'object.min': 'At least one field must be provided for update.'
+    }),
 };
 
 const deleteUser = {

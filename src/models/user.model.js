@@ -34,6 +34,8 @@ const userSchema = new mongoose.Schema(
     emailOtpCreatedAt: { type: Date },
     passwordResetEmailOtpCreatedAt: { type: Date },
     profilePhoto: String,
+    // bannerImages: [{ type: String }],
+    // galleryImages: [{ type: String }],
     bio: { type: String, default: "" },
     socialMediaLinks: {
       type: [String],
@@ -128,7 +130,6 @@ userSchema.pre("save", async function (next) {
 userSchema.pre("save", function (next) {
   const fullPhoneNumber = `${this.countryCode}${this.phone}`;
   console.log(`Full phone number: ${fullPhoneNumber}`);
-
   next();
 });
 

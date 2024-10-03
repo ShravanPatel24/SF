@@ -1,14 +1,36 @@
 const Joi = require('joi');
 const { objectId } = require('./custom.validation');
 
+// Validation for country code
+const countryCodeValidation = Joi.string()
+    .pattern(/^\+\d{1,4}$/)
+    .message('Country code must be in the format +<digits>, with 1 to 4 digits.')
+    .required();
+
+// Address validation
+const addressValidation = Joi.object({
+    street: Joi.string().required(),
+    city: Joi.string().required(),
+    state: Joi.string().required(),
+    country: Joi.string().required(),
+    postalCode: Joi.string().required(),
+    latitude: Joi.number().required(),
+    longitude: Joi.number().required(),
+    location: Joi.object({
+        type: Joi.string().valid('Point').required(),
+        coordinates: Joi.array().items(Joi.number()).length(2).required(),
+    }).required(),
+});
+
 const create = {
     body: Joi.object().keys({
         businessName: Joi.string().required(),
         businessType: Joi.string().custom(objectId).required(),
         businessDescription: Joi.string().required(),
+        countryCode: countryCodeValidation,
         mobile: Joi.string().required(),
         email: Joi.string().email().required(),
-        businessAddress: Joi.string().required(),
+        businessAddress: addressValidation,
         openingDays: Joi.array().items(Joi.string().required()).min(1).required(),
         sameTimeForAllDays: Joi.boolean().required(),
         // Include openingTime and closingTime when sameTimeForAllDays is true
@@ -30,7 +52,11 @@ const create = {
             day: Joi.string().required(),
             openingTime: Joi.string().required(),
             closingTime: Joi.string().required()
-        })).optional(),
+        })).when('sameTimeForAllDays', {
+            is: false,
+            then: Joi.array().min(1).required(),
+            otherwise: Joi.forbidden(),
+        }),
         images: Joi.array().items(Joi.string()).optional(),
     }),
 };
@@ -50,9 +76,10 @@ const update = {
             businessName: Joi.string(),
             businessType: Joi.string().custom(objectId),
             businessDescription: Joi.string(),
+            countryCode: countryCodeValidation,
             mobile: Joi.string(),
             email: Joi.string().email(),
-            businessAddress: Joi.string(),
+            businessAddress: addressValidation,
             openingDays: Joi.array().items(Joi.string()),
             sameTimeForAllDays: Joi.boolean(),
             // Add openingTime and closingTime validation here
@@ -74,7 +101,11 @@ const update = {
                 day: Joi.string(),
                 openingTime: Joi.string(),
                 closingTime: Joi.string(),
-            })),
+            })).when('sameTimeForAllDays', {
+                is: false,
+                then: Joi.array().min(1).required(),
+                otherwise: Joi.forbidden(),
+            }),
             images: Joi.array().items(Joi.string()).optional(),
         })
         .min(1),
