@@ -1,5 +1,6 @@
 const Post = require('../models/posts.model');
 const { uploadDocuments, deleteFromS3 } = require('../lib/aws_S3');
+const CONSTANTS = require('../config/constant');
 
 // Create a new post
 const createPost = async (userId, caption, files) => {
@@ -9,7 +10,7 @@ const createPost = async (userId, caption, files) => {
         const imageUrls = imageUploadResponse.map(file => file.location);
         postData.images = imageUrls;
     } else {
-        throw new Error('Images are required');
+        throw new Error(CONSTANTS.INVALID_REQUEST);
     }
     const newPost = new Post(postData);
     return await newPost.save();
@@ -18,9 +19,9 @@ const createPost = async (userId, caption, files) => {
 // Fetch all posts
 const getAllPosts = async () => {
     return await Post.find()
-        .populate('userId', 'name') // Populate the name of the post creator
+        .populate('userId', 'name') 
         .populate({
-            path: 'comments.postedBy', // Populate the name of the comment's author
+            path: 'comments.postedBy',
             select: 'name'
         });
 };
@@ -28,9 +29,9 @@ const getAllPosts = async () => {
 // Fetch a post by ID
 const getPostById = async (id) => {
     return await Post.findById(id)
-        .populate('userId', 'name') // Populating post creator's name
+        .populate('userId', 'name')
         .populate({
-            path: 'comments.postedBy', // Populating each comment's postedBy field
+            path: 'comments.postedBy',
             select: 'name _id'
         });
 };
@@ -38,32 +39,31 @@ const getPostById = async (id) => {
 // Update a post
 const updatePost = async (id, caption, files) => {
     const existingPost = await Post.findById(id);
-    if (!existingPost) { throw new Error('Post not found') }
+    if (!existingPost) { throw new Error(CONSTANTS.NOT_FOUND_MSG); }
     const updateData = {};
-    if (caption) { updateData.caption = caption }
+    if (caption) { updateData.caption = caption; }
 
     if (files && files.length > 0) {
-        // Delete old images from S3
         if (existingPost.images && existingPost.images.length > 0) {
             const oldImageKeys = existingPost.images.map((imageUrl) => {
                 const urlParts = imageUrl.split('/');
-                return urlParts[urlParts.length - 1];  // Extract the S3 key from the URL
+                return urlParts[urlParts.length - 1];
             });
-            await deleteFromS3(oldImageKeys);  // Delete the old images from S3
+            await deleteFromS3(oldImageKeys);
         }
         const imageUploadResponse = await uploadDocuments(files, 'postImages');
         const newImageUrls = imageUploadResponse.map(file => file.location);
         updateData.images = newImageUrls;
     }
     const updatedPost = await Post.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
-    if (!updatedPost) { console.error('Post update failed, no updated document returned'); throw new Error('Post update failed') }
+    if (!updatedPost) { throw new Error(CONSTANTS.INTERNAL_SERVER_ERROR_MSG); }
     return updatedPost;
 };
 
 // Delete a post
 const deletePost = async (id) => {
     const post = await Post.findById(id);
-    if (!post) { throw new Error('Post not found') }
+    if (!post) { throw new Error(CONSTANTS.NOT_FOUND_MSG); }
     const imageKeys = post.images.map((imageUrl) => {
         const urlParts = imageUrl.split('/');
         return urlParts[urlParts.length - 1];

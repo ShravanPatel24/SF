@@ -32,9 +32,7 @@ router
     .route('/profile/:id')
     .patch(userAuth('updateProfile'),
         upload.fields([
-            { name: 'profilePhoto', maxCount: 1 },    // Single profile photo
-            // { name: 'bannerImages', maxCount: 5 },    // Up to 5 banner images
-            // { name: 'galleryImages', maxCount: 10 }   // Up to 10 gallery images
+            { name: 'profilePhoto', maxCount: 1 },
         ]),
         validate(userValidation.updateUser),
         userController.updateById)
@@ -45,6 +43,7 @@ router.patch('/update-email', userController.updateUserEmail);
 router.patch('/update-phone', userController.updateUserPhone);
 
 // Follow and unfollow routes
+router.get('/lists', userAuth(), userController.getUserListsToFollow);
 router.post('/follow/:followingId', userAuth('followUser'), userController.followUser);
 router.post('/unfollow/:followingId', userAuth('unfollowUser'), userController.unfollowUser);
 

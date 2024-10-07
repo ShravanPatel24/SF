@@ -10,6 +10,7 @@ const dineOutRequestSchema = new mongoose.Schema({
     dinnerType: { type: String, required: true },
     status: { type: String, enum: ['Pending', 'Accepted', 'Rejected'], default: 'Pending' },
     bookingId: { type: String, default: null },
+    requestNumber: { type: String, required: true },
 }, {
     timestamps: true
 });

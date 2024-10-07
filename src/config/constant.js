@@ -10,7 +10,7 @@ module.exports = {
     NOT_ACCEPTABLE: 406,
     UNAUTHORIZED: 401,
     LIMIT_EXCEEDED: 201,
- 
+
     LIMIT_EXCEEDED_MSG: 'Limit exceeded.',
     INTERNAL_SERVER_ERROR_MSG: 'An internal server error has occurred',
     EMAIL_VERIFICATION_REQUIRED_MSG: 'Your email address is not verified. Please verify your email to access full features.',
@@ -29,6 +29,7 @@ module.exports = {
     LOGIN_MSG: 'Logged in successfully!',
     LOGOUT_MSG: 'Logged out successfully!',
     NOT_FOUND_MSG: 'Not found.',
+    PARTNER_NOT_FOUND_MSG: 'Partner not found or not a valid partner.',
     FORGOT_PASSWORD: 'An OTP has been sent to your registered email/mobile number.',
     CHANGE_PASSWORD: 'Password changed successfully.',
     INVALID_REQUEST: 'You are not authorized for this request',
@@ -36,7 +37,13 @@ module.exports = {
     EMAIL_VERIFICATION_LINK_EXPIRED: "Your email verification link has expired. Please click the button below to resend the verification link",
     NON_REGISTERED_EMAIL_CHECK: "The mobile number/email is not registered. Please check and try again, or sign up",
     SAME_PASSWORD_ERROR_MSG: "Your new password cannot be the same as your previous password. Please choose a different password.",
- 
+    BUSINESS_NOT_FOUND: "Business details not found.",
+    BUSINESS_AND_PARTNER_NAME_DUPLICATION: "Business name cannot be the same as the partner\'s name.",
+    INVALID_BUSINESS_TYPE: "Invalid business type provided.",
+    BUSINESS_TYPE_REQUIRED: "Business type is required for partners.",
+    SOCIAL_MEDIA_LINKS_CAPACITY: "You can add up to 5 social media links only.",
+    S3_BUCKET_UPLOAD_FAILED: "Failed to upload profile photo to S3.",
+
     ACCOUNT_DEACTIVATE: 'Your account appears to be deactivated.',
     ACCOUNT_DELETE: 'Your profile is deleted from admin panel kindly mail us at info@omnisttechhub.com or call us at 7417773034.',
     USER_NOT_FOUND: 'User details not found.',
@@ -66,7 +73,7 @@ module.exports = {
     OTP_STRING_VERIFICATION: 'OTP must be a number',
     INVALID_OTP: "Invalid OTP",
     EXPIRE_OTP: "OTP has expired",
- 
+
     ADMIN_STAFF_LIST: 'Staff List',
     ADMIN_NOT_FOUND: 'Admin Not found',
     ADMIN_STAFF_DETAILS: 'Staff details',
@@ -78,7 +85,7 @@ module.exports = {
     ADMIN_STAFF_MOBILE_ALREADY_EXISTS: 'The mobile number already exists. Please use a different mobile number',
     ADMIN_STAFF_UPDATE: 'Information has been successfully updated',
     ADMIN_STAFF_CREATE: 'Information has been successfully created',
- 
+
     FAQ_LIST: 'FAQ list loaded successfully',
     FAQ_CREATE: 'FAQ created successfully',
     FAQ_QUESTION_ALREADY_EXISTS: 'The FAQ question already exists.',
@@ -86,7 +93,7 @@ module.exports = {
     FAQ_UPDATE: 'FAQ updated successfully',
     FAQ_NOT_FOUND: 'FAQ details not found',
     FAQ_DETAILS: 'Details retrieved successfully',
- 
+
     BLOG_LIST: 'Blog list loaded successfully',
     BLOG_CREATE: 'Blog created successfully',
     BLOG_TITLE_ALREADY_EXISTS: 'The blog title already exists.',
@@ -94,25 +101,25 @@ module.exports = {
     BLOG_UPDATE: 'Blog updated successfully',
     BLOG_NOT_FOUND: 'Blog details not found',
     BLOG_DETAILS: 'Details retrieved successfully',
- 
+
     CONTACT_LIST: 'Contact list loaded successfully',
     CONTACT_CREATE: 'Your request has been received. We will connect with you shortly.',
     CONTACT_DELETE: 'Contact deleted successfully',
     CONTACT_UPDATE: 'Contact updated successfully',
     CONTACT_NOT_FOUND: 'Contact details not found',
     CONTACT_DETAILS: 'Details retrieved successfully',
- 
+
     NO_SUBSCRIPTION: "Subscription not found",
     CANCEL_SUBSCRIPTION: "Subscription canceled successfully",
     BUY_SUBSCRIPTION: "Subscription bought successfully",
     SUBSCRIPTION_LIST: "Subscription list retrieved successfully",
- 
+
     SERVICE_CREATED: "Service created successfully",
     SERVICE_LIST: "Service list retrieved successfully",
     SERVICE_UPDATE: "Service updated successfully",
     SERVICE_NOT_FOUND: "Service not found",
     SERVICE_DELETED: "Service deleted successfully",
- 
+
     DELETED: 'Successfully deleted.',
     UPDATED: 'Successfully updated.',
     ALREADY_EXISTS: 'Already exists.',
@@ -120,4 +127,35 @@ module.exports = {
     LIST: 'List retrieved successfully.',
     DETAILS: 'Details retrieved successfully.',
     STATUS: 'Status updated successfully.',
+
+    // FOLLOW-UNFOLLOW USER
+    FOLLOW_YOURSELF: 'You cannot follow yourself.',
+    FOLLOW_PARTNER_ERROR: 'You cannot follow a partner.',
+    ALREADY_FOLLOWING: 'You are already following this user.',
+    FOLLOWED_SUCCESS: 'Followed successfully.',
+    UNFOLLOWED_SUCCESS: 'Unfollowed successfully.',
+    NOT_FOLLOWING_USER: 'You are not following this user.',
+
+    // ITEMS
+    ITEM_CREATED: 'Item created successfully.',
+    ITEM_UPDATED: 'Item updated successfully.',
+    OPERATING_DETAIL_UPDATED: 'Operating details updated successfully.',
+
+    // Dine Out
+    DINEOUT_REQUEST_ACCEPTED: 'Dine-out request accepted.',
+    DINEOUT_REQUEST_REJECTED: 'Dine-out request rejected.',
+    DINEOUT_REQUEST_SENT: 'Dine-out request sent successfully.',
+    DINEOUT_NOT_FOUND: 'Dine-out request not found.',
+    REJECT_AFTER_ACCEPTED: 'You cannot change the status to Rejected after it has been Accepted.',
+
+    // CART
+    ITEM_NOT_FOUND: 'Item not found.',
+    CART_NOT_FOUND: 'Cart not found.',
+    INVALID_PRICE: 'Invalid price for the product.',
+    QUANTITY_GREATER: 'Quantity must be greater than 0.',
+    ADDED_TO_CART: 'Item added to cart successfully.',
+    REMOVED_FROM_CART: 'Item removed from cart.',
+    CART_UPDATED: 'Cart item updated.',
+    CART_CLEARED: 'Cart cleared successfully.',
+
 };

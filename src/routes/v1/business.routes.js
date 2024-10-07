@@ -1,4 +1,6 @@
 const express = require('express');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 const { userAuth } = require('../../middlewares');
 const validate = require('../../middlewares/validate');
 const { businessValidation } = require('../../validations');
@@ -6,17 +8,37 @@ const { businessController } = require('../../controllers');
 
 const router = express.Router();
 
-// Partner's Business
+// Route to get businesses near a user (explicitly separate from dynamic routes)
 router.get('/near', userAuth(), validate(businessValidation.getBusinessesNearUser), businessController.getBusinessesNearUser);
-router
-    .route('/')
-    .post(userAuth('create'), validate(businessValidation.create), businessController.createBusinessForPartner)
 
-router.get('/:partnerId', userAuth(), validate(businessValidation.getBusinessByPartnerId), businessController.getBusinessesForPartner);
+// Partner's business routes
+router.get('/partner/:partnerId', userAuth(), validate(businessValidation.getBusinessByPartnerId), businessController.getBusinessesForPartner);
+
+// Business routes with businessId
 router
     .route('/:businessId')
-    .patch(userAuth('updateById'), validate(businessValidation.update), businessController.updateBusiness)
-    .delete(userAuth('deleteById'), validate(businessValidation.deleteById), businessController.deleteBusiness);
+    .get(businessController.getBusinessById)  // Get business by businessId
+    .patch(
+        userAuth('updateById'),
+        upload.fields([
+            { name: 'bannerImages', maxCount: 10 },
+            { name: 'galleryImages', maxCount: 10 }
+        ]),
+        validate(businessValidation.update),
+        businessController.updateBusiness
+    )  // Update business
+    .delete(userAuth('deleteById'), validate(businessValidation.deleteById), businessController.deleteBusiness);  // Delete business
 
+// Create a new business for a partner
+router.post(
+    '/',
+    userAuth('create'),
+    upload.fields([
+        { name: 'bannerImages', maxCount: 10 },
+        { name: 'galleryImages', maxCount: 10 }
+    ]),
+    validate(businessValidation.create),
+    businessController.createBusinessForPartner
+);
 
 module.exports = router;

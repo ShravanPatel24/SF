@@ -1618,6 +1618,36 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /user/lists:
+    get:
+      summary: Users lists to follow
+      tags:
+        - User
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Users lists retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                example:
+                  message: "Users lists retrieved successfully"
+        "400":
+          description: Invalid User
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   # Dine-Out-User
   /dine-out/request/create:
     post:
@@ -2456,6 +2486,35 @@ paths:
           description: Partner not found
 
   # Dine-Out-Partner
+  /dine-out/request/{requestId}:
+    get:
+      summary: Get DineOut requests details by ID
+      tags:
+        - DineOut (Partner)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{24}$"
+          required: true
+          description: The ID of the request
+      responses:
+        "200":
+          description: dine-out requests of the user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DineOutRequest"
+        "403":
+          description: Not authorized to update this request
+        "404":
+          description: DineOut request not found
+
   /dine-out/business/{businessId}:
     get:
       summary: Get all DineOut requests for a business
@@ -2708,13 +2767,132 @@ paths:
       tags:
         - Partner Business
       security:
-        - bearerAuth: [] # Bearer token required for this route
+        - bearerAuth: []
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
-              $ref: "#/components/schemas/PartnerBusiness"
+              type: object
+              properties:
+                businessName:
+                  type: string
+                  description: Name of the business
+                  example: "My Awesome Business"
+                businessType:
+                  type: string
+                  description: The ObjectId of the business type
+                  example: "66db3c19490360a26a552adb"
+                businessDescription:
+                  type: string
+                  description: A brief description of the business
+                  example: "We provide high-quality services and offer a wide range of services and products for our customers."
+                countryCode:
+                  type: string
+                  example: "+91"
+                mobile:
+                  type: string
+                  description: Business mobile number
+                  example: "1234567890"
+                email:
+                  type: string
+                  description: Business email address
+                  example: "business@example.com"
+                businessAddress[street]:
+                  type: string
+                  description: Street address of the business
+                  example: "123 Business St"
+                businessAddress[city]:
+                  type: string
+                  description: City where the business is located
+                  example: "City"
+                businessAddress[state]:
+                  type: string
+                  description: State where the business is located
+                  example: "State"
+                businessAddress[country]:
+                  type: string
+                  description: Country where the business is located
+                  example: "Country"
+                businessAddress[postalCode]:
+                  type: string
+                  description: Postal code of the business location
+                  example: "12345"
+                businessAddress[latitude]:
+                  type: number
+                  description: Latitude of the business location
+                  example: 28.6139
+                businessAddress[longitude]:
+                  type: number
+                  description: Longitude of the business location
+                  example: 77.2090
+                businessAddress[location][type]:
+                  type: string
+                  description: GeoJSON type for the location (should be "Point")
+                  example: "Point"
+                businessAddress[location][coordinates][0]:
+                  type: number
+                  description: Longitude for the business location
+                  example: 77.2090
+                businessAddress[location][coordinates][1]:
+                  type: number
+                  description: Latitude for the business location
+                  example: 28.6139
+                openingTime:
+                  type: string
+                  description: If the sameTimeForAllDays is true
+                  example: "09:00 AM"
+                closingTime:
+                  type: string
+                  description: If the sameTimeForAllDays is true
+                  example: "06:00 PM"
+                openingDays[]:
+                  type: array
+                  description: Days of the week when the business is open
+                  items:
+                    type: string
+                  example: ["Monday", "Tuesday", "Wednesday"]
+                sameTimeForAllDays:
+                  type: boolean
+                  description: Indicates if the same opening and closing times apply for all days
+                  example: false
+                uniformTiming[openingTime]:
+                  type: string
+                  description: The opening time for the business
+                  example: "09:00 AM"
+                uniformTiming[closingTime]:
+                  type: string
+                  description: The closing time for the business
+                  example: "06:00 PM"
+                daywiseTimings[0][day]:
+                  type: string
+                  description: Day of the week
+                  example: "Monday"
+                daywiseTimings[0][openingTime]:
+                  type: string
+                  description: Opening time for this day
+                  example: "09:00 AM"
+                daywiseTimings[0][closingTime]:
+                  type: string
+                  description: Closing time for this day
+                  example: "06:00 PM"
+                bannerImages:
+                  type: array
+                  description: List of banner images to upload
+                  items:
+                    type: string
+                    format: binary
+                    description: Binary banner image files for the business
+                    example: "banner1.jpg"
+
+                galleryImages:
+                  type: array
+                  description: List of gallery images to upload
+                  items:
+                    type: string
+                    format: binary
+                    description: Binary gallery image files for the business
+                    example: "gallery1.jpg"
       responses:
         "201":
           description: Business created successfully
@@ -2725,7 +2903,7 @@ paths:
 
   /business/{id}:
     get:
-      summary: Get business by partner's ID
+      summary: Get business by business ID
       tags:
         - Partner Business
       parameters:
@@ -2734,7 +2912,7 @@ paths:
           required: true
           schema:
             type: string
-          description: Partner's ID
+          description: Business ID
       security:
         - bearerAuth: []
       responses:
@@ -2753,6 +2931,8 @@ paths:
       summary: Update a business by ID
       tags:
         - Partner Business
+      security:
+        - bearerAuth: []
       parameters:
         - name: id
           in: path
@@ -2763,18 +2943,131 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
-              $ref: "#/components/schemas/PartnerBusiness"
-      security:
-        - bearerAuth: [] # Bearer token required for this route
+              type: object
+              properties:
+                businessName:
+                  type: string
+                  description: Name of the business
+                  example: "My Awesome Business"
+                businessType:
+                  type: string
+                  description: The ObjectId of the business type
+                  example: "66db3c19490360a26a552adb"
+                businessDescription:
+                  type: string
+                  description: A brief description of the business
+                  example: "We provide high-quality services and offer a wide range of services and products for our customers."
+                countryCode:
+                  type: string
+                  example: "+91"
+                mobile:
+                  type: string
+                  description: Business mobile number
+                  example: "1234567890"
+                email:
+                  type: string
+                  description: Business email address
+                  example: "business@example.com"
+                businessAddress[street]:
+                  type: string
+                  description: Street address of the business
+                  example: "123 Business St"
+                businessAddress[city]:
+                  type: string
+                  description: City where the business is located
+                  example: "City"
+                businessAddress[state]:
+                  type: string
+                  description: State where the business is located
+                  example: "State"
+                businessAddress[country]:
+                  type: string
+                  description: Country where the business is located
+                  example: "Country"
+                businessAddress[postalCode]:
+                  type: string
+                  description: Postal code of the business location
+                  example: "12345"
+                businessAddress[latitude]:
+                  type: number
+                  description: Latitude of the business location
+                  example: 28.6139
+                businessAddress[longitude]:
+                  type: number
+                  description: Longitude of the business location
+                  example: 77.2090
+                businessAddress[location][type]:
+                  type: string
+                  description: GeoJSON type for the location (should be "Point")
+                  example: "Point"
+                businessAddress[location][coordinates][0]:
+                  type: number
+                  description: Longitude for the business location
+                  example: 77.2090
+                businessAddress[location][coordinates][1]:
+                  type: number
+                  description: Latitude for the business location
+                  example: 28.6139
+                openingTime:
+                  type: string
+                  description: If the sameTimeForAllDays is true
+                  example: "09:00 AM"
+                closingTime:
+                  type: string
+                  description: If the sameTimeForAllDays is true
+                  example: "06:00 PM"
+                openingDays[]:
+                  type: array
+                  description: Days of the week when the business is open
+                  items:
+                    type: string
+                  example: ["Monday", "Tuesday", "Wednesday"]
+                sameTimeForAllDays:
+                  type: boolean
+                  description: Indicates if the same opening and closing times apply for all days
+                  example: false
+                uniformTiming[openingTime]:
+                  type: string
+                  description: The opening time for the business
+                  example: "09:00 AM"
+                uniformTiming[closingTime]:
+                  type: string
+                  description: The closing time for the business
+                  example: "06:00 PM"
+                daywiseTimings[0][day]:
+                  type: string
+                  description: Day of the week
+                  example: "Monday"
+                daywiseTimings[0][openingTime]:
+                  type: string
+                  description: Opening time for this day
+                  example: "09:00 AM"
+                daywiseTimings[0][closingTime]:
+                  type: string
+                  description: Closing time for this day
+                  example: "06:00 PM"
+                bannerImages:
+                  type: array
+                  description: List of banner images to upload
+                  items:
+                    type: string
+                    format: binary
+                    description: Binary banner image files for the business
+                    example: "banner1.jpg"
+
+                galleryImages:
+                  type: array
+                  description: List of gallery images to upload
+                  items:
+                    type: string
+                    format: binary
+                    description: Binary gallery image files for the business
+                    example: "gallery1.jpg"
       responses:
         "200":
           description: Business updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PartnerBusiness"
         "400":
           description: Invalid input
         "401":
@@ -2800,6 +3093,32 @@ paths:
           description: Business deleted successfully
         "404":
           $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /business/partner/{partnerId}:
+    get:
+      summary: Get business by partner's ID
+      tags:
+        - Partner Business
+      parameters:
+        - name: partnerId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Partner's ID
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Business found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerBusiness"
+        "404":
+          description: Business not found
         "401":
           $ref: "#/components/responses/Unauthorized"
 

@@ -34,8 +34,6 @@ const userSchema = new mongoose.Schema(
     emailOtpCreatedAt: { type: Date },
     passwordResetEmailOtpCreatedAt: { type: Date },
     profilePhoto: String,
-    // bannerImages: [{ type: String }],
-    // galleryImages: [{ type: String }],
     bio: { type: String, default: "" },
     socialMediaLinks: {
       type: [String],

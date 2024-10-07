@@ -1,22 +1,23 @@
 const postService = require('../services/posts.service');
 const catchAsync = require("../utils/catchAsync");
+const CONSTANTS = require('../config/constant');
 
 // Create a new post
 const createPost = catchAsync(async (req, res) => {
     const { user } = req;
-    if (!user || !user._id) { return res.status(400).json({ message: 'User authentication required' }) }
+    if (!user || !user._id) { return res.status(CONSTANTS.BAD_REQUEST).json({ message: CONSTANTS.NO_TOKEN }) }
     const { caption } = req.body;
     const files = req.files;
     const newPost = await postService.createPost(user._id, caption, files);
-    res.status(201).json(newPost);
+    res.status(CONSTANTS.SUCCESSFUL).json(newPost);
 });
 
 // Get all posts
 const getAllPosts = catchAsync(async (req, res) => {
     const posts = await postService.getAllPosts();
-    res.status(200).json({
-        code: 200,
-        message: 'List retrieved successfully.',
+    res.status(CONSTANTS.SUCCESSFUL).json({
+        code: CONSTANTS.SUCCESSFUL,
+        message: CONSTANTS.LIST,
         data: posts
     });
 });
@@ -25,11 +26,11 @@ const getAllPosts = catchAsync(async (req, res) => {
 const getPostById = catchAsync(async (req, res) => {
     const post = await postService.getPostById(req.params.id);
     if (!post) {
-        return res.status(404).json({ error: 'Post not found' });
+        return res.status(CONSTANTS.NOT_FOUND).json({ error: CONSTANTS.NOT_FOUND_MSG });
     }
-    res.status(200).json({
-        code: 200,
-        message: 'Post retrieved successfully.',
+    res.status(CONSTANTS.SUCCESSFUL).json({
+        code: CONSTANTS.SUCCESSFUL,
+        message: CONSTANTS.DETAILS,
         data: post
     });
 });
@@ -38,13 +39,13 @@ const getPostById = catchAsync(async (req, res) => {
 const updatePost = catchAsync(async (req, res) => {
     const { caption } = req.body;
     const files = req.files;
-    if (!caption && (!files || files.length === 0)) { return res.status(400).json({ error: 'At least one field (caption or images) must be provided for update.' }) }
+    if (!caption && (!files || files.length === 0)) { return res.status(CONSTANTS.BAD_REQUEST).json({ error: CONSTANTS.INVALID_REQUEST }) }
     const postId = req.params.id;
     const updatedPost = await postService.updatePost(postId, caption, files);
-    if (!updatedPost) { return res.status(404).json({ error: 'Post not found' }) }
-    res.status(200).json({
-        code: 200,
-        message: 'Post updated successfully, including S3 image handling.',
+    if (!updatedPost) { return res.status(CONSTANTS.NOT_FOUND).json({ error: CONSTANTS.NOT_FOUND_MSG }) }
+    res.status(CONSTANTS.SUCCESSFUL).json({
+        code: CONSTANTS.SUCCESSFUL,
+        message: CONSTANTS.UPDATED,
         data: updatedPost
     });
 });
@@ -52,12 +53,10 @@ const updatePost = catchAsync(async (req, res) => {
 // Delete a post
 const deletePost = catchAsync(async (req, res) => {
     const deletedPost = await postService.deletePost(req.params.id);
-    if (!deletedPost) {
-        return res.status(404).json({ error: 'Post not found' });
-    }
-    res.status(200).json({
-        code: 200,
-        message: 'Post and associated images deleted successfully.',
+    if (!deletedPost) { return res.status(CONSTANTS.NOT_FOUND).json({ error: CONSTANTS.NOT_FOUND_MSG }) }
+    res.status(CONSTANTS.SUCCESSFUL).json({
+        code: CONSTANTS.SUCCESSFUL,
+        message: CONSTANTS.DELETED,
         data: deletedPost
     });
 });

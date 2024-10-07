@@ -1,13 +1,16 @@
 const { DineOutModel } = require('../models');
+const CONSTANTS = require('../config/constant');
 
 // Create a dine-out request
 const createDineOutRequest = async (data) => {
     try {
-        const newRequest = new DineOutModel(data);
+        const requestNumber = Math.floor(Date.now() / 1000).toString();
+        const newRequestData = { ...data, requestNumber };
+        const newRequest = new DineOutModel(newRequestData);
         await newRequest.save();
         return newRequest;
     } catch (error) {
-        throw new Error('Error creating dine-out request: ' + error.message);
+        throw new Error(CONSTANTS.INTERNAL_SERVER_ERROR_MSG + ': ' + error.message);
     }
 };
 
@@ -15,14 +18,15 @@ const createDineOutRequest = async (data) => {
 const getDineOutRequestById = async (requestId) => {
     try {
         const request = await DineOutModel.findById(requestId)
-            .populate('user', 'name')  // Populate user details
-            .populate('business', 'businessName businessAddress openingDays openingTime closingTime');  // Populate business details
+            .populate('user', 'name phone')
+            .populate('partner', 'name email phone')
+            .populate('business', 'businessName businessAddress openingDays openingTime closingTime');
         if (!request) {
-            throw new Error('Dine-out request not found');
+            throw new Error(CONSTANTS.NOT_FOUND_MSG);
         }
         return request;
     } catch (error) {
-        throw new Error('Error fetching dine-out request: ' + error.message);
+        throw new Error(CONSTANTS.INTERNAL_SERVER_ERROR_MSG + ': ' + error.message);
     }
 };
 
@@ -30,16 +34,16 @@ const getDineOutRequestById = async (requestId) => {
 const getDineOutRequestsForBusiness = async (businessId) => {
     try {
         const requests = await DineOutModel.find({ business: businessId })
-            .populate('user', 'name email')  // Populate user details
-            .populate('partner', 'name')  // Populate partner details
-            .sort({ createdAt: -1 });  // Sort by creation date, latest first
+            .populate('user', 'name email')
+            .populate('partner', 'name')
+            .sort({ createdAt: -1 });
         return requests;
     } catch (error) {
-        throw new Error('Error fetching dine-out requests for business: ' + error.message);
+        throw new Error(CONSTANTS.INTERNAL_SERVER_ERROR_MSG + ': ' + error.message);
     }
 };
 
-// Update the dine-out request status (Accept or Reject) and optionally generate a booking ID
+// Update the dine-out request status (Accept or Reject)
 const updateDineOutRequestStatus = async (requestId, status, bookingId = null) => {
     try {
         const updateFields = { status };
@@ -49,10 +53,10 @@ const updateDineOutRequestStatus = async (requestId, status, bookingId = null) =
             updateFields,
             { new: true }
         ).populate('business');
-        if (!updatedRequest) { throw new Error('Dine-out request not found') }
+        if (!updatedRequest) { throw new Error(CONSTANTS.NOT_FOUND_MSG) }
         return updatedRequest;
     } catch (error) {
-        throw new Error('Error updating dine-out request status: ' + error.message);
+        throw new Error(CONSTANTS.INTERNAL_SERVER_ERROR_MSG + ': ' + error.message);
     }
 };
 

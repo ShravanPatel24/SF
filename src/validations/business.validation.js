@@ -33,7 +33,6 @@ const create = {
         businessAddress: addressValidation,
         openingDays: Joi.array().items(Joi.string().required()).min(1).required(),
         sameTimeForAllDays: Joi.boolean().required(),
-        // Include openingTime and closingTime when sameTimeForAllDays is true
         openingTime: Joi.string().when('sameTimeForAllDays', {
             is: true,
             then: Joi.string().required(),
@@ -51,13 +50,14 @@ const create = {
         daywiseTimings: Joi.array().items(Joi.object({
             day: Joi.string().required(),
             openingTime: Joi.string().required(),
-            closingTime: Joi.string().required()
+            closingTime: Joi.string().required(),
         })).when('sameTimeForAllDays', {
             is: false,
             then: Joi.array().min(1).required(),
             otherwise: Joi.forbidden(),
         }),
-        images: Joi.array().items(Joi.string()).optional(),
+        bannerImages: Joi.array().items(Joi.string()).optional(),
+        galleryImages: Joi.array().items(Joi.string()).optional(),
     }),
 };
 
@@ -106,7 +106,8 @@ const update = {
                 then: Joi.array().min(1).required(),
                 otherwise: Joi.forbidden(),
             }),
-            images: Joi.array().items(Joi.string()).optional(),
+            bannerImages: Joi.array().items(Joi.string()).optional(),
+            galleryImages: Joi.array().items(Joi.string()).optional(),
         })
         .min(1),
 };

@@ -1,24 +1,19 @@
 const { CartModel, ItemModel, UserModel } = require('../models');
+const CONSTANTS = require('../config/constant');
 
 // Add an item (food or product) to the cart
 const addToCart = async (userId, productId, quantity, selectedSize, selectedColor, deliveryAddress) => {
     const product = await ItemModel.findById(productId);
-    if (!product) {
-        throw new Error('Product not found');
-    }
+    if (!product) { throw new Error(CONSTANTS.NOT_FOUND_MSG) }
 
     let cart = await CartModel.findOne({ user: userId });
-    if (!cart) {
-        cart = new CartModel({ user: userId, items: [], deliveryAddress });
-    }
+    if (!cart) { cart = new CartModel({ user: userId, items: [], deliveryAddress }) }
 
     const itemIndex = cart.items.findIndex(item => item.product.toString() === productId);
 
     if (itemIndex > -1) {
-        // Update quantity for existing item
         cart.items[itemIndex].quantity += quantity;
     } else {
-        // Add new item to cart
         cart.items.push({
             product: productId,
             quantity,
@@ -27,7 +22,6 @@ const addToCart = async (userId, productId, quantity, selectedSize, selectedColo
         });
     }
 
-    // Save the updated cart
     await cart.save();
     return cart;
 };
@@ -35,8 +29,8 @@ const addToCart = async (userId, productId, quantity, selectedSize, selectedColo
 // Get the cart for the current user
 const getCartByUser = async (userId) => {
     const user = await UserModel.findById(userId);
-    if (!user) { throw new Error('User not found') }
-    if (user.type === 'partner') { throw new Error('Partners are not allowed to access the cart functionality.') }
+    if (!user) { throw new Error(CONSTANTS.USER_NOT_FOUND) }
+    if (user.type === 'partner') { throw new Error(CONSTANTS.PERMISSION_DENIED) }
     const cart = await CartModel.findOne({ user: userId }).populate('items.product');
     return cart;
 };
@@ -44,10 +38,10 @@ const getCartByUser = async (userId) => {
 // Remove an item from the cart
 const removeFromCart = async (userId, productId) => {
     const cart = await CartModel.findOne({ user: userId });
-    if (!cart) throw new Error('Cart not found');
+    if (!cart) throw new Error(CONSTANTS.NOT_FOUND_MSG);
 
     const itemIndex = cart.items.findIndex(item => item.product.toString() === productId);
-    if (itemIndex === -1) throw new Error('Item not found in cart');
+    if (itemIndex === -1) throw new Error(CONSTANTS.NOT_FOUND_MSG);
 
     const itemPrice = cart.items[itemIndex].price;
     cart.totalPrice -= itemPrice;
@@ -60,10 +54,10 @@ const removeFromCart = async (userId, productId) => {
 // Update the quantity of a cart item
 const updateCartItem = async (userId, productId, quantity) => {
     const cart = await CartModel.findOne({ user: userId });
-    if (!cart) throw new Error('Cart not found');
+    if (!cart) throw new Error(CONSTANTS.NOT_FOUND_MSG);
 
     const itemIndex = cart.items.findIndex(item => item.product.toString() === productId);
-    if (itemIndex === -1) throw new Error('Item not found in cart');
+    if (itemIndex === -1) throw new Error(CONSTANTS.NOT_FOUND_MSG);
 
     const product = await ItemModel.findById(productId);
     const oldPrice = cart.items[itemIndex].price;
@@ -80,7 +74,7 @@ const updateCartItem = async (userId, productId, quantity) => {
 // Clear the cart
 const clearCart = async (userId) => {
     const cart = await CartModel.findOne({ user: userId });
-    if (!cart) { throw new Error('Cart not found') }
+    if (!cart) { throw new Error(CONSTANTS.NOT_FOUND_MSG) }
     cart.items = [];
     cart.totalPrice = 0;
     cart.subtotal = 0;

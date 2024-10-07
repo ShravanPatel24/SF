@@ -1,5 +1,15 @@
 const mongoose = require("mongoose");
 
+// Variant schema for products
+const variantSchema = new mongoose.Schema({
+    variantName: { type: String, required: true }, // Name of the variant (e.g., "Small", "Medium", "Large")
+    size: { type: String }, // Size of the variant
+    color: { type: String }, // Color of the variant
+    productPrice: { type: Number, required: true }, // Price of the variant
+    nonReturnable: { type: Boolean, default: false }, // Non-returnable flag for the variant
+});
+
+// Main item schema
 const itemSchema = new mongoose.Schema({
     itemType: {
         type: String,
@@ -13,12 +23,12 @@ const itemSchema = new mongoose.Schema({
     // Fields for food menu
     dishName: { type: String },
     dishDescription: { type: String },
-    dishPrice: { type: Number },
+    dishPrice: { type: Number }, // Default price for food
     // Fields for rooms
     roomName: { type: String },
     roomType: { type: String },
     roomDescription: { type: String },
-    roomPrice: { type: Number },
+    roomPrice: { type: Number }, // Default price for rooms
     roomTax: { type: Number },
     checkIn: { type: String },
     checkOut: { type: String },
@@ -27,10 +37,7 @@ const itemSchema = new mongoose.Schema({
     productName: { type: String },
     productCategory: { type: String },
     productDescription: { type: String },
-    size: [{ type: String }],
-    color: [{ type: String }],
-    productPrice: { type: Number },
-    nonReturnable: { type: Boolean, default: false },
+    variants: [variantSchema], // Use the variant schema here for multiple prices and variants
     // New operating details for food items
     dineInStatus: { type: Boolean, default: false },
     operatingDetails: [{

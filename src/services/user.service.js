@@ -1,5 +1,5 @@
 const { UserModel, BusinessTypeModel, FollowModel } = require("../models");
-const CONSTANT = require("../config/constant");
+const CONSTANTS = require("../config/constant");
 const Token = require("../models/token.model");
 const { tokenTypes } = require("../config/tokens");
 const tokenService = require("./token.service");
@@ -25,7 +25,7 @@ const getUserById = async (userId) => {
     return { user, followersCount, followingCount };
   } catch (error) {
     console.error('Error fetching user details:', error);
-    throw new Error('Internal Server Error');
+    throw new Error(CONSTANTS.INTERNAL_SERVER_ERROR_MSG);
   }
 };
 
@@ -41,7 +41,7 @@ const getUserByEmail = async (email, type) => {
     return user;
   } catch (error) {
     console.error("Error in getUserByEmail:", error);
-    throw new Error(CONSTANT.INTERNAL_SERVER_ERROR_MSG);
+    throw new Error(CONSTANTS.INTERNAL_SERVER_ERROR_MSG);
   }
 };
 
@@ -57,7 +57,7 @@ const getUserByPhone = async (phone, type) => {
     return user;
   } catch (error) {
     console.error("Error in getUserByPhone:", error);
-    throw new Error(CONSTANT.INTERNAL_SERVER_ERROR_MSG);
+    throw new Error(CONSTANTS.INTERNAL_SERVER_ERROR_MSG);
   }
 };
 
@@ -68,15 +68,15 @@ const getUserByPhone = async (phone, type) => {
  */
 const createUser = async (requestBody) => {
   // Check if email or phone already exists
-  if (requestBody.email && await UserModel.isFieldValueTaken('email', requestBody.email)) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_EMAIL_ALREADY_EXISTS } }
-  if (requestBody.phone && await UserModel.isFieldValueTaken('phone', requestBody.phone)) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_PHONE_ALREADY_EXISTS } }
+  if (requestBody.email && await UserModel.isFieldValueTaken('email', requestBody.email)) { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_EMAIL_ALREADY_EXISTS } }
+  if (requestBody.phone && await UserModel.isFieldValueTaken('phone', requestBody.phone)) { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_PHONE_ALREADY_EXISTS } }
 
   delete requestBody.confirmPassword;
 
   if (requestBody.type === "partner") {
-    if (!requestBody.businessType) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: "Business type is required for partners" } }
+    if (!requestBody.businessType) { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.BUSINESS_TYPE_REQUIRED } }
     const businessTypeExists = await BusinessTypeModel.findById(requestBody.businessType);
-    if (!businessTypeExists) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: "Invalid business type selected" } }
+    if (!businessTypeExists) { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.INVALID_BUSINESS_TYPE } }
   }
 
   const mobileOtp = config.env === 'development' ? '1234' : crypto.randomInt(1000, 9999).toString();
@@ -91,14 +91,14 @@ const createUser = async (requestBody) => {
 
   const user = await UserModel.create(requestBody);
   mailFunctions.sendOtpOnMail(user.phone, user.name || user.companyName, mobileOtp);
-  return { data: user, code: 200, message: CONSTANT.USER_CREATE };
+  return { data: user, code: 200, message: CONSTANTS.USER_CREATE };
 };
 
 const createUserByAdmin = async (requestBody, files) => {
   // Check for email duplication
-  if (requestBody.email && (await UserModel.isFieldValueTaken('email', requestBody.email))) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_EMAIL_ALREADY_EXISTS } }
+  if (requestBody.email && (await UserModel.isFieldValueTaken('email', requestBody.email))) { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_EMAIL_ALREADY_EXISTS } }
 
-  if (requestBody.phone && (await UserModel.isFieldValueTaken('phone', requestBody.phone))) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_PHONE_ALREADY_EXISTS } }
+  if (requestBody.phone && (await UserModel.isFieldValueTaken('phone', requestBody.phone))) { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_PHONE_ALREADY_EXISTS } }
 
   // Upload and update profile photo if files are provided
   // if (files && files.length !== 0) {
@@ -113,7 +113,7 @@ const createUserByAdmin = async (requestBody, files) => {
   requestBody['password'] = password;
 
   const user = await UserModel.create(requestBody);
-  return { data: user, code: 200, message: CONSTANT.USER_CREATE };
+  return { data: user, code: 200, message: CONSTANTS.USER_CREATE };
 }
 
 /**
@@ -125,11 +125,11 @@ const createUserByAdmin = async (requestBody, files) => {
 const updateUserEmail = async (_id, newEmail) => {
   try {
     const isEmailTaken = await UserModel.isFieldValueTaken('email', newEmail, _id);
-    if (isEmailTaken) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_EMAIL_ALREADY_EXISTS } }
+    if (isEmailTaken) { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_EMAIL_ALREADY_EXISTS } }
     return await updateUserById(_id, { email: newEmail });
   } catch (error) {
     console.error("Error updating email:", error);
-    return { data: {}, code: CONSTANT.INTERNAL_SERVER_ERROR, message: error.message || CONSTANT.INTERNAL_SERVER_ERROR_MSG };
+    return { data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: error.message || CONSTANTS.INTERNAL_SERVER_ERROR_MSG };
   }
 };
 
@@ -142,11 +142,11 @@ const updateUserEmail = async (_id, newEmail) => {
 const updateUserPhone = async (_id, newPhone) => {
   try {
     const isPhoneTaken = await UserModel.isFieldValueTaken('phone', newPhone, _id);
-    if (isPhoneTaken) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_PHONE_ALREADY_EXISTS } }
+    if (isPhoneTaken) { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_PHONE_ALREADY_EXISTS } }
     return await updateUserById(_id, { phone: newPhone });
   } catch (error) {
     console.error("Error updating phone:", error);
-    return { data: {}, code: CONSTANT.INTERNAL_SERVER_ERROR, message: error.message || CONSTANT.INTERNAL_SERVER_ERROR_MSG };
+    return { data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: error.message || CONSTANTS.INTERNAL_SERVER_ERROR_MSG };
   }
 };
 
@@ -251,6 +251,16 @@ const queryUsers = async (options) => {
   return users;
 };
 
+const queryUsersToFollow = async ({ condition, ...options }) => {
+  const query = UserModel.find(condition);
+  // Apply pagination, sorting, etc. based on options
+  if (options.sortBy) query.sort(options.sortBy);
+  if (options.limit) query.limit(options.limit);
+  if (options.page) query.skip((options.page - 1) * options.limit);
+  const users = await query.exec();
+  return users;
+};
+
 /**
  * Update user by id
  * @param {string} _id - The user's ID as a string
@@ -261,7 +271,7 @@ const updateUserById = async (_id, updateBody, files) => {
   try {
     const user = await UserModel.findById(_id);
     if (!user) {
-      return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.USER_NOT_FOUND };
+      return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.USER_NOT_FOUND };
     }
 
     const previousStatus = user.status;
@@ -280,10 +290,10 @@ const updateUserById = async (_id, updateBody, files) => {
 
     // Validate unique email and phone if needed
     if (await checkIfFieldTaken(updateBody.email, 'email', _id)) {
-      return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_EMAIL_ALREADY_EXISTS };
+      return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_EMAIL_ALREADY_EXISTS };
     }
     if (await checkIfFieldTaken(updateBody.phone, 'phone', _id)) {
-      return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_PHONE_ALREADY_EXISTS };
+      return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_PHONE_ALREADY_EXISTS };
     }
 
     // Handle the assignment of updateBody fields
@@ -297,12 +307,12 @@ const updateUserById = async (_id, updateBody, files) => {
     // Handle social media links validation
     if (updateBody.socialMediaLinks && Array.isArray(updateBody.socialMediaLinks)) {
       if (updateBody.socialMediaLinks.length > 5) {
-        return { data: {}, code: CONSTANT.BAD_REQUEST, message: 'You can add up to 5 social media links only' };
+        return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.SOCIAL_MEDIA_LINKS_CAPACITY };
       }
       user.socialMediaLinks = updateBody.socialMediaLinks;
     }
 
-    // Upload images: profile photo, banner images, and gallery images
+    // Upload images: profile photo
     await handleImageUploads(user, files);
 
     await user.save();
@@ -312,7 +322,7 @@ const updateUserById = async (_id, updateBody, files) => {
       await mailFunctions.sendActivationEmail(user.email, user.name);
     }
 
-    return { data: user, phoneUpdated, emailUpdated, code: CONSTANT.SUCCESSFUL, message: CONSTANT.USER_UPDATE };
+    return { data: user, phoneUpdated, emailUpdated, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.USER_UPDATE };
 
   } catch (error) {
     console.error('Error updating user:', error);
@@ -350,30 +360,18 @@ const handleImageUploads = async (user, files) => {
     if (s3Response && s3Response.data) {
       user.profilePhoto = s3Response.data.Location;
     } else {
-      throw new Error('Failed to upload profile photo to S3');
+      throw new Error(CONSTANTS.S3_BUCKET_UPLOAD_FAILED);
     }
   }
-
-  // if (files && files['bannerImages'] && files['bannerImages'].length > 0) {
-  //   const bannerUploadResponse = await awsS3Service.uploadDocuments(files['bannerImages'], 'profileBanners');
-  //   const bannerImageUrls = bannerUploadResponse.map(file => file.location);
-  //   user.bannerImages = bannerImageUrls;
-  // }
-
-  // if (files && files['galleryImages'] && files['galleryImages'].length > 0) {
-  //   const galleryUploadResponse = await awsS3Service.uploadDocuments(files['galleryImages'], 'profileGallery');
-  //   const galleryImageUrls = galleryUploadResponse.map(file => file.location);
-  //   user.galleryImages = galleryImageUrls;
-  // }
 };
 
 // Handle service errors
 const handleServiceError = (error) => {
   if (error.name === 'ValidationError') {
     const errorMessages = Object.values(error.errors).map(err => err.message);
-    return { data: {}, code: CONSTANT.BAD_REQUEST, message: errorMessages.join(', ') };
+    return { data: {}, code: CONSTANTS.BAD_REQUEST, message: errorMessages.join(', ') };
   }
-  return { data: {}, code: CONSTANT.INTERNAL_SERVER_ERROR, message: CONSTANT.INTERNAL_SERVER_ERROR_MSG };
+  return { data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: CONSTANTS.INTERNAL_SERVER_ERROR_MSG };
 };
 
 /**
@@ -383,10 +381,10 @@ const handleServiceError = (error) => {
  */
 const deleteUserById = async (userId) => {
   const user = await getUserById(userId);
-  if (!user) { return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.USER_NOT_FOUND } }
+  if (!user) { return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.USER_NOT_FOUND } }
   user.isDelete = 0;
   await user.save();
-  return { data: user, code: CONSTANT.SUCCESSFUL, message: 'User deleted successfully' };
+  return { data: user, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.DELETED };
 };
 
 /**
@@ -400,7 +398,7 @@ const logout = async (refreshToken) => {
     type: tokenTypes.REFRESH,
     blacklisted: false,
   });
-  if (!refreshTokenDoc) { return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.NOT_FOUND_MSG } }
+  if (!refreshTokenDoc) { return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.NOT_FOUND_MSG } }
   await refreshTokenDoc.deleteOne();
 };
 
@@ -416,7 +414,7 @@ const refreshAuth = async (refreshToken) => {
     if (!user) { throw new Error() }
     await refreshTokenDoc.remove();
     return tokenService.generateAuthTokens(user);
-  } catch (error) { return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.UNAUTHORIZED_MSG } }
+  } catch (error) { return { data: {}, code: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.UNAUTHORIZED_MSG } }
 };
 
 /**
@@ -429,35 +427,35 @@ const loginUserWithEmailOrPhoneAndPassword = async (emailOrPhone, password, type
   try {
     let user;
     if (validator.isEmail(emailOrPhone)) { user = await UserModel.findOne({ email: emailOrPhone.toLowerCase(), type }) } else { user = await UserModel.findOne({ phone: emailOrPhone, type }) }
-    if (!user) { return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.UNAUTHORIZED_MSG } }
+    if (!user) { return { data: {}, code: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.UNAUTHORIZED_MSG } }
 
     const isPasswordValid = await user.isPasswordMatch(password);
-    if (!isPasswordValid) { return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.UNAUTHORIZED_MSG } }
+    if (!isPasswordValid) { return { data: {}, code: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.UNAUTHORIZED_MSG } }
 
-    if (!user.mobileVerificationStatus) { return { data: { phone: user.phone }, code: CONSTANT.BAD_REQUEST, message: CONSTANT.MOB_VERIFICATION_REQUIRED_MSG } }
+    if (!user.mobileVerificationStatus) { return { data: { phone: user.phone }, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.MOB_VERIFICATION_REQUIRED_MSG } }
 
     const tokens = await tokenService.generateAuthTokens(user);
 
     const device = req.headers['user-agent'] || 'Unknown Device';
     const time = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
     const ipAddress = req.ip;
-    // mailFunctions.sendLoginNotificationEmail(user.email, device, time, ipAddress);
+    mailFunctions.sendLoginNotificationEmail(user.email, device, time, ipAddress);
 
-    return { data: { user, tokens }, code: CONSTANT.SUCCESS, message: CONSTANT.LOGIN_SUCCESS };
+    return { data: { user, tokens }, code: CONSTANTS.SUCCESS, message: CONSTANTS.LOGIN_SUCCESS };
   } catch (error) {
     console.error("Error in loginUserWithEmailOrPhoneAndPassword:", error);
-    return { data: {}, code: CONSTANT.INTERNAL_SERVER_ERROR, message: error.message || CONSTANT.INTERNAL_SERVER_ERROR_MSG };
+    return { data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: error.message || CONSTANTS.INTERNAL_SERVER_ERROR_MSG };
   }
 };
 
 const verifyUserEmailOtp = async (id, otp) => {
   try {
     if (typeof otp !== 'number') {
-      return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.OTP_STRING_VERIFICATION };
+      return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.OTP_STRING_VERIFICATION };
     }
     const result = await getUserById(id);
     const user = result.user;
-    if (!user) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_NOT_FOUND } }
+    if (!user) { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_NOT_FOUND } }
 
     const currentTime = moment();
     // Check if the email OTP is present
@@ -466,10 +464,10 @@ const verifyUserEmailOtp = async (id, otp) => {
       const emailOtpExpirationTime = 14; // Expiration time in minutes
       const emailTimeDifference = currentTime.diff(emailOtpCreationTime, 'seconds');
       const emailOtpExpirationTimeInSeconds = emailOtpExpirationTime * 60;
-      if (emailTimeDifference > emailOtpExpirationTimeInSeconds) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.EXPIRE_OTP } }
+      if (emailTimeDifference > emailOtpExpirationTimeInSeconds) { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.EXPIRE_OTP } }
       // Check if the OTP matches
       if (user.emailOTP === otp) {
-        if (user.emailVerificationStatus) { return { data: {}, code: CONSTANT.SUCCESSFUL, message: CONSTANT.USER_ALREADY_VERIFIED } }
+        if (user.emailVerificationStatus) { return { data: {}, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.USER_ALREADY_VERIFIED } }
         // Update user's verification status and clear OTP
         await updateUserById(id, {
           emailVerificationStatus: true,
@@ -479,7 +477,7 @@ const verifyUserEmailOtp = async (id, otp) => {
         });
         const tokens = await tokenService.generateAuthTokens(user);
         await mailFunctions.sendWelcomeEmail(user.email, user.name);
-        return { data: { user, tokens }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.OTP_VERIFIED };
+        return { data: { user, tokens }, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.OTP_VERIFIED };
       }
     }
     // Check if the OTP is for password reset
@@ -489,20 +487,20 @@ const verifyUserEmailOtp = async (id, otp) => {
       const passwordResetTimeDifference = currentTime.diff(passwordResetOtpCreationTime, 'seconds');
       const passwordResetOtpExpirationTimeInSeconds = passwordResetOtpExpirationTime * 60;
 
-      if (passwordResetTimeDifference > passwordResetOtpExpirationTimeInSeconds) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.EXPIRE_OTP } }
+      if (passwordResetTimeDifference > passwordResetOtpExpirationTimeInSeconds) { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.EXPIRE_OTP } }
       if (user.passwordResetEmailOTP === otp) {
         await updateUserById(id, {
           isPasswordResetOtpVerified: true,
           passwordResetEmailOTP: null,
           passwordResetEmailOtpCreatedAt: null
         });
-        return { data: { user }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.PASSWORD_RESET_OTP_VERIFIED };
+        return { data: { user }, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.PASSWORD_RESET_OTP_VERIFIED };
       }
     }
-    return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.INVALID_OTP };
+    return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.INVALID_OTP };
   } catch (error) {
     console.error("Error verifying OTP:", error);
-    return { data: {}, code: CONSTANT.INTERNAL_SERVER_ERROR, message: CONSTANT.USER_EMAIL_VERIFY_FAIL };
+    return { data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: CONSTANTS.USER_EMAIL_VERIFY_FAIL };
   }
 };
 
@@ -514,15 +512,15 @@ const verifyUserEmailOtp = async (id, otp) => {
  */
 const verifyMobileOtpToken = async (_id, otp) => {
   try {
-    if (typeof otp !== 'number') { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.OTP_STRING_VERIFICATION } }
+    if (typeof otp !== 'number') { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.OTP_STRING_VERIFICATION } }
     // Fetch the user, followers, and following count
     const result = await getUserById(_id);
     const user = result.user; // Extract the user object
 
-    if (!user) { return { code: CONSTANT.BAD_REQUEST, message: CONSTANT.USER_NOT_FOUND } }
+    if (!user) { return { code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_NOT_FOUND } }
 
     if (user.mobileOTP === otp) {
-      if (user.mobileVerificationStatus === true) { return { data: {}, code: CONSTANT.SUCCESSFUL, message: CONSTANT.USER_ALREADY_VERIFIED } }
+      if (user.mobileVerificationStatus === true) { return { data: {}, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.USER_ALREADY_VERIFIED } }
       // Update user's verification status and clear OTP
       await updateUserById(_id, {
         mobileVerificationStatus: true,
@@ -530,7 +528,7 @@ const verifyMobileOtpToken = async (_id, otp) => {
         mobileOTP: null // Remove mobile OTP after verification
       });
       const tokens = await tokenService.generateAuthTokens(user);
-      return { data: { user, tokens }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.OTP_VERIFIED };
+      return { data: { user, tokens }, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.OTP_VERIFIED };
     }
 
     if (user.passwordResetMobileOTP === otp) {
@@ -538,12 +536,12 @@ const verifyMobileOtpToken = async (_id, otp) => {
         isPasswordResetOtpVerified: true,
         passwordResetMobileOTP: null // Clear OTP after verification
       });
-      return { data: { user }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.PASSWORD_RESET_OTP_VERIFIED };
+      return { data: { user }, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.PASSWORD_RESET_OTP_VERIFIED };
     }
-    return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.INVALID_OTP };
+    return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.INVALID_OTP };
   } catch (error) {
     console.error("Error verifying OTP:", error);
-    return { data: {}, code: CONSTANT.INTERNAL_SERVER_ERROR, message: CONSTANT.USER_PHONE_VERIFY_FAIL };
+    return { data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: CONSTANTS.USER_PHONE_VERIFY_FAIL };
   }
 };
 
@@ -557,26 +555,26 @@ const resetPassword = async (resetPasswordToken, newPassword) => {
   try {
     const resetPasswordTokenDoc = await tokenService.verifyToken(resetPasswordToken, tokenTypes.RESET_PASSWORD);
     const user = await UserModel.findOne({ _id: resetPasswordTokenDoc.user });
-    if (!user.isPasswordResetOtpVerified) { return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.PASSWORD_RESET_OTP_NOT_VERIFIED } }
+    if (!user.isPasswordResetOtpVerified) { return { data: {}, code: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.PASSWORD_RESET_OTP_NOT_VERIFIED } }
 
     const isSameAsOldPassword = await user.isPasswordMatch(newPassword);
-    if (isSameAsOldPassword) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.SAME_PASSWORD_ERROR_MSG } }
+    if (isSameAsOldPassword) { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.SAME_PASSWORD_ERROR_MSG } }
     await updateUserById(user._id, { password: newPassword, isPasswordResetOtpVerified: false });
 
     await Token.deleteMany({ user: user._id, type: tokenTypes.RESET_PASSWORD });
-    return { data: {}, code: CONSTANT.SUCCESSFUL, message: CONSTANT.CHANGE_PASSWORD };
+    return { data: {}, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.CHANGE_PASSWORD };
   } catch (error) {
     console.error("Error resetting password:", error);
-    return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.PASSWORD_RESET_FAIL };
+    return { data: {}, code: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.PASSWORD_RESET_FAIL };
   }
 };
 
 const resendOTPUsingId = async (userId, requestBody) => {
   try {
     const data = await UserModel.findOne({ _id: userId });
-    if (!data) { return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.INVALID_OTP } }
+    if (!data) { return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.INVALID_OTP } }
 
-    if (data.otpAttemptCount >= 4 && moment().isBefore(moment(data.otpBlockedUntil).add(5, 'm'))) { return { data: {}, code: CONSTANT.TOO_MANY_REQUESTS, message: CONSTANT.USER_BLOCKED_FOR_5_WRONG } }
+    if (data.otpAttemptCount >= 4 && moment().isBefore(moment(data.otpBlockedUntil).add(5, 'm'))) { return { data: {}, code: CONSTANTS.TOO_MANY_REQUESTS, message: CONSTANTS.USER_BLOCKED_FOR_5_WRONG } }
 
     const resendAttemptField = `mobileResendAttempt`;
     const resendBlockedUntilField = `mobileResendBlockedUntil`;
@@ -584,7 +582,7 @@ const resendOTPUsingId = async (userId, requestBody) => {
 
     if (data[resendAttemptField] >= 3) {
       if (moment().isBefore(moment(data[resendBlockedUntilField]))) {
-        return { data: {}, code: CONSTANT.TOO_MANY_REQUESTS, message: CONSTANT.RESEND_BLOCK_FOR_24_HOURS };
+        return { data: {}, code: CONSTANTS.TOO_MANY_REQUESTS, message: CONSTANTS.RESEND_BLOCK_FOR_24_HOURS };
       } else {
         data[resendAttemptField] = 1;
         data[blockedFor] = data[blockedFor] === 2 ? 0 : 1;
@@ -617,9 +615,9 @@ const resendOTPUsingId = async (userId, requestBody) => {
     }
     await data.save();
 
-    return { data: data, code: CONSTANT.SUCCESSFUL, message: CONSTANT.OTP_RESEND };
+    return { data: data, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.OTP_RESEND };
   } catch (error) {
-    return { data: {}, code: CONSTANT.ERROR_CODE, message: error.message };
+    return { data: {}, code: CONSTANTS.ERROR_CODE, message: error.message };
   }
 };
 
@@ -638,7 +636,7 @@ const forgotPassword = async (emailOrPhone, type) => {
     } else if (validator.isMobilePhone(emailOrPhone)) {
       user = await getUserByPhone(emailOrPhone, type);
     } else {
-      return { data: {}, code: CONSTANT.BAD_REQUEST, message: "Must provide a valid email or phone number." };
+      return { data: {}, code: CONSTANTS.BAD_REQUEST, message: "Must provide a valid email or phone number." };
     }
 
     if (user) {
@@ -662,13 +660,13 @@ const forgotPassword = async (emailOrPhone, type) => {
       }
       await updateUserById(user._id, updateData);
       const resetPasswordToken = await tokenService.generateResetPasswordToken(user._id);
-      return { data: { id: user._id, token: resetPasswordToken }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.FORGOT_PASSWORD };
+      return { data: { id: user._id, token: resetPasswordToken }, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.FORGOT_PASSWORD };
     } else {
-      return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.NON_REGISTERED_EMAIL_CHECK };
+      return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.NON_REGISTERED_EMAIL_CHECK };
     }
   } catch (error) {
     console.error("Error in forgotPassword service:", error);
-    return { data: {}, code: CONSTANT.INTERNAL_SERVER_ERROR, message: "An error occurred during the forgot password process." };
+    return { data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: "An error occurred during the forgot password process." };
   }
 };
 
@@ -680,15 +678,15 @@ const forgotPassword = async (emailOrPhone, type) => {
  */
 const followUser = async (followerId, followingId) => {
   try {
-    if (followerId.toString() === followingId.toString()) { return { code: 400, message: "You cannot follow yourself" } }
+    if (followerId.toString() === followingId.toString()) { return { code: 400, message: CONSTANTS.FOLLOW_YOURSELF } }
     const followingUser = await UserModel.findById(followingId);
     // Check if the following user is a partner
-    if (!followingUser) { return { code: 404, message: "User to follow not found" } }
+    if (!followingUser) { return { code: 404, message: CONSTANTS.USER_NOT_FOUND } }
 
-    if (followingUser.type === "partner") { return { code: 400, message: "You cannot follow a partner" } }
+    if (followingUser.type === "partner") { return { code: 400, message: CONSTANTS.FOLLOW_PARTNER_ERROR } }
 
     const existingFollow = await FollowModel.findOne({ follower: followerId, following: followingId });
-    if (existingFollow) { return { code: 400, message: "You are already following this user" } }
+    if (existingFollow) { return { code: 400, message: CONSTANTS.ALREADY_FOLLOWING } }
 
     // Create the follow relationship
     const follow = new FollowModel({ follower: followerId, following: followingId });
@@ -697,10 +695,10 @@ const followUser = async (followerId, followingId) => {
     // Increment follower and following counts
     await UserModel.findByIdAndUpdate(followerId, { $inc: { followingCount: 1 } });
     await UserModel.findByIdAndUpdate(followingId, { $inc: { followerCount: 1 } });
-    return { code: 200, message: "Followed successfully" };
+    return { code: 200, message: CONSTANTS.FOLLOWED_SUCCESS };
   } catch (error) {
     console.error("Error in followUser:", error);
-    return { code: 500, message: "Internal server error" };
+    return { code: 500, message: CONSTANTS.INTERNAL_SERVER_ERROR };
   }
 };
 
@@ -714,17 +712,17 @@ const unfollowUser = async (followerId, followingId) => {
   try {
     const followRecord = await FollowModel.findOneAndDelete({ follower: followerId, following: followingId });
     if (!followRecord) {
-      return { code: 400, message: "You are not following this user" };
+      return { code: 400, message: CONSTANTS.NOT_FOLLOWING_USER };
     }
 
     // Decrement following and follower counts
     await UserModel.findByIdAndUpdate(followerId, { $inc: { followingCount: -1 } });
     await UserModel.findByIdAndUpdate(followingId, { $inc: { followerCount: -1 } });
 
-    return { code: 200, message: "Unfollowed successfully" };
+    return { code: 200, message: CONSTANTS.UNFOLLOWED_SUCCESS };
   } catch (error) {
     console.error("Error in unfollowUser:", error);
-    return { code: 500, message: "Internal server error" };
+    return { code: 500, message: CONSTANTS.NOT_FOLLOWING_USER };
   }
 };
 
@@ -744,6 +742,7 @@ module.exports = {
   createUser,
   createUserByAdmin,
   queryUsers,
+  queryUsersToFollow,
   updateUserById,
   updateUserEmail,
   updateUserPhone,

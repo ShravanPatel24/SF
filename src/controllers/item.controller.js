@@ -1,6 +1,7 @@
 const catchAsync = require('../utils/catchAsync');
 const { ItemService } = require('../services');
 const awsS3Service = require('../lib/aws_S3');
+const CONSTANTS = require("../config/constant");
 
 // Create an item (Food, Room, or Product)
 const createItem = catchAsync(async (req, res) => {
@@ -47,7 +48,7 @@ const createItem = catchAsync(async (req, res) => {
             itemData.nonReturnable = req.body.nonReturnable || false;
         }
         const newItem = await ItemService.createItem(itemData);
-        res.status(201).json({ message: 'Item created successfully', newItem });
+        res.status(201).json({ message: CONSTANTS.ITEM_CREATED, newItem });
     } catch (error) {
         res.status(400).json({ message: error.message });
     }
@@ -57,7 +58,7 @@ const createItem = catchAsync(async (req, res) => {
 const getItemById = catchAsync(async (req, res) => {
     const { itemId } = req.params;
     const item = await ItemService.getItemById(itemId);
-    if (!item) { return res.status(404).json({ message: 'Item not found' }) }
+    if (!item) { return res.status(404).json({ message: CONSTANTS.ITEM_NOT_FOUND }) }
     res.status(200).json({ data: item });
 });
 
@@ -92,7 +93,7 @@ const updateItem = catchAsync(async (req, res) => {
         updateData.images = imageUrls;
 
         const updatedItem = await ItemService.updateItemById(itemId, updateData);
-        res.status(200).json({ message: 'Item updated successfully', updatedItem });
+        res.status(200).json({ message: CONSTANTS.ITEM_UPDATED, updatedItem });
     } catch (error) {
         res.status(400).json({ message: error.message });
     }
@@ -111,7 +112,7 @@ const updateOperatingDetails = catchAsync(async (req, res) => {
         updateData.tableManagement = tableManagement || [];
 
         const updatedItem = await ItemService.updateItemById(itemId, updateData);
-        res.status(200).json({ message: 'Operating details updated successfully', updatedItem });
+        res.status(200).json({ message: CONSTANTS.OPERATING_DETAIL_UPDATED, updatedItem });
     } catch (error) {
         res.status(400).json({ message: error.message });
     }
@@ -123,7 +124,7 @@ const deleteItem = catchAsync(async (req, res) => {
 
     try {
         await ItemService.deleteItemById(itemId);
-        res.status(200).json({ message: 'Item deleted successfully' });
+        res.status(200).json({ message: CONSTANTS.DELETED });
     } catch (error) {
         res.status(400).json({ message: error.message });
     }

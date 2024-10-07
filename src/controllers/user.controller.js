@@ -1,9 +1,9 @@
 const catchAsync = require("../utils/catchAsync");
+const { FollowModel } = require("../models");
 const pick = require("../utils/pick");
 const { UserService, tokenService } = require("../services");
-const CONSTANT = require("../config/constant");
+const CONSTANTS = require("../config/constant");
 const validator = require("validator")
-const awsS3Service = require('../lib/aws_S3');
 
 const createUser = catchAsync(async (req, res) => {
   req.body.userType = "user";
@@ -19,8 +19,8 @@ const createUserByAdmin = catchAsync(async (req, res) => {
 
 const getUser = catchAsync(async (req, res) => {
   const user = await UserService.getUserById(req.params.userId);
-  if (!user) { res.send({ data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.USER_NOT_FOUND }) }
-  res.send({ data: user, code: CONSTANT.SUCCESSFUL, message: CONSTANT.USER_DETAILS, });
+  if (!user) { res.send({ data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.USER_NOT_FOUND }) }
+  res.send({ data: user, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.USER_DETAILS, });
 });
 
 const updateUser = catchAsync(async (req, res) => {
@@ -32,7 +32,7 @@ const updateUserEmail = catchAsync(async (req, res) => {
   const { userId, email } = req.body;
   if (!userId || !email) { return res.status(400).json({ message: "User ID and email are required." }) }
   const result = await UserService.updateUserEmail(userId, email);
-  if (result.code === CONSTANT.NOT_FOUND) { return res.status(404).json({ message: "User not found." }) }
+  if (result.code === CONSTANTS.NOT_FOUND) { return res.status(404).json({ message: "User not found." }) }
   return res.status(result.code).send(result);
 });
 
@@ -40,7 +40,7 @@ const updateUserPhone = catchAsync(async (req, res) => {
   const { userId, phone } = req.body;
   if (!userId || !phone) { return res.status(400).json({ message: "User ID and phone number are required." }) }
   const result = await UserService.updateUserPhone(userId, phone);
-  if (result.code === CONSTANT.NOT_FOUND) { return res.status(404).json({ message: "User not found." }) }
+  if (result.code === CONSTANTS.NOT_FOUND) { return res.status(404).json({ message: "User not found." }) }
   return res.status(result.code).send(result);
 });
 
@@ -59,17 +59,17 @@ const login = catchAsync(async (req, res) => {
     const user = await UserService.loginUserWithEmailOrPhoneAndPassword(emailOrPhone, password, type, req);
     if (user.code === 200) {
       const tokens = await tokenService.generateAuthTokens(user.data);
-      if (tokens) { return res.send({ data: { user: user.data, tokens }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.USER_DETAILS }) }
+      if (tokens) { return res.send({ data: { user: user.data, tokens }, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.USER_DETAILS }) }
     } else { return res.send(user) }
   } catch (error) {
     console.error("Error in login function:", error);
-    return res.status(500).send({ data: {}, code: CONSTANT.INTERNAL_SERVER_ERROR, message: error.message || CONSTANT.INTERNAL_SERVER_ERROR_MSG });
+    return res.status(500).send({ data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: error.message || CONSTANTS.INTERNAL_SERVER_ERROR_MSG });
   }
 });
 
 const logout = catchAsync(async (req, res) => {
   await UserService.logout(req.body.refreshToken);
-  res.send({ data: {}, code: CONSTANT.SUCCESSFUL, message: CONSTANT.LOGOUT_MSG });
+  res.send({ data: {}, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.LOGOUT_MSG });
 });
 
 const refreshTokens = catchAsync(async (req, res) => {
@@ -119,13 +119,13 @@ const resendOTP = catchAsync(async (req, res) => {
 //   if (code == 200) {
 //     const tokens = await tokenService.generateAuthTokens(data);
 //     if (tokens) {
-//       return res.send({ data: { user: data, tokens }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.OTP_VERIFIED });
+//       return res.send({ data: { user: data, tokens }, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.OTP_VERIFIED });
 //     }
 //   } else {
 //     res.send({ data, code, message });
 //   }
 
-//   // res.send({ data: {}, code: CONSTANT.SUCCESSFUL, message: CONSTANT.OTP_VERIFIED });
+//   // res.send({ data: {}, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.OTP_VERIFIED });
 
 // });
 
@@ -133,36 +133,47 @@ const changePassword = catchAsync(async (req, res) => {
   var result;
   var userDetails = await UserService.getUserById(req.user._id);
   if (!userDetails || !(await userDetails.isPasswordMatch(req.body.oldPassword))) {
-    res.send({ data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.OLD_PASSWORD_MSG });
+    res.send({ data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.OLD_PASSWORD_MSG });
   } else {
     result = await UserService.updateUserById(req.user._id, req.body);
   }
   if (result) {
-    res.send({ data: {}, code: CONSTANT.SUCCESSFUL, message: CONSTANT.CHANGE_PASSWORD });
+    res.send({ data: {}, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.CHANGE_PASSWORD });
   }
 });
 
 const getLists = catchAsync(async (req, res) => {
   const options = pick(req.query, ["sortBy", "limit", "page", "searchBy", "status", 'type', 'filterDateRange']);
   const result = await UserService.queryUsers(options);
-  res.send({ data: result, code: CONSTANT.SUCCESSFUL, message: CONSTANT.LIST });
+  res.send({ data: result, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.LIST });
+});
+
+const getUserListsToFollow = catchAsync(async (req, res) => {
+  if (!req.user || !req.user._id) { return res.status(400).send({ message: 'User not authenticated or missing user ID.' }) }
+  const options = pick(req.query, ["sortBy", "limit", "page", "searchBy", "status", 'filterDateRange']);
+  const condition = { _id: { $ne: req.user._id }, isDelete: 1, status: 1, type: 'user' };
+  const result = await UserService.queryUsersToFollow({ condition, ...options });
+  // Prepare the user list with follower status
+  const userList = await Promise.all(result.map(async (user) => {
+    const isFollowing = await FollowModel.findOne({ follower: req.user._id, following: user._id });
+    return { ...user.toObject(), isFollowing: !!isFollowing };
+  }));
+  res.send({ data: userList, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.LIST });
 });
 
 const getById = catchAsync(async (req, res) => {
   const result = await UserService.getUserById(req.params.id);
-  if (!result || !result.user) { return res.send({ data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.NOT_FOUND_MSG }) }
+  if (!result || !result.user) { return res.send({ data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.NOT_FOUND_MSG }) }
   const { user, followersCount, followingCount } = result;
   const userData = {
     ...user.toObject(),
     id: user._id.toString(),
     profilePhoto: user.profilePhoto ? `${req.protocol}://${req.get('host')}/${user.profilePhoto}` : null,
-    // bannerImages: user.bannerImages ? user.bannerImages.map(image => `${req.protocol}://${req.get('host')}/${image}`) : [],
-    // galleryImages: user.galleryImages ? user.galleryImages.map(image => `${req.protocol}://${req.get('host')}/${image}`) : [],
     followersCount: followersCount,
     followingCount: followingCount,
   };
   delete userData._id;
-  res.send({ data: userData, code: CONSTANT.SUCCESSFUL, message: CONSTANT.DETAILS });
+  res.send({ data: userData, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.DETAILS });
 });
 
 const updateById = catchAsync(async (req, res) => {
@@ -197,7 +208,7 @@ const deleteById = catchAsync(async (req, res) => {
 // const getListWithoutPagination = catchAsync(async (req, res) => {
 //   const options = pick(req.query, ['sortBy', 'limit', 'page', 'searchBy', 'status']);
 //   const result = await UserService.getListWithoutPagination(options);
-//   res.send({ data: result, code: CONSTANT.SUCCESSFUL, message: CONSTANT.LIST });
+//   res.send({ data: result, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.LIST });
 // });
 
 const followUser = catchAsync(async (req, res) => {
@@ -227,7 +238,7 @@ const addOrUpdateAboutUs = catchAsync(async (req, res) => {
 const getAboutUs = catchAsync(async (req, res) => {
   const { id } = req.params;
   const partner = await UserService.getAboutUs(id);
-  if (!partner) { return res.status(404).json({ message: 'Partner not found' }) }
+  if (!partner) { return res.status(404).json({ message: CONSTANTS.PARTNER_NOT_FOUND_MSG }) }
   res.status(200).json({ data: partner.aboutUs });
 });
 
@@ -249,6 +260,7 @@ module.exports = {
   resetPassword,
   verifyEmailOtp,
   getLists,
+  getUserListsToFollow,
   getById,
   updateById,
   deleteById,

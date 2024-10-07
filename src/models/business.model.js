@@ -63,7 +63,8 @@ const businessSchema = new mongoose.Schema(
                 message: 'daywiseTimings is required when sameTimeForAllDays is false.'
             }
         },
-        images: [{ type: String }],
+        bannerImages: [{ type: String }],
+        galleryImages: [{ type: String }],
         status: { type: Number, default: 1 },
     },
     {
