@@ -233,23 +233,7 @@ components:
         itemType:
           type: string
           description: The type of the item (food, room, product)
-          enum:
-            - food
-            - room
-            - product
           example: food
-        images:
-          type: array
-          items:
-            type: string
-          description: List of image URLs
-          example:
-            - "https://example.com/image1.jpg"
-            - "https://example.com/image2.jpg"
-        available:
-          type: boolean
-          description: Availability status of the item
-          default: true
         businessId:
           type: string
           description: The ID of the associated business (ObjectId)
@@ -258,104 +242,32 @@ components:
           type: string
           description: The ID of the associated business type (ObjectId)
           example: 60d0fe4f5311236168a109cb
-        # Fields for food items
+        available:
+          type: boolean
+          description: Availability status of the item
+          example: true
+        images:
+          type: array
+          items:
+            type: string
+            description: Image URLs for the item
+          example:
+            - "https://example.com/image1.jpg"
+        # For food items
         dishName:
           type: string
-          description: Name of the dish (food items only)
           example: Pizza
         dishDescription:
           type: string
-          description: Description of the dish (food items only)
           example: "Delicious pizza with extra cheese"
         dishPrice:
           type: number
-          description: Price of the dish (food items only)
           example: 10.99
-        # Fields for room items
-        roomName:
-          type: string
-          description: Name of the room (room items only)
-          example: "Deluxe Room"
-        roomType:
-          type: string
-          description: Type of the room (room items only)
-          example: "Suite"
-        roomDescription:
-          type: string
-          description: Description of the room (room items only)
-          example: "Spacious room with sea view"
-        roomPrice:
-          type: number
-          description: Price of the room (room items only)
-          example: 150
-        roomTax:
-          type: number
-          description: Tax applicable for the room (room items only)
-          example: 20
-        checkIn:
-          type: string
-          description: Check-in time (room items only)
-          example: "2:00 PM"
-        checkOut:
-          type: string
-          description: Check-out time (room items only)
-          example: "11:00 AM"
-        amenities:
-          type: array
-          items:
-            type: string
-          description: List of amenities available for the room
-          example:
-            - "WiFi"
-            - "Air Conditioning"
-            - "Pool"
-        # Fields for product items
-        productName:
-          type: string
-          description: Name of the product (product items only)
-          example: "T-Shirt"
-        productCategory:
-          type: string
-          description: Category of the product (product items only)
-          example: "Clothing"
-        productDescription:
-          type: string
-          description: Description of the product (product items only)
-          example: "Comfortable cotton t-shirt"
-        size:
-          type: array
-          items:
-            type: string
-          description: Available sizes for the product (product items only)
-          example:
-            - "S"
-            - "M"
-            - "L"
-        color:
-          type: array
-          items:
-            type: string
-          description: Available colors for the product (product items only)
-          example:
-            - "Red"
-            - "Blue"
-            - "Black"
-        productPrice:
-          type: number
-          description: Price of the product (product items only)
-          example: 25.99
-        nonReturnable:
-          type: boolean
-          description: Indicates if the product is non-returnable (product items only)
-          default: false
-        # Operating details for food items
         dineInStatus:
           type: boolean
-          description: Toggle for dine-in availability (food items only)
-          default: false
+          example: true
         operatingDetails:
           type: array
-          description: Operating hours for food items
           items:
             type: object
             properties:
@@ -370,7 +282,6 @@ components:
                 example: "10:00 PM"
         tableManagement:
           type: array
-          description: Table management details for food items
           items:
             type: object
             properties:
@@ -380,9 +291,69 @@ components:
               seatingCapacity:
                 type: number
                 example: 4
-      required:
-        - itemType
-        - businessType
+        # For room items
+        roomName:
+          type: string
+          example: "Deluxe Room"
+        roomType:
+          type: string
+          example: "Suite"
+        roomDescription:
+          type: string
+          example: "Spacious room with sea view"
+        roomPrice:
+          type: number
+          example: 150
+        roomTax:
+          type: number
+          example: 20
+        checkIn:
+          type: string
+          example: "2:00 PM"
+        checkOut:
+          type: string
+          example: "11:00 AM"
+        amenities:
+          type: array
+          items:
+            type: string
+          example:
+            - "WiFi"
+            - "Air Conditioning"
+            - "Pool"
+        # For product items
+        productName:
+          type: string
+          example: "T-Shirt"
+        productCategory:
+          type: string
+          example: "Clothing"
+        productDescription:
+          type: string
+          example: "Comfortable cotton t-shirt"
+        productPrice:
+          type: number
+          example: 25.99
+        variants:
+          type: array
+          items:
+            type: object
+            properties:
+              variantName:
+                type: string
+                example: "Medium"
+              size:
+                type: string
+                example: "M"
+              color:
+                type: string
+                example: "Red"
+              productPrice:
+                type: number
+                example: 29.99
+              nonReturnable:
+                type: boolean
+                example: false
 
     PartnerBusiness:
       type: object
@@ -2619,9 +2590,178 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
-              $ref: "#/components/schemas/Items"
+              type: object
+              properties:
+                itemType:
+                  type: string
+                  description: The type of the item (food, room, product)
+                  enum:
+                    - food
+                    - room
+                    - product
+                  example: food
+                businessId:
+                  type: string
+                  description: The ID of the associated business (ObjectId)
+                  example: 60d0fe4f5311236168a109ca
+                businessTypeId:
+                  type: string
+                  description: The ID of the associated business type (ObjectId)
+                  example: 66db3c19490360a26a552adb
+                available:
+                  type: boolean
+                  description: Availability status of the item
+                  default: true
+                # Fields for food items
+                dishName:
+                  type: string
+                  description: Name of the dish (food items only)
+                  example: Pizza
+                dishDescription:
+                  type: string
+                  description: Description of the dish (food items only)
+                  example: "Delicious pizza with extra cheese"
+                dishPrice:
+                  type: number
+                  description: Price of the dish (food items only)
+                  example: 10.99
+                dineInStatus:
+                  type: boolean
+                  description: Toggle for dine-in availability (food items only)
+                  default: false
+                operatingDetails[0][date]:
+                  type: string
+                  description: The date of operation (for food items)
+                  example: "2024-10-01"
+                operatingDetails[0][startTime]:
+                  type: string
+                  description: Start time for the food item operation
+                  example: "10:00 AM"
+                operatingDetails[0][endTime]:
+                  type: string
+                  description: End time for the food item operation
+                  example: "10:00 PM"
+                tableManagement[0][tableNumber]:
+                  type: string
+                  description: Table number for food item (dine-in only)
+                  example: "Table 1"
+                tableManagement[0][seatingCapacity]:
+                  type: number
+                  description: Seating capacity for the table
+                  example: 4
+
+                # Fields for room items
+                roomName:
+                  type: string
+                  description: Name of the room (room items only)
+                  example: "Deluxe Room"
+                roomType:
+                  type: string
+                  description: Type of the room (room items only)
+                  example: "Suite"
+                roomDescription:
+                  type: string
+                  description: Description of the room (room items only)
+                  example: "Spacious room with sea view"
+                roomPrice:
+                  type: number
+                  description: Price of the room (room items only)
+                  example: 150
+                roomTax:
+                  type: number
+                  description: Tax applicable for the room (room items only)
+                  example: 20
+                checkIn:
+                  type: string
+                  description: Check-in time (room items only)
+                  example: "2:00 PM"
+                checkOut:
+                  type: string
+                  description: Check-out time (room items only)
+                  example: "11:00 AM"
+                # Amenities as a flattened array
+                amenities[0]:
+                  type: string
+                  description: First amenity
+                  example: "WiFi"
+                amenities[1]:
+                  type: string
+                  description: Second amenity
+                  example: "Air Conditioning"
+                amenities[2]:
+                  type: string
+                  description: Third amenity
+                  example: "Pool"
+
+                # Fields for product items
+                productName:
+                  type: string
+                  description: Name of the product (product items only)
+                  example: "T-Shirt"
+                productCategory:
+                  type: string
+                  description: Category of the product (product items only)
+                  example: "Clothing"
+                productDescription:
+                  type: string
+                  description: Description of the product (product items only)
+                  example: "Comfortable cotton t-shirt"
+                productPrice:
+                  type: number
+                  description: Price of the product (product items only)
+                  example: 25.99
+                variants[0][variantName]:
+                  type: string
+                  description: Name of the variant (e.g., Small, Medium, Large)
+                  example: "Medium"
+                variants[0][size]:
+                  type: string
+                  description: Size of the variant
+                  example: "M"
+                variants[0][color]:
+                  type: string
+                  description: Color of the variant
+                  example: "Red"
+                variants[0][productPrice]:
+                  type: number
+                  description: Price of the variant
+                  example: 29.99
+                variants[0][nonReturnable]:
+                  type: boolean
+                  description: Indicates if the variant is non-returnable
+                  default: false
+                variants[1][variantName]:
+                  type: string
+                  description: Name of the second variant (e.g., Large)
+                  example: "Large"
+                variants[1][size]:
+                  type: string
+                  description: Size of the second variant
+                  example: "L"
+                variants[1][color]:
+                  type: string
+                  description: Color of the second variant
+                  example: "Blue"
+                variants[1][productPrice]:
+                  type: number
+                  description: Price of the second variant
+                  example: 35.99
+                variants[1][nonReturnable]:
+                  type: boolean
+                  description: Indicates if the second variant is non-returnable
+                  default: true
+
+                # Image upload
+                images:
+                  type: array
+                  description: Images for the item
+                  items:
+                    type: string
+                    format: binary
+                  example: []
+
       responses:
         "201":
           description: Item created successfully
@@ -2672,9 +2812,178 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
-              $ref: "#/components/schemas/Items"
+              type: object
+              properties:
+                itemType:
+                  type: string
+                  description: The type of the item (food, room, product)
+                  enum:
+                    - food
+                    - room
+                    - product
+                  example: food
+                businessId:
+                  type: string
+                  description: The ID of the associated business (ObjectId)
+                  example: 60d0fe4f5311236168a109ca
+                businessTypeId:
+                  type: string
+                  description: The ID of the associated business type (ObjectId)
+                  example: 66db3c19490360a26a552adb
+                available:
+                  type: boolean
+                  description: Availability status of the item
+                  default: true
+                # Fields for food items
+                dishName:
+                  type: string
+                  description: Name of the dish (food items only)
+                  example: Pizza
+                dishDescription:
+                  type: string
+                  description: Description of the dish (food items only)
+                  example: "Delicious pizza with extra cheese"
+                dishPrice:
+                  type: number
+                  description: Price of the dish (food items only)
+                  example: 10.99
+                dineInStatus:
+                  type: boolean
+                  description: Toggle for dine-in availability (food items only)
+                  default: false
+                operatingDetails[0][date]:
+                  type: string
+                  description: The date of operation (for food items)
+                  example: "2024-10-01"
+                operatingDetails[0][startTime]:
+                  type: string
+                  description: Start time for the food item operation
+                  example: "10:00 AM"
+                operatingDetails[0][endTime]:
+                  type: string
+                  description: End time for the food item operation
+                  example: "10:00 PM"
+                tableManagement[0][tableNumber]:
+                  type: string
+                  description: Table number for food item (dine-in only)
+                  example: "Table 1"
+                tableManagement[0][seatingCapacity]:
+                  type: number
+                  description: Seating capacity for the table
+                  example: 4
+
+                # Fields for room items
+                roomName:
+                  type: string
+                  description: Name of the room (room items only)
+                  example: "Deluxe Room"
+                roomType:
+                  type: string
+                  description: Type of the room (room items only)
+                  example: "Suite"
+                roomDescription:
+                  type: string
+                  description: Description of the room (room items only)
+                  example: "Spacious room with sea view"
+                roomPrice:
+                  type: number
+                  description: Price of the room (room items only)
+                  example: 150
+                roomTax:
+                  type: number
+                  description: Tax applicable for the room (room items only)
+                  example: 20
+                checkIn:
+                  type: string
+                  description: Check-in time (room items only)
+                  example: "2:00 PM"
+                checkOut:
+                  type: string
+                  description: Check-out time (room items only)
+                  example: "11:00 AM"
+                # Amenities as a flattened array
+                amenities[0]:
+                  type: string
+                  description: First amenity
+                  example: "WiFi"
+                amenities[1]:
+                  type: string
+                  description: Second amenity
+                  example: "Air Conditioning"
+                amenities[2]:
+                  type: string
+                  description: Third amenity
+                  example: "Pool"
+
+                # Fields for product items
+                productName:
+                  type: string
+                  description: Name of the product (product items only)
+                  example: "T-Shirt"
+                productCategory:
+                  type: string
+                  description: Category of the product (product items only)
+                  example: "Clothing"
+                productDescription:
+                  type: string
+                  description: Description of the product (product items only)
+                  example: "Comfortable cotton t-shirt"
+                productPrice:
+                  type: number
+                  description: Price of the product (product items only)
+                  example: 25.99
+                variants[0][variantName]:
+                  type: string
+                  description: Name of the variant (e.g., Small, Medium, Large)
+                  example: "Medium"
+                variants[0][size]:
+                  type: string
+                  description: Size of the variant
+                  example: "M"
+                variants[0][color]:
+                  type: string
+                  description: Color of the variant
+                  example: "Red"
+                variants[0][productPrice]:
+                  type: number
+                  description: Price of the variant
+                  example: 29.99
+                variants[0][nonReturnable]:
+                  type: boolean
+                  description: Indicates if the variant is non-returnable
+                  default: false
+                variants[1][variantName]:
+                  type: string
+                  description: Name of the second variant (e.g., Large)
+                  example: "Large"
+                variants[1][size]:
+                  type: string
+                  description: Size of the second variant
+                  example: "L"
+                variants[1][color]:
+                  type: string
+                  description: Color of the second variant
+                  example: "Blue"
+                variants[1][productPrice]:
+                  type: number
+                  description: Price of the second variant
+                  example: 35.99
+                variants[1][nonReturnable]:
+                  type: boolean
+                  description: Indicates if the second variant is non-returnable
+                  default: true
+
+                # Image upload
+                images:
+                  type: array
+                  description: Images for the item
+                  items:
+                    type: string
+                    format: binary
+                  example: []
+
       responses:
         "200":
           description: Item updated successfully

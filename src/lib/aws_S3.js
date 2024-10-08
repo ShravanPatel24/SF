@@ -114,15 +114,15 @@ const uploadDocuments = async (files, path, mineType, download) => {
                 location: data.Location,
                 fieldname: file.fieldname,
             };
+            
             if (download) {
                 // Generate a pre-signed URL for downloading the uploaded file
                 const oneWeekInSeconds = 60 * 60 * 24 * 7; // One week in seconds
-
                 const downloadParams = {
                     Bucket: data.Bucket,
                     Key: data.Key,
                     Expires: oneWeekInSeconds,
-                    ResponseContentDisposition: 'attachment', // URL will expire in 1 Week (adjust as needed)
+                    ResponseContentDisposition: 'attachment',
                 };
                 const downloadUrl = s3.getSignedUrl('getObject', downloadParams);
                 response.downloadUrl = downloadUrl;
@@ -130,7 +130,7 @@ const uploadDocuments = async (files, path, mineType, download) => {
 
             return response;
         } catch (err) {
-            console.log(err);
+            console.log('Error uploading file:', err);
             return null;
         }
     });
@@ -140,7 +140,7 @@ const uploadDocuments = async (files, path, mineType, download) => {
         console.log('All files uploaded');
         return responseData.filter((response) => response !== null);
     } catch (err) {
-        console.log(err);
+        console.log('Error during file uploads:', err);
         return [];
     }
 };

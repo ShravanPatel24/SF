@@ -296,7 +296,12 @@ const updateUserById = async (_id, updateBody, files) => {
       return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_PHONE_ALREADY_EXISTS };
     }
 
-    // Handle the assignment of updateBody fields
+    // Only update countryCode if provided in the request body
+    if (updateBody.countryCode) {
+      user.countryCode = updateBody.countryCode;
+    }
+
+    // Handle the assignment of other updateBody fields
     Object.assign(user, {
       ...updateBody,
       email: updateBody.email || user.email,
@@ -312,12 +317,10 @@ const updateUserById = async (_id, updateBody, files) => {
       user.socialMediaLinks = updateBody.socialMediaLinks;
     }
 
-    // Upload images: profile photo
     await handleImageUploads(user, files);
-
     await user.save();
 
-    // Handle activation email
+    // Handle activation email if status changes
     if (previousStatus === 0 && user.status === 1) {
       await mailFunctions.sendActivationEmail(user.email, user.name);
     }
