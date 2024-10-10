@@ -1,4 +1,4 @@
-const { UserModel, BusinessTypeModel, FollowModel } = require("../models");
+const { UserModel, BusinessTypeModel, FollowModel, FollowRequestModel } = require("../models");
 const CONSTANTS = require("../config/constant");
 const Token = require("../models/token.model");
 const { tokenTypes } = require("../config/tokens");
@@ -383,7 +383,7 @@ const handleServiceError = (error) => {
  * @returns {Promise<user>}
  */
 const deleteUserById = async (userId) => {
-  const user = await getUserById(userId);
+  const { user } = await getUserById(userId);
   if (!user) { return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.USER_NOT_FOUND } }
   user.isDelete = 0;
   await user.save();
@@ -442,7 +442,7 @@ const loginUserWithEmailOrPhoneAndPassword = async (emailOrPhone, password, type
     const device = req.headers['user-agent'] || 'Unknown Device';
     const time = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
     const ipAddress = req.ip;
-    mailFunctions.sendLoginNotificationEmail(user.email, device, time, ipAddress);
+    // mailFunctions.sendLoginNotificationEmail(user.email, device, time, ipAddress);
 
     return { data: { user, tokens }, code: CONSTANTS.SUCCESS, message: CONSTANTS.LOGIN_SUCCESS };
   } catch (error) {
@@ -683,22 +683,14 @@ const followUser = async (followerId, followingId) => {
   try {
     if (followerId.toString() === followingId.toString()) { return { code: 400, message: CONSTANTS.FOLLOW_YOURSELF } }
     const followingUser = await UserModel.findById(followingId);
-    // Check if the following user is a partner
     if (!followingUser) { return { code: 404, message: CONSTANTS.USER_NOT_FOUND } }
 
-    if (followingUser.type === "partner") { return { code: 400, message: CONSTANTS.FOLLOW_PARTNER_ERROR } }
+    const existingRequest = await FollowRequestModel.findOne({ follower: followerId, following: followingId });
+    if (existingRequest) { return { code: 400, message: CONSTANTS.ALREADY_REQUESTED } }
 
-    const existingFollow = await FollowModel.findOne({ follower: followerId, following: followingId });
-    if (existingFollow) { return { code: 400, message: CONSTANTS.ALREADY_FOLLOWING } }
-
-    // Create the follow relationship
-    const follow = new FollowModel({ follower: followerId, following: followingId });
-    await follow.save();
-
-    // Increment follower and following counts
-    await UserModel.findByIdAndUpdate(followerId, { $inc: { followingCount: 1 } });
-    await UserModel.findByIdAndUpdate(followingId, { $inc: { followerCount: 1 } });
-    return { code: 200, message: CONSTANTS.FOLLOWED_SUCCESS };
+    const followRequest = new FollowRequestModel({ follower: followerId, following: followingId });
+    await followRequest.save();
+    return { code: 200, message: CONSTANTS.FOLLOW_REQUEST_SENT };
   } catch (error) {
     console.error("Error in followUser:", error);
     return { code: 500, message: CONSTANTS.INTERNAL_SERVER_ERROR };
@@ -714,9 +706,7 @@ const followUser = async (followerId, followingId) => {
 const unfollowUser = async (followerId, followingId) => {
   try {
     const followRecord = await FollowModel.findOneAndDelete({ follower: followerId, following: followingId });
-    if (!followRecord) {
-      return { code: 400, message: CONSTANTS.NOT_FOLLOWING_USER };
-    }
+    if (!followRecord) { return { code: 400, message: CONSTANTS.NOT_FOLLOWING_USER } }
 
     // Decrement following and follower counts
     await UserModel.findByIdAndUpdate(followerId, { $inc: { followingCount: -1 } });

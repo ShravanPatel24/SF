@@ -26,7 +26,4 @@ router.patch('/:itemId', userAuth(), validate(itemsValidation.updateItem), items
 
 router.delete('/:itemId', userAuth(), validate(itemsValidation.deleteItem), itemsController.deleteItem);
 
-// Update operating details
-router.put('/update-operating-details/:itemId', itemsController.updateOperatingDetails);
-
 module.exports = router;

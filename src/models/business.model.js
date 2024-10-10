@@ -41,6 +41,7 @@ const businessSchema = new mongoose.Schema(
             example: "+1"
         },
         mobile: { type: String, required: true },
+        fullPhoneNumber: { type: String },
         email: { type: String, required: true },
         businessAddress: { type: addressSchema, required: true },
         openingDays: [{ type: String, required: true }],
@@ -66,15 +67,34 @@ const businessSchema = new mongoose.Schema(
         bannerImages: [{ type: String }],
         galleryImages: [{ type: String }],
         status: { type: Number, default: 1 },
+
+        // fields for dine-in functionality
+        dineInStatus: { type: Boolean, default: false },
+        operatingDetails: [{
+            date: { type: String },
+            startTime: { type: String },
+            endTime: { type: String }
+        }],
+        tableManagement: [{
+            tableNumber: { type: String },
+            seatingCapacity: { type: Number }
+        }],
     },
     {
         timestamps: true
     }
 );
 
+// Pre-save hook to concatenate the country code and mobile number into a full phone number
 businessSchema.pre("save", function (next) {
-    const fullPhoneNumber = `${this.countryCode}${this.mobile}`;
-    console.log(`Full phone number: ${fullPhoneNumber}`);
+    this.fullPhoneNumber = `${this.countryCode}${this.mobile}`;
+
+    // Ensure `operatingDetails` and `tableManagement` are only included when `dineInStatus` is true
+    if (!this.dineInStatus) {
+        this.operatingDetails = [];
+        this.tableManagement = [];
+    }
+
     next();
 });
 

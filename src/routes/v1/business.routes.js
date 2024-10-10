@@ -14,6 +14,9 @@ router.get('/near', userAuth(), validate(businessValidation.getBusinessesNearUse
 // Partner's business routes
 router.get('/partner/:partnerId', userAuth(), validate(businessValidation.getBusinessByPartnerId), businessController.getBusinessesForPartner);
 
+// Route to get businesses by businessTypeId
+router.get('/type/:businessTypeId', userAuth(), businessController.getBusinessesByType);
+
 // Business routes with businessId
 router
     .route('/:businessId')

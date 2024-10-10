@@ -127,6 +127,7 @@ module.exports = {
     LIST: 'List retrieved successfully.',
     DETAILS: 'Details retrieved successfully.',
     STATUS: 'Status updated successfully.',
+    NOTFOUNT: 'Details not amount successfully.',
 
     // FOLLOW-UNFOLLOW USER
     FOLLOW_YOURSELF: 'You cannot follow yourself.',
@@ -135,6 +136,22 @@ module.exports = {
     FOLLOWED_SUCCESS: 'Followed successfully.',
     UNFOLLOWED_SUCCESS: 'Unfollowed successfully.',
     NOT_FOLLOWING_USER: 'You are not following this user.',
+    FOLLOW_REQUEST_SENT: 'Follow request sent.',
+    ALREADY_REQUESTED: 'You have already sent a follow request.',
+    FOLLOW_REQUEST_APPROVED: 'Follow request approved and user followed.',
+    FOLLOW_REQUEST_REJECTED: 'Follow request rejected.',
+    FOLLOW_ERROR: 'Follow request not found or already processed.',
+
+    // POSTS
+    ALREADY_LIKED_POST: "User already liked this post.",
+    NOT_LIKED_POST: "User has not liked this post.",
+    LIKE_SUCCESS: "Post liked successfully.",
+    UNLIKE_SUCCESS: "Post unliked successfully.",
+    COMMENT_SUCCESS: "Comment added successfully.",
+    COMMENT_DELETED: "Comment deleted successfully.",
+    COMMENT_TEXT_REQUIRED: "Comment text is required.",
+    IMAGE_REQUIRED: "Images are required for this post type.",
+    VIDEO_REQUIRED: "Video is required for this post type.",
 
     // ITEMS
     ITEM_CREATED: 'Item created successfully.',

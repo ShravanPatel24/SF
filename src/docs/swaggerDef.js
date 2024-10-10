@@ -4,7 +4,7 @@ const config = require("../config/config");
 const swaggerDef = {
     openapi: "3.0.0",
     info: {
-        title: "Social Feeds & NearBy",
+        title: "Ocean",
         version,
         // license: {
         //     name: 'MIT',

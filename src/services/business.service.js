@@ -2,7 +2,7 @@ const { BusinessModel, UserModel, BusinessTypeModel } = require("../models");
 const CONSTANTS = require("../config/constant");
 const awsS3Service = require("../lib/aws_S3");
 
-const createBusinessForPartner = async (partnerId, businessName, businessType, businessDescription, countryCode, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImages, galleryImages
+const createBusinessForPartner = async (partnerId, businessName, businessType, businessDescription, countryCode, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImages, galleryImages, dineInStatus, operatingDetails, tableManagement
 ) => {
     const partner = await UserModel.findById(partnerId);
     if (!partner || partner.type !== "partner") { throw new Error(CONSTANTS.PARTNER_NOT_FOUND_MSG); }
@@ -12,7 +12,7 @@ const createBusinessForPartner = async (partnerId, businessName, businessType, b
     if (!validBusinessType) { throw new Error(CONSTANTS.INVALID_BUSINESS_TYPE); }
 
     const business = new BusinessModel({
-        businessName, partner: partnerId, businessType, businessDescription, countryCode, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImages, galleryImages
+        businessName, partner: partnerId, businessType, businessDescription, countryCode, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImages, galleryImages, dineInStatus, operatingDetails, tableManagement
     });
 
     await business.save();
@@ -44,21 +44,44 @@ const getBusinessesForPartner = async (partnerId) => {
     return businesses;
 };
 
-const queryBusinesses = async (partnerId, options) => {
+const queryBusinesses = async (partnerId, options, page = 1, limit = 10) => {
     const partner = await UserModel.findById(partnerId);
-    if (!partner || partner.type !== "partner") { throw new Error(CONSTANTS.PARTNER_NOT_FOUND_MSG) }
-    const { page = 1, limit = 10, sortBy, searchBy, businessType } = options;
+    if (!partner || partner.type !== "partner") { throw new Error(CONSTANTS.PARTNER_NOT_FOUND_MSG); }
+
+    const { sortBy, searchBy, businessType } = options;
     let query = { partner: partnerId };
 
-    if (businessType) { query.businessType = businessType }
-    if (searchBy) { query.businessName = { $regex: searchBy, $options: "i" } }
+    if (businessType) { query.businessType = businessType; }
+    if (searchBy) { query.businessName = { $regex: searchBy, $options: "i" }; }
 
+    // Use paginate method for pagination
     const businesses = await BusinessModel.paginate(query, {
         page,
         limit,
         sort: { createdAt: sortBy === "desc" ? -1 : 1 },
         populate: [
             { path: "businessType", select: "businessType _id" },
+            { path: "partner", select: "name _id" },
+        ],
+    });
+    return businesses;
+};
+
+const getBusinessesByType = async (businessTypeId, page = 1, limit = 10, searchBy = '', sortBy = 'createdAt') => {
+    const query = { businessType: businessTypeId };
+    if (searchBy) { query.businessName = { $regex: searchBy, $options: 'i' } }
+    const sortOptions = {};
+    if (sortBy === 'createdAt' || sortBy === 'updatedAt' || sortBy === 'businessName') {
+        sortOptions[sortBy] = -1; // Sort descending by default
+    } else {
+        sortOptions['createdAt'] = -1; // Default fallback sorting
+    }
+    const businesses = await BusinessModel.paginate(query, {
+        page,
+        limit,
+        sort: sortOptions, // Apply sorting
+        populate: [
+            { path: "businessType", select: "name isProduct" },
             { path: "partner", select: "name _id" },
         ],
     });
@@ -87,6 +110,9 @@ const updateBusinessById = async (businessId, updateBody, files) => {
         daywiseTimings,
         bannerImages,
         galleryImages,
+        dineInStatus,
+        operatingDetails,
+        tableManagement
     } = updateBody;
 
     const business = await BusinessModel.findById(businessId);
@@ -114,6 +140,9 @@ const updateBusinessById = async (businessId, updateBody, files) => {
     business.daywiseTimings = daywiseTimings || business.daywiseTimings;
     business.bannerImages = bannerImageUrls || business.bannerImages;
     business.galleryImages = galleryImageUrls || business.galleryImages;
+    business.dineInStatus = dineInStatus !== undefined ? dineInStatus : business.dineInStatus;
+    business.operatingDetails = operatingDetails || business.operatingDetails;
+    business.tableManagement = tableManagement || business.tableManagement;
 
     await business.save();
     return business;
@@ -125,15 +154,8 @@ const uploadBusinessImages = async (files, folderName, existingImages = []) => {
     if (files && files.length > 0) {
         const uploadResults = await awsS3Service.uploadDocuments(files, folderName);
         imageUrls = uploadResults.map((upload) => upload.location);
-
-        // Log the uploaded image URLs for debugging
-        console.log(`Uploaded ${folderName} Image URLs:`, imageUrls);
     }
-
-    if (existingImages && existingImages.length > 0) {
-        imageUrls = [...imageUrls, ...existingImages];
-    }
-
+    if (existingImages && existingImages.length > 0) { imageUrls = [...imageUrls, ...existingImages] }
     return imageUrls;
 };
 
@@ -160,19 +182,48 @@ const deleteBusinessById = async (businessId) => {
     await BusinessModel.findByIdAndDelete(businessId);
 };
 
-const findBusinessesNearUser = async (userLatitude, userLongitude, radiusInKm) => {
-    const businesses = await BusinessModel.find({
-        "businessAddress.location": {
-            $near: {
-                $geometry: {
+const findBusinessesNearUser = async (latitude, longitude, radiusInKm, page = 1, limit = 10) => {
+    const radiusInMeters = radiusInKm * 1000; // Convert km to meters
+    const businesses = await BusinessModel.aggregate([
+        {
+            $geoNear: {
+                near: {
                     type: "Point",
-                    coordinates: [userLongitude, userLatitude],
+                    coordinates: [longitude, latitude], // [longitude, latitude]
                 },
-                $maxDistance: radiusInKm * 1000,
-            },
+                distanceField: "distance", // This will add a field called `distance` to each document
+                maxDistance: radiusInMeters, // Maximum distance in meters
+                spherical: true, // For spherical coordinates
+            }
         },
+        {
+            $skip: (page - 1) * limit // Skip the documents for pagination
+        },
+        {
+            $limit: limit // Limit the number of documents per page
+        }
+    ]);
+    // Get total number of businesses matching the geospatial query
+    const totalDocs = await BusinessModel.countDocuments({
+        "businessAddress.location": {
+            $geoWithin: {
+                $centerSphere: [[longitude, latitude], radiusInKm / 6378.1] // Radius in kilometers converted for spherical calculation
+            }
+        }
     });
-    return businesses;
+    const totalPages = Math.ceil(totalDocs / limit);
+    return {
+        docs: businesses,
+        totalDocs,
+        limit,
+        totalPages,
+        page,
+        pagingCounter: (page - 1) * limit + 1,
+        hasPrevPage: page > 1,
+        hasNextPage: page * limit < totalDocs,
+        prevPage: page > 1 ? page - 1 : null,
+        nextPage: page * limit < totalDocs ? page + 1 : null,
+    };
 };
 
 module.exports = {
@@ -180,6 +231,7 @@ module.exports = {
     getBusinessById,
     getBusinessesForPartner,
     queryBusinesses,
+    getBusinessesByType,
     updateBusinessById,
     uploadBusinessImages,
     deleteBusinessById,

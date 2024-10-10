@@ -46,5 +46,12 @@ router.patch('/update-phone', userController.updateUserPhone);
 router.get('/lists', userAuth(), userController.getUserListsToFollow);
 router.post('/follow/:followingId', userAuth('followUser'), userController.followUser);
 router.post('/unfollow/:followingId', userAuth('unfollowUser'), userController.unfollowUser);
+router.get('/:userId/followers', userAuth(), userController.getFollowers);
+router.get('/:userId/following', userAuth(), userController.getFollowing);
+
+// Follow Request Approval and Rejection Routes
+router.get('/follow-requests', userAuth(), userController.getFollowRequests);
+router.post('/follow-requests/:requestId/approve', userAuth('approveFollowRequest'), userController.approveFollowRequest);
+router.post('/follow-requests/:requestId/reject', userAuth('rejectFollowRequest'), userController.rejectFollowRequest);
 
 module.exports = router;

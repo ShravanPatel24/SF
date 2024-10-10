@@ -56,8 +56,22 @@ const create = {
             then: Joi.array().min(1).required(),
             otherwise: Joi.forbidden(),
         }),
-        bannerImages: Joi.array().items(Joi.string()).optional(),
-        galleryImages: Joi.array().items(Joi.string()).optional(),
+
+        // Dine-in specific fields
+        dineInStatus: Joi.boolean().optional(), // Boolean flag to check if dine-in is available
+        operatingDetails: Joi.array().items(
+            Joi.object({
+                date: Joi.string().required(),
+                startTime: Joi.string().required(),
+                endTime: Joi.string().required(),
+            })
+        ).optional().when('dineInStatus', { is: true, then: Joi.required() }),
+        tableManagement: Joi.array().items(
+            Joi.object({
+                tableNumber: Joi.string().required(),
+                seatingCapacity: Joi.number().required(),
+            })
+        ).optional().when('dineInStatus', { is: true, then: Joi.required() }),
     }),
 };
 
@@ -108,6 +122,22 @@ const update = {
             }),
             bannerImages: Joi.array().items(Joi.string()).optional(),
             galleryImages: Joi.array().items(Joi.string()).optional(),
+
+            // Dine-in specific fields
+            dineInStatus: Joi.boolean().optional(), // Boolean flag to check if dine-in is available
+            operatingDetails: Joi.array().items(
+                Joi.object({
+                    date: Joi.string().optional(),
+                    startTime: Joi.string().optional(),
+                    endTime: Joi.string().optional(),
+                })
+            ).optional().when('dineInStatus', { is: true, then: Joi.required() }),
+            tableManagement: Joi.array().items(
+                Joi.object({
+                    tableNumber: Joi.string().optional(),
+                    seatingCapacity: Joi.number().optional(),
+                })
+            ).optional().when('dineInStatus', { is: true, then: Joi.required() }),
         })
         .min(1),
 };
@@ -144,6 +174,20 @@ const getBusinessesNearUser = {
             .messages({
                 'any.required': 'Radius is required',
                 'number.min': 'Radius must be greater than or equal to 0',
+            }),
+        page: Joi.number()
+            .integer()
+            .min(1)
+            .optional()
+            .messages({
+                'number.min': 'Page number must be at least 1',
+            }),
+        limit: Joi.number()
+            .integer()
+            .min(1)
+            .optional()
+            .messages({
+                'number.min': 'Limit must be at least 1',
             }),
     }),
 };

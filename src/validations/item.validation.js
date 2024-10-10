@@ -13,24 +13,11 @@ const createItem = {
         available: Joi.boolean().optional(),
         images: Joi.array().items(Joi.string()).optional(), // Optional images for all item types
 
-        // Specific fields for food items
+        // Specific fields for food items (without dine-in details)
         dishName: Joi.string().when('itemType', { is: 'food', then: Joi.required() }),
         dishDescription: Joi.string().when('itemType', { is: 'food', then: Joi.required() }),
         dishPrice: Joi.number().when('itemType', { is: 'food', then: Joi.required() }),
-        dineInStatus: Joi.boolean().when('itemType', { is: 'food', then: Joi.optional() }),
-        operatingDetails: Joi.array().items(
-            Joi.object({
-                date: Joi.string().required(),
-                startTime: Joi.string().required(),
-                endTime: Joi.string().required(),
-            })
-        ).when('itemType', { is: 'food', then: Joi.optional() }),
-        tableManagement: Joi.array().items(
-            Joi.object({
-                tableNumber: Joi.string().required(),
-                seatingCapacity: Joi.number().required(),
-            })
-        ).when('itemType', { is: 'food', then: Joi.optional() }),
+        foodDeliveryCharge: Joi.number().when('itemType', { is: 'food', then: Joi.required() }),
 
         // Specific fields for room items
         roomName: Joi.string().when('itemType', { is: 'room', then: Joi.required() }),
@@ -47,6 +34,9 @@ const createItem = {
         productCategory: Joi.string().when('itemType', { is: 'product', then: Joi.optional() }),
         productDescription: Joi.string().when('itemType', { is: 'product', then: Joi.required() }),
         productPrice: Joi.number().when('itemType', { is: 'product', then: Joi.required() }),
+        productDeliveryCharge: Joi.number().when('itemType', {
+            is: 'product', then: Joi.required()
+        }),
         size: Joi.array().items(Joi.string()).when('itemType', { is: 'product', then: Joi.optional() }),
         color: Joi.array().items(Joi.string()).when('itemType', { is: 'product', then: Joi.optional() }),
         nonReturnable: Joi.boolean().when('itemType', { is: 'product', then: Joi.optional() }),
@@ -94,24 +84,11 @@ const updateItem = {
             available: Joi.boolean().optional(),
             images: Joi.array().items(Joi.string()).optional(),
 
-            // Fields specific to food
+            // Fields specific to food (without dine-in details)
             dishName: Joi.string().optional(),
             dishDescription: Joi.string().optional(),
             dishPrice: Joi.number().optional(),
-            dineInStatus: Joi.boolean().optional(),
-            operatingDetails: Joi.array().items(
-                Joi.object({
-                    date: Joi.string().optional(),
-                    startTime: Joi.string().optional(),
-                    endTime: Joi.string().optional(),
-                })
-            ).optional(),
-            tableManagement: Joi.array().items(
-                Joi.object({
-                    tableNumber: Joi.string().optional(),
-                    seatingCapacity: Joi.number().optional(),
-                })
-            ).optional(),
+            foodDeliveryCharge: Joi.number().optional(),
 
             // Fields specific to rooms
             roomName: Joi.string().optional(),
@@ -128,6 +105,7 @@ const updateItem = {
             productCategory: Joi.string().optional(),
             productDescription: Joi.string().optional(),
             productPrice: Joi.number().optional(),
+            productDeliveryCharge: Joi.number().optional(),
             size: Joi.array().items(Joi.string()).optional(),
             color: Joi.array().items(Joi.string()).optional(),
             nonReturnable: Joi.boolean().optional(),
@@ -143,6 +121,7 @@ const updateItem = {
         })
         .min(1),
 };
+
 
 const deleteItem = {
     params: Joi.object().keys({

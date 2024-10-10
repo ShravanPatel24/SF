@@ -8,6 +8,10 @@ const createPost = {
             'string.empty': 'Caption cannot be empty.',
             'string.max': 'Caption cannot exceed 500 characters.'
         }),
+        type: Joi.string().valid('photo', 'reel', 'story').required().messages({
+            'any.only': 'Type must be either photo, reel, or story.',
+            'any.required': 'Type is required.',
+        }),
         likes: Joi.number().optional().default(0).messages({
             'number.base': 'Likes must be a number.',
         }),
@@ -32,6 +36,7 @@ const getPosts = {
         sortBy: Joi.string().valid('createdAt', 'likes', 'comments').optional(),
         limit: Joi.number().integer().optional(),
         page: Joi.number().integer().optional(),
+        search: Joi.string().optional(),
     }),
 };
 
@@ -41,6 +46,24 @@ const getPost = {
         id: Joi.string().custom(objectId).required().messages({
             'string.empty': 'Post ID is required.',
             'any.required': 'Post ID is required.',
+        }),
+    }),
+};
+
+// Validation for getting a single post by User ID
+const getPostsByUserId = {
+    params: Joi.object().keys({
+        userId: Joi.string().custom(objectId).required().messages({
+            'string.empty': 'User ID is required.',
+            'any.required': 'User ID is required.',
+        }),
+    }),
+    query: Joi.object().keys({
+        sortBy: Joi.string().valid('createdAt', 'likes', 'comments').optional(),
+        limit: Joi.number().integer().optional(),
+        page: Joi.number().integer().optional(),
+        search: Joi.string().min(3).optional().messages({
+            'string.min': 'Search query must be at least 3 characters long.'
         }),
     }),
 };
@@ -77,6 +100,7 @@ module.exports = {
     createPost,
     getPosts,
     getPost,
+    getPostsByUserId,
     updatePost,
     deletePost,
 };

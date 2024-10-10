@@ -69,23 +69,6 @@ const updateItem = catchAsync(async (req, res) => {
     }
 });
 
-// Update operating details (Dine In Status, Operating Date & Hours, Table Management)
-const updateOperatingDetails = catchAsync(async (req, res) => {
-    const { itemId } = req.params;
-    const { dineInStatus, operatingDetails, tableManagement } = req.body;
-    try {
-        let updateData = {
-            dineInStatus: dineInStatus || false,
-            operatingDetails: dineInStatus ? operatingDetails : [],
-            tableManagement: dineInStatus ? tableManagement : []
-        };
-        const updatedItem = await ItemService.updateItemById(itemId, updateData);
-        res.status(200).json({ message: CONSTANTS.OPERATING_DETAIL_UPDATED, updatedItem });
-    } catch (error) {
-        res.status(400).json({ message: error.message });
-    }
-});
-
 // Delete an item
 const deleteItem = catchAsync(async (req, res) => {
     const { itemId } = req.params;
@@ -103,6 +86,5 @@ module.exports = {
     getItemsByBusiness,
     getItemsByBusinessType,
     updateItem,
-    updateOperatingDetails,
     deleteItem,
 };

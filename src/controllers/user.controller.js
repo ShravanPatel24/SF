@@ -1,5 +1,5 @@
 const catchAsync = require("../utils/catchAsync");
-const { FollowModel } = require("../models");
+const { FollowRequestModel, FollowModel, UserModel } = require("../models");
 const pick = require("../utils/pick");
 const { UserService, tokenService } = require("../services");
 const CONSTANTS = require("../config/constant");
@@ -194,7 +194,7 @@ const updateById = catchAsync(async (req, res) => {
   if (data.emailUpdated) updateMessages.push("Email update pending verification. OTP sent to the new email address.");
 
   const message = updateMessages.length ? updateMessages.join(" ") : "Profile updated successfully.";
-  res.send({ data, message });
+  res.send({ data: data.data, message });
 });
 
 const deleteById = catchAsync(async (req, res) => {
@@ -221,8 +221,160 @@ const followUser = catchAsync(async (req, res) => {
 const unfollowUser = catchAsync(async (req, res) => {
   const { followingId } = req.params;
   const followerId = req.user._id;
-  const result = await UserService.unfollowUser(followerId, followingId);
-  return res.status(result.code).send({ message: result.message });
+  const followRecord = await FollowModel.findOneAndDelete({ follower: followerId, following: followingId });
+  if (!followRecord) { return res.status(400).send({ message: CONSTANTS.NOT_FOLLOWING_USER }) }
+  await UserModel.findByIdAndUpdate(followerId, { $inc: { followingCount: -1 } });
+  await UserModel.findByIdAndUpdate(followingId, { $inc: { followerCount: -1 } });
+  res.status(200).send({ message: CONSTANTS.UNFOLLOWED_SUCCESS });
+});
+
+// List of all pending requests of user
+const getFollowRequests = catchAsync(async (req, res) => {
+  const userId = req.user._id;
+  // Extract pagination and search params from query
+  const { page = 1, limit = 10, search = '', sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+  // Create filter for searching follower's name or email
+  const searchFilter = search
+    ? {
+      $or: [
+        { 'follower.name': { $regex: search, $options: 'i' } }, // Case-insensitive search
+        { 'follower.email': { $regex: search, $options: 'i' } },
+      ],
+    }
+    : {};
+
+  // Convert page and limit to numbers
+  const pageNumber = parseInt(page, 10);
+  const limitNumber = parseInt(limit, 10);
+  // Find follow requests with pagination, search, and sorting
+  const followRequests = await FollowRequestModel.find({
+    following: userId,
+    status: 'pending',
+    ...searchFilter,
+  })
+    .populate('follower', 'name email profilePhoto')
+    .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+    .skip((pageNumber - 1) * limitNumber)
+    .limit(limitNumber);
+  // Get total count of pending follow requests for pagination
+  const totalFollowRequests = await FollowRequestModel.countDocuments({
+    following: userId,
+    status: 'pending',
+    ...searchFilter,
+  });
+  const totalPages = Math.ceil(totalFollowRequests / limitNumber);
+  const hasPrevPage = pageNumber > 1;
+  const hasNextPage = pageNumber < totalPages;
+  res.status(200).send({
+    data: {
+      docs: followRequests,
+      totalDocs: totalFollowRequests,
+      limit: limitNumber,
+      totalPages,
+      page: pageNumber,
+      pagingCounter: (pageNumber - 1) * limitNumber + 1,
+      hasPrevPage,
+      hasNextPage,
+      prevPage: hasPrevPage ? pageNumber - 1 : null,
+      nextPage: hasNextPage ? pageNumber + 1 : null,
+    },
+    code: 200,
+    message: CONSTANTS.LIST,
+  });
+});
+
+const approveFollowRequest = catchAsync(async (req, res) => {
+  const { requestId } = req.params;
+  const userId = req.user._id;
+  const followRequest = await FollowRequestModel.findOne({ _id: requestId, following: userId, status: 'pending' });
+  if (!followRequest) { return res.status(404).send({ message: CONSTANTS.FOLLOW_ERROR }) }
+  followRequest.status = 'approved';
+  await followRequest.save();
+  const follow = new FollowModel({ follower: followRequest.follower, following: followRequest.following });
+  await follow.save();
+  await UserModel.findByIdAndUpdate(followRequest.follower, { $inc: { followingCount: 1 } });
+  await UserModel.findByIdAndUpdate(followRequest.following, { $inc: { followerCount: 1 } });
+  res.status(200).send({ message: CONSTANTS.FOLLOW_REQUEST_APPROVED });
+});
+
+const rejectFollowRequest = catchAsync(async (req, res) => {
+  const { requestId } = req.params;
+  const userId = req.user._id;
+  const followRequest = await FollowRequestModel.findOne({ _id: requestId, following: userId, status: 'pending' });
+  if (!followRequest) { return res.status(404).send({ message: CONSTANTS.FOLLOW_ERROR }) }
+  followRequest.status = 'rejected';
+  await followRequest.save();
+  res.status(200).send({ message: CONSTANTS.FOLLOW_REQUEST_REJECTED });
+});
+
+// List of all followers of user
+const getFollowers = catchAsync(async (req, res) => {
+  const { userId } = req.params;
+  const { page = 1, limit = 10, search = '' } = req.query;
+  const searchFilter = search
+    ? {
+      $or: [
+        { 'follower.name': { $regex: search, $options: 'i' } },
+        { 'follower.email': { $regex: search, $options: 'i' } }
+      ]
+    }
+    : {};
+  const followers = await FollowModel.find({ following: userId, ...searchFilter })
+    .populate('follower', 'name email profilePhoto')
+    .skip((page - 1) * limit)
+    .limit(parseInt(limit));
+  const totalFollowers = await FollowModel.countDocuments({ following: userId, ...searchFilter });
+  res.status(200).send({
+    data: {
+      docs: followers,
+      totalDocs: totalFollowers,
+      limit: parseInt(limit),
+      totalPages: Math.ceil(totalFollowers / limit),
+      page: parseInt(page),
+      pagingCounter: (page - 1) * limit + 1,
+      hasPrevPage: page > 1,
+      hasNextPage: page < Math.ceil(totalFollowers / limit),
+      prevPage: page > 1 ? page - 1 : null,
+      nextPage: page < Math.ceil(totalFollowers / limit) ? page + 1 : null
+    },
+    code: 200,
+    message: CONSTANTS.LIST
+  });
+});
+
+// List of all following of user
+const getFollowing = catchAsync(async (req, res) => {
+  const { userId } = req.params;
+  const { page = 1, limit = 10, search = '' } = req.query;
+  const searchFilter = search
+    ? {
+      $or: [
+        { 'following.name': { $regex: search, $options: 'i' } },
+        { 'following.email': { $regex: search, $options: 'i' } }
+      ]
+    }
+    : {};
+  const following = await FollowModel.find({ follower: userId, ...searchFilter })
+    .populate('following', 'name email profilePhoto')
+    .skip((page - 1) * limit)
+    .limit(parseInt(limit));
+  const totalFollowing = await FollowModel.countDocuments({ follower: userId, ...searchFilter });
+  res.status(200).send({
+    data: {
+      docs: following,
+      totalDocs: totalFollowing,
+      limit: parseInt(limit),
+      totalPages: Math.ceil(totalFollowing / limit),
+      page: parseInt(page),
+      pagingCounter: (page - 1) * limit + 1,
+      hasPrevPage: page > 1,
+      hasNextPage: page < Math.ceil(totalFollowing / limit),
+      prevPage: page > 1 ? page - 1 : null,
+      nextPage: page < Math.ceil(totalFollowing / limit) ? page + 1 : null
+    },
+    code: 200,
+    message: CONSTANTS.LIST
+  });
 });
 
 // Add or Update "About Us" for a partner
@@ -267,5 +419,10 @@ module.exports = {
   addOrUpdateAboutUs,
   followUser,
   unfollowUser,
+  getFollowRequests,
+  approveFollowRequest,
+  rejectFollowRequest,
+  getFollowers,
+  getFollowing,
   getAboutUs
 };

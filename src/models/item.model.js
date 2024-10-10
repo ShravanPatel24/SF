@@ -24,6 +24,7 @@ const itemSchema = new mongoose.Schema({
     dishName: { type: String },
     dishDescription: { type: String },
     dishPrice: { type: Number }, // Default price for food
+    foodDeliveryCharge: { type: Number },
     // Fields for rooms
     roomName: { type: String },
     roomType: { type: String },
@@ -37,34 +38,10 @@ const itemSchema = new mongoose.Schema({
     productName: { type: String },
     productCategory: { type: String },
     productDescription: { type: String },
+    productDeliveryCharge: { type: Number },
     variants: [variantSchema], // Use the variant schema here for multiple prices and variants
-    // New operating details for food items
-    dineInStatus: { type: Boolean, default: false },
-    operatingDetails: [{
-        date: { type: String },
-        startTime: { type: String },
-        endTime: { type: String }
-    }],
-    tableManagement: [{
-        tableNumber: { type: String },
-        seatingCapacity: { type: Number }
-    }],
 }, {
     timestamps: true
-});
-
-// Pre-save hook to handle dineInStatus logic
-itemSchema.pre('save', function (next) {
-    if (!this.dineInStatus) {
-        // If dineInStatus is false but operatingDetails or tableManagement are provided, throw an error
-        if (this.operatingDetails.length > 0 || this.tableManagement.length > 0) {
-            return next(new Error('Operating details and table management cannot be provided when dineInStatus is false.'));
-        }
-        // Clear these fields if dineInStatus is false
-        this.operatingDetails = [];
-        this.tableManagement = [];
-    }
-    next();
 });
 
 const Item = mongoose.model("Item", itemSchema);

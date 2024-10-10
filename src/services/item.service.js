@@ -4,7 +4,6 @@ const awsS3Service = require('../lib/aws_S3');
 // Create an item (Food, Room, or Product)
 const createItem = async (itemData, files) => {
     let imageUrls = [];
-
     // Handle image uploads for all item types
     if (files && files.images && files.images.length > 0) {
         const uploadResults = await awsS3Service.uploadDocuments(files.images, 'itemImages');
@@ -12,7 +11,6 @@ const createItem = async (itemData, files) => {
     } else if (itemData.images && itemData.images.length > 0) {
         imageUrls = itemData.images;
     }
-
     const item = {
         business: itemData.businessId,
         businessType: itemData.businessTypeId,
@@ -21,15 +19,12 @@ const createItem = async (itemData, files) => {
         available: itemData.available || true,
         category: itemData.category,
     };
-
     // Handle item-specific fields (food, room, product)
     if (itemData.itemType === 'food') {
         item.dishName = itemData.dishName;
         item.dishDescription = itemData.dishDescription;
         item.dishPrice = itemData.dishPrice;
-        item.dineInStatus = itemData.dineInStatus || false;
-        item.operatingDetails = item.dineInStatus ? itemData.operatingDetails : [];
-        item.tableManagement = item.dineInStatus ? itemData.tableManagement : [];
+        item.foodDeliveryCharge = itemData.foodDeliveryCharge;
     } else if (itemData.itemType === 'room') {
         item.roomName = itemData.roomName;
         item.roomDescription = itemData.roomDescription;
@@ -42,9 +37,9 @@ const createItem = async (itemData, files) => {
     } else if (itemData.itemType === 'product') {
         item.productName = itemData.productName;
         item.productDescription = itemData.productDescription;
+        item.productDeliveryCharge = itemData.productDeliveryCharge;
         item.variants = itemData.variants;
     }
-
     const newItem = new ItemModel(item);
     await newItem.save();
     return newItem;

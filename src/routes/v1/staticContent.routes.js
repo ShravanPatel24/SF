@@ -22,7 +22,7 @@ router
     .patch(adminAuth('updateStaticPageByID'), StaticContentController.updateStaticPageByID);
 
 router
-    .route('/page/:type')
+    .route('/page/:for/:type')
     .get(adminAuth('getStaticPages'), StaticContentController.getStaticPage)
     .patch(adminAuth('updateStaticPage'), StaticContentController.updateStaticPage);
 
