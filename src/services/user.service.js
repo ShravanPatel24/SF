@@ -12,6 +12,34 @@ const validator = require("validator")
 const awsS3Service = require('../lib/aws_S3');
 
 /**
+ * Admin reset password for user or partner
+ * @param {string} emailOrPhone - The email or phone of the user/partner
+ * @param {string} type - Type of the user ("user" or "partner")
+ * @returns {Promise<Object>}
+ */
+const adminResetPassword = async (emailOrPhone, type) => {
+  try {
+    let user;
+    if (validator.isEmail(emailOrPhone)) {
+      user = await getUserByEmail(emailOrPhone.toLowerCase(), type);
+    } else if (validator.isMobilePhone(emailOrPhone)) {
+      user = await getUserByPhone(emailOrPhone, type);
+    } else {
+      return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_INVALID_EMAIL_PHONE };
+    }
+    if (!user) { return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.USER_NOT_FOUND } }
+    const newPassword = generator.generate({ length: 10, numbers: true });
+    await updateUserById(user._id, { password: newPassword });
+    const userName = user.name || 'User';
+    await mailFunctions.sendPasswordResetEmailByAdmin(user.email, userName, newPassword);
+    return { data: {}, code: CONSTANTS.SUCCESSFUL, message: `Password reset successful. An email with the new password has been sent to ${user.email}.` };
+  } catch (error) {
+    console.error("Error in adminResetPassword:", error);
+    return { data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: error.message || CONSTANTS.INTERNAL_SERVER_ERROR_MSG };
+  }
+};
+
+/**
  * Get user by id
  * @param {ObjectId} id
  * @returns {Promise<User>}
@@ -19,7 +47,8 @@ const awsS3Service = require('../lib/aws_S3');
 const getUserById = async (userId) => {
   try {
     const user = await UserModel.findOne({ _id: userId })
-      .populate('businessId', 'businessName mobile email');
+      .populate({ path: 'businessId', populate: { path: 'businessType', model: 'businessType' } });
+    if (!user) { throw new Error(CONSTANTS.USER_NOT_FOUND) }
     const followersCount = await FollowModel.countDocuments({ following: userId });
     const followingCount = await FollowModel.countDocuments({ follower: userId });
     return { user, followersCount, followingCount };
@@ -429,7 +458,13 @@ const refreshAuth = async (refreshToken) => {
 const loginUserWithEmailOrPhoneAndPassword = async (emailOrPhone, password, type, req) => {
   try {
     let user;
-    if (validator.isEmail(emailOrPhone)) { user = await UserModel.findOne({ email: emailOrPhone.toLowerCase(), type }) } else { user = await UserModel.findOne({ phone: emailOrPhone, type }) }
+    if (validator.isEmail(emailOrPhone)) {
+      user = await UserModel.findOne({ email: emailOrPhone.toLowerCase(), type })
+        .populate('businessType', 'name');
+    } else {
+      user = await UserModel.findOne({ phone: emailOrPhone, type })
+        .populate('businessType', 'name');
+    }
     if (!user) { return { data: {}, code: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.UNAUTHORIZED_MSG } }
 
     const isPasswordValid = await user.isPasswordMatch(password);
@@ -442,9 +477,9 @@ const loginUserWithEmailOrPhoneAndPassword = async (emailOrPhone, password, type
     const device = req.headers['user-agent'] || 'Unknown Device';
     const time = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
     const ipAddress = req.ip;
-    // mailFunctions.sendLoginNotificationEmail(user.email, device, time, ipAddress);
+    mailFunctions.sendLoginNotificationEmail(user.email, device, time, ipAddress);
 
-    return { data: { user, tokens }, code: CONSTANTS.SUCCESS, message: CONSTANTS.LOGIN_SUCCESS };
+    return { data: { user, tokens }, code: CONSTANTS.SUCCESS, message: CONSTANTS.LOGIN_MSG };
   } catch (error) {
     console.error("Error in loginUserWithEmailOrPhoneAndPassword:", error);
     return { data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: error.message || CONSTANTS.INTERNAL_SERVER_ERROR_MSG };
@@ -732,6 +767,7 @@ const getAboutUs = async (userId) => {
 };
 
 module.exports = {
+  adminResetPassword,
   createUser,
   createUserByAdmin,
   queryUsers,

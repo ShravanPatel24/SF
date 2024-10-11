@@ -45,20 +45,18 @@ const businessSchema = new mongoose.Schema(
         email: { type: String, required: true },
         businessAddress: { type: addressSchema, required: true },
         openingDays: [{ type: String, required: true }],
-        sameTimeForAllDays: { type: Boolean, required: true }, // true if same time for all days, false for different daywise timings
+        sameTimeForAllDays: { type: Boolean, required: true },  // true if same time for all days, false for different timings for each day
         uniformTiming: {
             openingTime: { type: String },
             closingTime: { type: String }
-        },
+        },  // For uniform timings across all days
         daywiseTimings: {
             type: [daywiseTimingSchema],
             validate: {
                 validator: function (value) {
-                    // If sameTimeForAllDays is false, daywiseTimings must have values
                     if (!this.sameTimeForAllDays && (!value || value.length === 0)) {
                         return false;
                     }
-                    // If sameTimeForAllDays is true, daywiseTimings should not be required
                     return true;
                 },
                 message: 'daywiseTimings is required when sameTimeForAllDays is false.'
@@ -68,7 +66,7 @@ const businessSchema = new mongoose.Schema(
         galleryImages: [{ type: String }],
         status: { type: Number, default: 1 },
 
-        // fields for dine-in functionality
+        // Dine-in functionality
         dineInStatus: { type: Boolean, default: false },
         operatingDetails: [{
             date: { type: String },
@@ -89,7 +87,6 @@ const businessSchema = new mongoose.Schema(
 businessSchema.pre("save", function (next) {
     this.fullPhoneNumber = `${this.countryCode}${this.mobile}`;
 
-    // Ensure `operatingDetails` and `tableManagement` are only included when `dineInStatus` is true
     if (!this.dineInStatus) {
         this.operatingDetails = [];
         this.tableManagement = [];

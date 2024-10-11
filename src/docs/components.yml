@@ -724,10 +724,6 @@ paths:
       responses:
         "200":
           description: Admin retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Admin"
         "404":
           $ref: "#/components/responses/NotFound"
         "401":
@@ -746,19 +742,11 @@ paths:
             type: string
       requestBody:
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/Admin"
       security:
         - bearerAuth: [] # Use Bearer Token for authenticated routes
       responses:
         "200":
           description: Admin profile updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Admin"
         "404":
           $ref: "#/components/responses/NotFound"
         "400":
@@ -901,7 +889,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Admin"
+                $ref: "#/components/schemas/UserProfile"
         "404":
           $ref: "#/components/responses/NotFound"
         "401":
@@ -927,7 +915,64 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Admin"
+                $ref: "#/components/schemas/UserProfile"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    patch:
+      summary: Update an admin user by ID
+      tags:
+        - Admin User
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the admin user to retrieve
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the user
+                email:
+                  type: string
+                  format: email
+                  description: Email address of the user
+                phone:
+                  type: string
+                  description: Phone number of the user
+                bio:
+                  type: string
+                  description: Short bio or description of the user
+                businessName:
+                  type: string
+                socialMediaLinks[]:
+                  type: array
+                  items:
+                    type: string
+                    description: Social media link
+                  description: Array of up to 5 social media links (e.g., Facebook, Instagram)
+                profilePhoto:
+                  type: string
+                  format: binary
+                  description: Profile photo image file
+      security:
+        - bearerAuth: [] # Use Bearer Token for authenticated routes
+      responses:
+        "200":
+          description: Admin User retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
         "404":
           $ref: "#/components/responses/NotFound"
         "401":
@@ -954,6 +999,38 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /admin/user/reset-password:
+    post:
+      summary: Reset password of user and password by admin
+      tags:
+        - Admin User
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailOrPhone:
+                  type: string
+                  description: email/phone of the user
+                type:
+                  type: string
+                  example: user/partner
+              required:
+                - emailOrPhone
+                - type
+      responses:
+        "200":
+          description: Password reset successfully
+        "400":
+          description: Invalid token or new password
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # Business Type
   /business-type:
     get:
       summary: Get list of business types
@@ -2157,6 +2234,45 @@ paths:
                     example: "Dine-out request sent successfully"
                   request:
                     $ref: "#/components/schemas/DineOutRequest"
+        "400":
+          description: Invalid request (e.g., missing required fields, invalid businessId)
+
+  /dine-out/check-time-slot:
+    post:
+      summary: Check Time Slot Available
+      tags:
+        - DineOut Request (User)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                businessId:
+                  type: string
+                  description: The ID of the business (restaurant or hotel)
+                  example: "6708eb21d3243af482c08421"
+                date:
+                  type: string
+                  format: date
+                  example: "2024-10-01"
+                time:
+                  type: string
+                  example: "13:00"
+      responses:
+        "201":
+          description: Time slot checked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Time slot checked  successfully"
         "400":
           description: Invalid request (e.g., missing required fields, invalid businessId)
 
@@ -3598,14 +3714,6 @@ paths:
                   type: number
                   description: Latitude for the business location
                   example: 28.6139
-                openingTime:
-                  type: string
-                  description: If the sameTimeForAllDays is true
-                  example: "09:00 AM"
-                closingTime:
-                  type: string
-                  description: If the sameTimeForAllDays is true
-                  example: "06:00 PM"
                 openingDays[]:
                   type: array
                   description: Days of the week when the business is open
@@ -3618,12 +3726,12 @@ paths:
                   example: false
                 uniformTiming[openingTime]:
                   type: string
-                  description: The opening time for the business
-                  example: "09:00 AM"
+                  description: The opening time for the business, if `sameTimeForAllDays` is true
+                  example: "10:00"
                 uniformTiming[closingTime]:
                   type: string
-                  description: The closing time for the business
-                  example: "06:00 PM"
+                  description: The closing time for the business, if `sameTimeForAllDays` is true
+                  example: "22:00"
                 daywiseTimings[0][day]:
                   type: string
                   description: Day of the week
@@ -3631,11 +3739,11 @@ paths:
                 daywiseTimings[0][openingTime]:
                   type: string
                   description: Opening time for this day
-                  example: "09:00 AM"
+                  example: "10:00"
                 daywiseTimings[0][closingTime]:
                   type: string
                   description: Closing time for this day
-                  example: "06:00 PM"
+                  example: "22:00"
                 # New Dine-In Fields
                 dineInStatus:
                   type: boolean
@@ -3648,11 +3756,11 @@ paths:
                 operatingDetails[0][startTime]:
                   type: string
                   description: Start time of the business for dine-in on the given date
-                  example: "10:00 AM"
+                  example: "10:00"
                 operatingDetails[0][endTime]:
                   type: string
                   description: End time of the business for dine-in on the given date
-                  example: "10:00 PM"
+                  example: "22:00"
                 tableManagement[0][tableNumber]:
                   type: string
                   description: Table number for dine-in management
@@ -3794,14 +3902,6 @@ paths:
                   type: number
                   description: Latitude for the business location
                   example: 28.6139
-                openingTime:
-                  type: string
-                  description: If the sameTimeForAllDays is true
-                  example: "09:00 AM"
-                closingTime:
-                  type: string
-                  description: If the sameTimeForAllDays is true
-                  example: "06:00 PM"
                 openingDays[]:
                   type: array
                   description: Days of the week when the business is open
@@ -3814,12 +3914,12 @@ paths:
                   example: false
                 uniformTiming[openingTime]:
                   type: string
-                  description: The opening time for the business
-                  example: "09:00 AM"
+                  description: The opening time for the business, if `sameTimeForAllDays` is true
+                  example: "10:00"
                 uniformTiming[closingTime]:
                   type: string
-                  description: The closing time for the business
-                  example: "06:00 PM"
+                  description: The closing time for the business, if `sameTimeForAllDays` is true
+                  example: "22:00"
                 daywiseTimings[0][day]:
                   type: string
                   description: Day of the week
@@ -3827,12 +3927,11 @@ paths:
                 daywiseTimings[0][openingTime]:
                   type: string
                   description: Opening time for this day
-                  example: "09:00 AM"
+                  example: "10:00"
                 daywiseTimings[0][closingTime]:
                   type: string
                   description: Closing time for this day
-                  example: "06:00 PM"
-
+                  example: "22:00"
                 # New Dine-In Fields
                 dineInStatus:
                   type: boolean
@@ -3845,11 +3944,11 @@ paths:
                 operatingDetails[0][startTime]:
                   type: string
                   description: Start time of the business for dine-in on the given date
-                  example: "10:00 AM"
+                  example: "10:00"
                 operatingDetails[0][endTime]:
                   type: string
                   description: End time of the business for dine-in on the given date
-                  example: "10:00 PM"
+                  example: "22:00"
                 tableManagement[0][tableNumber]:
                   type: string
                   description: Table number for dine-in management
@@ -3907,7 +4006,7 @@ paths:
 
   /business/type/{businessTypeId}:
     get:
-      summary: Get businesses by business type ID
+      summary: Get businesses by business type ID (User)
       tags:
         - Partner Business
       parameters:

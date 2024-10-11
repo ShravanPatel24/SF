@@ -1,5 +1,5 @@
 const catchAsync = require('../../utils/catchAsync');
-const { adminAuthService, adminStaffService, tokenService, s3Service } = require('../../services');
+const { adminAuthService, adminStaffService, tokenService, s3Service, UserService } = require('../../services');
 const CONSTANT = require('../../config/constant');
 
 const login = catchAsync(async (req, res) => {
@@ -121,6 +121,15 @@ const getMedia = catchAsync(async (req, res) => {
   }
 });
 
+// Admin reset password for user or partner
+const adminResetUserPassword = catchAsync(async (req, res) => {
+  const { emailOrPhone, type } = req.body;
+  if (!emailOrPhone || !type) { return res.send({ data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.ADMIN_USER_EMAIL_PHONE_REQUIRED }) }
+  const result = await UserService.adminResetPassword(emailOrPhone, type);
+  if (result.code !== CONSTANT.SUCCESSFUL) { return res.send(result) }
+  res.send({ data: {}, code: CONSTANT.SUCCESSFUL, message: `Password reset successful for ${type}. An email with the new password has been sent to ${emailOrPhone}.` });
+});
+
 module.exports = {
   login,
   getMedia,
@@ -131,5 +140,6 @@ module.exports = {
   resetPassword,
   changePassword,
   getLoggedIndUserDetails,
-  updateProfile
+  updateProfile,
+  adminResetUserPassword
 };

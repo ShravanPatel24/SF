@@ -33,20 +33,14 @@ const create = {
         businessAddress: addressValidation,
         openingDays: Joi.array().items(Joi.string().required()).min(1).required(),
         sameTimeForAllDays: Joi.boolean().required(),
-        openingTime: Joi.string().when('sameTimeForAllDays', {
-            is: true,
-            then: Joi.string().required(),
-            otherwise: Joi.forbidden(),
-        }),
-        closingTime: Joi.string().when('sameTimeForAllDays', {
-            is: true,
-            then: Joi.string().required(),
-            otherwise: Joi.forbidden(),
-        }),
         uniformTiming: Joi.object({
-            openingTime: Joi.string().optional(),
-            closingTime: Joi.string().optional(),
-        }).optional(),
+            openingTime: Joi.string().required(),
+            closingTime: Joi.string().required(),
+        }).when('sameTimeForAllDays', {
+            is: true,
+            then: Joi.object().required(),
+            otherwise: Joi.forbidden(),
+        }),
         daywiseTimings: Joi.array().items(Joi.object({
             day: Joi.string().required(),
             openingTime: Joi.string().required(),
@@ -58,7 +52,7 @@ const create = {
         }),
 
         // Dine-in specific fields
-        dineInStatus: Joi.boolean().optional(), // Boolean flag to check if dine-in is available
+        dineInStatus: Joi.boolean().optional(),
         operatingDetails: Joi.array().items(
             Joi.object({
                 date: Joi.string().required(),
@@ -96,20 +90,13 @@ const update = {
             businessAddress: addressValidation,
             openingDays: Joi.array().items(Joi.string()),
             sameTimeForAllDays: Joi.boolean(),
-            // Add openingTime and closingTime validation here
-            openingTime: Joi.string().when('sameTimeForAllDays', {
-                is: true,
-                then: Joi.string().required(),
-                otherwise: Joi.forbidden(),
-            }),
-            closingTime: Joi.string().when('sameTimeForAllDays', {
-                is: true,
-                then: Joi.string().required(),
-                otherwise: Joi.forbidden(),
-            }),
             uniformTiming: Joi.object({
                 openingTime: Joi.string().optional(),
                 closingTime: Joi.string().optional(),
+            }).when('sameTimeForAllDays', {
+                is: true,
+                then: Joi.object().required(),
+                otherwise: Joi.forbidden(),
             }),
             daywiseTimings: Joi.array().items(Joi.object({
                 day: Joi.string(),
@@ -124,7 +111,7 @@ const update = {
             galleryImages: Joi.array().items(Joi.string()).optional(),
 
             // Dine-in specific fields
-            dineInStatus: Joi.boolean().optional(), // Boolean flag to check if dine-in is available
+            dineInStatus: Joi.boolean().optional(),
             operatingDetails: Joi.array().items(
                 Joi.object({
                     date: Joi.string().optional(),

@@ -161,7 +161,7 @@ const verifyEmail = {
 const changePassword = {
     body: Joi.object().keys({
         oldPassword: Joi.string().required(),
-        password: Joi.string().required(),
+        password: passwordComplexity.required(),
     }),
 };
 

@@ -63,6 +63,7 @@ module.exports = {
     USER_RESEND_VERIFICATION_LINK: `A new verification link has been sent to your email address. Please check your inbox and follow the instructions to verify your email. Please check your email inbox for the verification link. If you don't see it in your inbox, please also check your spam or promotions folder.`,
     USER_BLOCKED_FOR_5_WRONG: 'For security reasons your account has been blocked due to repeated entry of incorrect details. Please try again after 5 minutes',
     USER_BLOCKED_FOR_24_WRONG: 'For security reasons your account has been blocked due to repeated entry of incorrect details. Please try again after 24 hours',
+    USER_INVALID_EMAIL_PHONE: 'Must provide a valid email or phone number.',
     RESEND_OTP_FOR_5: `You've exceeded the maximum allowed attempts. For security reasons, your account has been blocked. Please try again after 5 minutes`,
     RESEND_BLOCK_FOR_24_HOURS: `You've exceeded the maximum allowed resend attempts. For security reasons, your resend requests are temporarily blocked. Please try again after 24 hours`,
     OTP_RESEND: 'OTP resend successfully',
@@ -85,6 +86,7 @@ module.exports = {
     ADMIN_STAFF_MOBILE_ALREADY_EXISTS: 'The mobile number already exists. Please use a different mobile number',
     ADMIN_STAFF_UPDATE: 'Information has been successfully updated',
     ADMIN_STAFF_CREATE: 'Information has been successfully created',
+    ADMIN_USER_EMAIL_PHONE_REQUIRED: "Email/Phone and type are required",
 
     FAQ_LIST: 'FAQ list loaded successfully',
     FAQ_CREATE: 'FAQ created successfully',
@@ -174,5 +176,4 @@ module.exports = {
     REMOVED_FROM_CART: 'Item removed from cart.',
     CART_UPDATED: 'Cart item updated.',
     CART_CLEARED: 'Cart cleared successfully.',
-
 };

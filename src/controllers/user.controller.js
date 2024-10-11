@@ -131,15 +131,10 @@ const resendOTP = catchAsync(async (req, res) => {
 
 const changePassword = catchAsync(async (req, res) => {
   var result;
-  var userDetails = await UserService.getUserById(req.user._id);
-  if (!userDetails || !(await userDetails.isPasswordMatch(req.body.oldPassword))) {
-    res.send({ data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.OLD_PASSWORD_MSG });
-  } else {
-    result = await UserService.updateUserById(req.user._id, req.body);
-  }
-  if (result) {
-    res.send({ data: {}, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.CHANGE_PASSWORD });
-  }
+  const { user: userDetails } = await UserService.getUserById(req.user._id);
+  if (!userDetails || !(await userDetails.isPasswordMatch(req.body.oldPassword))) { return res.send({ data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.OLD_PASSWORD_MSG }) }
+  result = await UserService.updateUserById(req.user._id, req.body);
+  if (result) { return res.send({ data: {}, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.CHANGE_PASSWORD }) }
 });
 
 const getLists = catchAsync(async (req, res) => {

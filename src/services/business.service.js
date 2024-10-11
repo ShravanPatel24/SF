@@ -1,6 +1,7 @@
 const { BusinessModel, UserModel, BusinessTypeModel } = require("../models");
 const CONSTANTS = require("../config/constant");
 const awsS3Service = require("../lib/aws_S3");
+const moment = require('moment');
 
 const createBusinessForPartner = async (partnerId, businessName, businessType, businessDescription, countryCode, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImages, galleryImages, dineInStatus, operatingDetails, tableManagement
 ) => {
@@ -10,6 +11,30 @@ const createBusinessForPartner = async (partnerId, businessName, businessType, b
 
     const validBusinessType = await BusinessTypeModel.findById(businessType);
     if (!validBusinessType) { throw new Error(CONSTANTS.INVALID_BUSINESS_TYPE); }
+
+    // Step 1: Convert uniformTiming times to Date objects (use today's date or a placeholder date)
+    if (uniformTiming) {
+        uniformTiming.openingTime = moment(`2024-10-10 ${uniformTiming.openingTime}`, 'YYYY-MM-DD hh:mm A').toDate();
+        uniformTiming.closingTime = moment(`2024-10-10 ${uniformTiming.closingTime}`, 'YYYY-MM-DD hh:mm A').toDate();
+    }
+
+    // Step 2: Convert daywiseTimings times to Date objects (using a placeholder date)
+    if (daywiseTimings && daywiseTimings.length > 0) {
+        daywiseTimings = daywiseTimings.map(day => ({
+            ...day,
+            openingTime: moment(`2024-10-10 ${day.openingTime}`, 'YYYY-MM-DD hh:mm A').toDate(),
+            closingTime: moment(`2024-10-10 ${day.closingTime}`, 'YYYY-MM-DD hh:mm A').toDate(),
+        }));
+    }
+
+    // Step 3: Convert operatingDetails times to Date objects using the specific date from the detail
+    if (operatingDetails && operatingDetails.length > 0) {
+        operatingDetails = operatingDetails.map(detail => ({
+            ...detail,
+            startTime: moment(`${detail.date}T${detail.startTime}`, 'YYYY-MM-DDTHH:mm:ssZ').toDate(),
+            endTime: moment(`${detail.date}T${detail.endTime}`, 'YYYY-MM-DDTHH:mm:ssZ').toDate(),
+        }));        
+    }
 
     const business = new BusinessModel({
         businessName, partner: partnerId, businessType, businessDescription, countryCode, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImages, galleryImages, dineInStatus, operatingDetails, tableManagement

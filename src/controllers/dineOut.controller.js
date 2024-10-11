@@ -2,27 +2,46 @@ const { DineOutRequestService } = require('../services');
 const CONSTANTS = require('../config/constant');
 const catchAsync = require('../utils/catchAsync');
 const { UserModel, BusinessModel } = require('../models');
+const moment = require('moment');
+
+// Check Time Slot Availability
+const checkTimeSlot = catchAsync(async (req, res) => {
+    const { businessId, date, time } = req.body;
+    try {
+        await DineOutRequestService.checkTimeSlotAvailability(businessId, date, time);
+        res.status(CONSTANTS.SUCCESSFUL).json({ message: 'Time slot is available' });
+    } catch (error) {
+        res.status(CONSTANTS.BAD_REQUEST).json({ message: error.message });
+    }
+});
 
 // Create a dine-out request
 const createDineOutRequest = catchAsync(async (req, res) => {
     const { partnerId, businessId, date, time, guests, dinnerType } = req.body;
     const userId = req.user._id;
-
-    if (req.user.type === 'partner') { return res.status(CONSTANTS.UNAUTHORIZED).json({ message: CONSTANTS.PERMISSION_DENIED }) }
-
-    const partner = await UserModel.findById(partnerId).where({ type: 'partner' });
-    if (!partner) { return res.status(CONSTANTS.NOT_FOUND).json({ message: CONSTANTS.PARTNER_NOT_FOUND_MSG }) }
-
-    const newRequest = await DineOutRequestService.createDineOutRequest({
-        user: userId,
-        partner: partnerId,
-        business: businessId,
-        date,
-        time,
-        guests,
-        dinnerType
-    });
-    res.status(CONSTANTS.SUCCESSFUL).json({ message: CONSTANTS.CREATED, request: newRequest, requestNumber: newRequest.requestNumber });
+    try {
+        if (req.user.type === 'partner') { return res.status(CONSTANTS.UNAUTHORIZED).json({ message: CONSTANTS.PERMISSION_DENIED }) }
+        const partner = await UserModel.findById(partnerId).where({ type: 'partner' });
+        if (!partner) { return res.status(CONSTANTS.NOT_FOUND).json({ message: CONSTANTS.PARTNER_NOT_FOUND_MSG }) }
+        await checkTimeSlotAvailability(businessId, date, time);
+        const dineOutDateTime = moment(`${date} ${time}`, 'YYYY-MM-DD HH:mm').utc().toDate();
+        const newRequest = await DineOutRequestService.createDineOutRequest({
+            user: userId,
+            partner: partnerId,
+            business: businessId,
+            date: dineOutDateTime,
+            time,
+            guests,
+            dinnerType
+        });
+        res.status(CONSTANTS.SUCCESSFUL).json({
+            message: CONSTANTS.CREATED,
+            request: newRequest,
+            requestNumber: newRequest.requestNumber
+        });
+    } catch (error) {
+        res.status(CONSTANTS.BAD_REQUEST).json({ message: error.message });
+    }
 });
 
 // Get a specific dine-out request by ID
@@ -81,6 +100,7 @@ const updateDineOutRequestStatus = catchAsync(async (req, res) => {
 });
 
 module.exports = {
+    checkTimeSlot,
     createDineOutRequest,
     getDineOutRequestById,
     getDineOutRequestsForBusiness,

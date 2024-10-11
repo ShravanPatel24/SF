@@ -68,7 +68,7 @@ function sendOtpOnMail(userEmail, name, otp) {
         }
     };
     if (userEmail) {
-        send_mail(userEmail, emailTemplate, 'Registration - Welcome to Social Feed NearBy');
+        send_mail(userEmail, emailTemplate, 'Registration - One Time Password');
     }
 }
 
@@ -221,6 +221,17 @@ function sendActivationEmail(userEmail, userName) {
     send_mail(userEmail, emailTemplate, 'Your Ocean Account Has Been Reactivated');
 }
 
+// Function to send email with new password by admin
+const sendPasswordResetEmailByAdmin = async (email, name, newPassword) => {
+    const msg = {
+        to: email,
+        from: 'Ocean <noreply@apikart.co>',
+        subject: 'Your Password Has Been Reset',
+        text: `Dear ${name},\n\nYour password has been reset by an administrator. Your new password is: ${newPassword}\n\nPlease change your password after logging in for security reasons.\n\nBest regards,\nSupport Team`,
+    };
+    await sgMail.send(msg);
+};
+
 module.exports = {
     sendEmail,
     sendOtpOnMail: sendOtpOnMail,
@@ -230,5 +241,6 @@ module.exports = {
     sendTicketReplyEmail: sendTicketReplyEmail,
     sendWelcomeEmail: sendWelcomeEmail,
     sendLoginNotificationEmail: sendLoginNotificationEmail,
-    sendActivationEmail: sendActivationEmail
+    sendActivationEmail: sendActivationEmail,
+    sendPasswordResetEmailByAdmin: sendPasswordResetEmailByAdmin
 };

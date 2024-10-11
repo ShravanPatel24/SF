@@ -4,24 +4,22 @@ const { BusinessService } = require("../services");
 const CONSTANTS = require("../config/constant");
 
 const createBusinessForPartner = catchAsync(async (req, res) => {
-    try {
-        const partnerId = req.user._id;
-        const { businessName, businessType, businessDescription, countryCode, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, dineInStatus, operatingDetails, tableManagement } = req.body;
+    const partnerId = req.user._id;
+    const { businessName, businessType, businessDescription, countryCode, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, dineInStatus, operatingDetails, tableManagement } = req.body;
 
-        // Separate banner and gallery files
-        const bannerFiles = req.files.bannerImages || [];
-        const galleryFiles = req.files.galleryImages || [];
+    const bannerFiles = req.files.bannerImages || [];
+    const galleryFiles = req.files.galleryImages || [];
 
-        // Upload the banner and gallery images
-        const bannerImageUrls = await BusinessService.uploadBusinessImages(bannerFiles, "bannerImages");
-        const galleryImageUrls = await BusinessService.uploadBusinessImages(galleryFiles, "galleryImages");
+    const bannerImageUrls = await BusinessService.uploadBusinessImages(bannerFiles, "bannerImages");
+    const galleryImageUrls = await BusinessService.uploadBusinessImages(galleryFiles, "galleryImages");
 
-        const business = await BusinessService.createBusinessForPartner(partnerId, businessName, businessType, businessDescription, countryCode, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImageUrls, galleryImageUrls, dineInStatus, operatingDetails, tableManagement);
+    const business = await BusinessService.createBusinessForPartner(
+        partnerId, businessName, businessType, businessDescription, countryCode, mobile, email, businessAddress, 
+        openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImageUrls, galleryImageUrls, 
+        dineInStatus, operatingDetails, tableManagement
+    );
 
-        res.status(CONSTANTS.SUCCESSFUL).json({ message: CONSTANTS.CREATED, business });
-    } catch (error) {
-        res.status(CONSTANTS.BAD_REQUEST).json({ message: error.message });
-    }
+    res.status(CONSTANTS.SUCCESSFUL).json({ message: CONSTANTS.CREATED, business });
 });
 
 const getBusinessById = catchAsync(async (req, res) => {

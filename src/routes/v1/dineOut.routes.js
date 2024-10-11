@@ -6,6 +6,7 @@ const { dineOutValidation } = require('../../validations');
 const { dineOutController } = require('../../controllers');
 
 // Create a new dine-out request
+router.post('/check-time-slot', userAuth(), dineOutController.checkTimeSlot);
 router.post('/request/create', userAuth(), validate(dineOutValidation.createDineOutRequest), dineOutController.createDineOutRequest);
 router.get('/business/:businessId', userAuth(), validate(dineOutValidation.getDineOutRequestsForBusiness), dineOutController.getDineOutRequestsForBusiness);
 router.get('/request/:requestId', userAuth(), dineOutController.getDineOutRequestById);

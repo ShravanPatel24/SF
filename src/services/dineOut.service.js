@@ -1,5 +1,19 @@
-const { DineOutModel } = require('../models');
+const { DineOutModel, BusinessModel } = require('../models');
 const CONSTANTS = require('../config/constant');
+const moment = require('moment');
+
+// Check Time Slot Availability
+const checkTimeSlotAvailability = async (businessId, date, time) => {
+    const business = await BusinessModel.findById(businessId);
+    if (!business || !business.dineInStatus) { throw new Error('Business not found or dine-in is not available') }
+    const operatingDetail = business.operatingDetails.find(detail => detail.date === date);
+    if (!operatingDetail) { throw new Error('The business is not operating on the selected date.') }
+    const requestedDateTime = moment(`${date}T${time}`, 'YYYY-MM-DDTHH:mm:ssZ');  // Requested time
+    const startTime = moment(operatingDetail.startTime).utc(); // Convert start time from DB to UTC
+    const endTime = moment(operatingDetail.endTime).utc();     // Convert end time from DB to UTC
+    if (requestedDateTime.isBefore(startTime) || requestedDateTime.isAfter(endTime)) { throw new Error('Selected time slot is not available.') }
+    return true;
+};
 
 // Create a dine-out request
 const createDineOutRequest = async (data) => {
@@ -61,6 +75,7 @@ const updateDineOutRequestStatus = async (requestId, status, bookingId = null) =
 };
 
 module.exports = {
+    checkTimeSlotAvailability,
     createDineOutRequest,
     getDineOutRequestById,
     getDineOutRequestsForBusiness,
