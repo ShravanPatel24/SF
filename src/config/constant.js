@@ -168,12 +168,29 @@ module.exports = {
     REJECT_AFTER_ACCEPTED: 'You cannot change the status to Rejected after it has been Accepted.',
 
     // CART
-    ITEM_NOT_FOUND: 'Item not found.',
+    ITEM_NOT_FOUND: 'Item not found in cart.',
     CART_NOT_FOUND: 'Cart not found.',
-    INVALID_PRICE: 'Invalid price for the product.',
+    CART_EMPTY_MSG: 'Cart is empty.',
+    INVALID_PRICE: 'Invalid price for the item.',
     QUANTITY_GREATER: 'Quantity must be greater than 0.',
     ADDED_TO_CART: 'Item added to cart successfully.',
     REMOVED_FROM_CART: 'Item removed from cart.',
     CART_UPDATED: 'Cart item updated.',
     CART_CLEARED: 'Cart cleared successfully.',
+    CART_EMPTY: 'Cart is empty.',
+    VARIANT_NOT_FOUND: 'The selected size and color combination is not available for this product.',
+    INVALID_QUANTITY: 'Quantity must be greater than zero.',
+    INVALID_ITEM_TYPE: "Invalid item type.",
+    INVALID_PRICE: "Invalid price for item.",
+
+    // ORDER
+    PAYMENT_SUCCESS_ONLINE_HOTEL_MSG: "Payment successful. Your hotel reservation has been successfully made.",
+    PAYMENT_SUCCESS_ONLINE_ORDER_MSG: "Payment successful. Your order has been placed.",
+    HOTEL_BOOKED_MSG: "Your hotel reservation has been successfully made.",
+    ORDER_PLACED_MSG: "Your order has been placed.",
+    ORDER_NOT_FOUND: 'Order not found.',
+    ORDER_STATUS_UPDATE: 'Order status updated successfully.',
+    CANCEL_AFTER_DELIVERED_ERROR: 'Cannot cancel an order that has already been delivered.',
+    ORDER_CANCELLED: 'Order Cancelled Succesfully.',
+    UPDATE_STATUS_AFTER_DELIVERD_ERROR: 'Cannot update status of an order that has already been delivered or cancelled.',
 };

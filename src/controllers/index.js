@@ -4,6 +4,7 @@ module.exports.businessController = require('./business.controller');
 module.exports.itemsController = require('./item.controller');
 module.exports.dineOutController = require('./dineOut.controller');
 module.exports.cartController = require('./cart.controller');
+module.exports.orderController = require('./order.controller');
 module.exports.adminAuthController = require('./admin/adminAuth.controller');
 module.exports.adminRoleController = require('./admin/role.controller');
 module.exports.adminStaffController = require('./admin/staff.controller');

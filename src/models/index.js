@@ -13,6 +13,7 @@ module.exports.PostCommentModel = require("./postComment.model");
 module.exports.PostLikeModel = require("./postLike.model");
 module.exports.ItemModel = require("./item.model");
 module.exports.CartModel = require("./cart.model");
+module.exports.OrderModel = require("./order.model");
 module.exports.DineOutModel = require("./dineOut.model");
 module.exports.RoleBaseAccessModel = require("./roleBaseAccess.model");
 module.exports.StaticContentModel = require("./staticContent.model");
