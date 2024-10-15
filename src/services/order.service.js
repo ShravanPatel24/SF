@@ -87,7 +87,7 @@ const updateOrderStatus = async (orderId, status) => {
 // Get all orders by user
 const getOrdersByUser = async (userId) => {
     const orders = await OrderModel.find({ user: userId })
-        .populate('items.product')
+        .populate('items.item')
         .sort({ createdAt: -1 });
     return orders;
 };
@@ -95,7 +95,7 @@ const getOrdersByUser = async (userId) => {
 // Get order by ID
 const getOrderById = async (orderId) => {
     const order = await OrderModel.findById(orderId)
-        .populate('items.product');
+        .populate('items.item');
     return order;
 };
 
@@ -115,6 +115,26 @@ const trackOrder = async (orderId) => {
     return order;
 };
 
+const getAllOrdersByAdmin = async (userId = null, search = '', sortBy = 'createdAt', sortOrder = 'desc', page = 1, limit = 10) => {
+    const query = userId ? { user: userId } : {};
+    if (search) {
+        query.$or = [
+            { 'user.name': { $regex: search, $options: 'i' } },
+            { 'user.email': { $regex: search, $options: 'i' } }
+        ];
+    }
+    const skip = (page - 1) * limit;
+    const sortOptions = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
+    const orders = await OrderModel.find(query)
+        .populate('user', 'name email')
+        .populate('items.item')
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limit);
+    const totalOrders = await OrderModel.countDocuments(query);
+    return { orders, totalOrders };
+};
+
 module.exports = {
     createOrder,
     processOnlinePayment,
@@ -123,4 +143,5 @@ module.exports = {
     getOrderById,
     cancelOrder,
     trackOrder,
+    getAllOrdersByAdmin
 };

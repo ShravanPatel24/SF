@@ -28,26 +28,28 @@ const updateUser = catchAsync(async (req, res) => {
   res.send(user);
 });
 
+// Update user email
 const updateUserEmail = catchAsync(async (req, res) => {
   const { userId, email } = req.body;
-  if (!userId || !email) { return res.status(400).json({ message: "User ID and email are required." }) }
+  if (!userId || !email) { return res.status(400).json({ message: CONSTANTS.USER_ID_AND_EMAIL_REQUIRED }) }
   const result = await UserService.updateUserEmail(userId, email);
-  if (result.code === CONSTANTS.NOT_FOUND) { return res.status(404).json({ message: "User not found." }) }
-  return res.status(result.code).send(result);
+  if (result.code === CONSTANTS.NOT_FOUND) { return res.status(404).json({ message: CONSTANTS.USER_NOT_FOUND }) }
+  res.status(result.code).json({ message: result.message, data: result.data });
 });
 
+// Update user phone
 const updateUserPhone = catchAsync(async (req, res) => {
   const { userId, phone } = req.body;
-  if (!userId || !phone) { return res.status(400).json({ message: "User ID and phone number are required." }) }
+  if (!userId || !phone) { return res.status(400).json({ message: CONSTANTS.USER_ID_AND_EMAIL_REQUIRED }) }
   const result = await UserService.updateUserPhone(userId, phone);
-  if (result.code === CONSTANTS.NOT_FOUND) { return res.status(404).json({ message: "User not found." }) }
-  return res.status(result.code).send(result);
+  if (result.code === CONSTANTS.NOT_FOUND) { return res.status(404).json({ message: CONSTANTS.USER_NOT_FOUND }) }
+  res.status(result.code).json({ message: result.message, data: result.data });
 });
 
 const deleteUser = catchAsync(async (req, res) => {
   const userId = req.params.id;
   const details = await UserService.deleteUserById(userId);
-  if (!details) { return res.status(404).send({ message: 'User not found' }) }
+  if (!details) { return res.status(404).send({ message: CONSTANTS.USER_NOT_FOUND }) }
   res.send(details);
 });
 
@@ -163,7 +165,7 @@ const getById = catchAsync(async (req, res) => {
   const userData = {
     ...user.toObject(),
     id: user._id.toString(),
-    profilePhoto: user.profilePhoto ? `${req.protocol}://${req.get('host')}/${user.profilePhoto}` : null,
+    profilePhoto: user.profilePhoto ? user.profilePhoto : null,
     followersCount: followersCount,
     followingCount: followingCount,
   };
@@ -172,24 +174,16 @@ const getById = catchAsync(async (req, res) => {
 });
 
 const updateById = catchAsync(async (req, res) => {
-  const { phone, email, profilePhoto, bio, facebook, instagram, followersCount, followingCount, ...updateBody } = req.body;
+  const { profilePhoto, bio, facebook, instagram, followersCount, followingCount, ...updateBody } = req.body;
   const data = await UserService.updateUserById(req.params.id, {
     ...updateBody,
-    phone,
-    email,
     bio,
     facebook,
     instagram,
     followersCount,
     followingCount,
   }, req.files);
-
-  const updateMessages = [];
-  if (data.phoneUpdated) updateMessages.push("Phone update pending verification. OTP sent to the new phone number.");
-  if (data.emailUpdated) updateMessages.push("Email update pending verification. OTP sent to the new email address.");
-
-  const message = updateMessages.length ? updateMessages.join(" ") : "Profile updated successfully.";
-  res.send({ data: data.data, message });
+  res.send({ data: data.data, message: CONSTANTS.UPDATED });
 });
 
 const deleteById = catchAsync(async (req, res) => {

@@ -40,6 +40,7 @@ const itemSchema = new mongoose.Schema({
     productDescription: { type: String },
     productDeliveryCharge: { type: Number },
     variants: [variantSchema], // Use the variant schema here for multiple prices and variants
+    productFeatures: [{ type: String }] 
 }, {
     timestamps: true
 });

@@ -1,38 +1,42 @@
 const { PostModel, PostCommentModel, PostLikeModel } = require('../models');
-const { uploadDocuments, deleteFromS3 } = require('../lib/aws_S3');
+const { s3Service } = require('../services');
 const CONSTANTS = require('../config/constant');
 
 // Create a new post
 const createPost = async (user, caption, type, files) => {
     try {
-        if (user.type === 'partner') { throw new Error(CONSTANTS.PERMISSION_DENIED) }
+        if (user.type === 'partner') { throw new Error(CONSTANTS.PERMISSION_DENIED); }
+
         const postData = {
             userId: user._id,
             caption,
             type,
             likes: 0,
-            comments: []
+            comments: [],
         };
+
         // Handle image upload for photos or stories
         if (type === 'photo' || type === 'story') {
             if (files && files.images && files.images.length > 0) {
-                const imageUploadResponse = await uploadDocuments(files.images, 'postImages');
-                const imageUrls = imageUploadResponse.map(file => file.location);
-                postData.images = imageUrls;
+                const imageUploadResponse = await s3Service.uploadDocuments(files.images, 'postImages');
+                const imageKeys = imageUploadResponse.map(file => file.key);  // Use 'key' instead of 'location'
+                postData.images = imageKeys;
             } else {
                 throw new Error(CONSTANTS.IMAGE_REQUIRED);
             }
         }
+
         // Handle video upload for reels or mixed posts
         if (type === 'reel' || type === 'mixed') {
             if (files && files.video && files.video.length > 0) {
-                const videoUploadResponse = await uploadDocuments(files.video, 'postVideos');
-                const videoUrl = videoUploadResponse[0].location;
-                postData.videoUrl = videoUrl;
+                const videoUploadResponse = await s3Service.uploadDocuments(files.video, 'postVideos');
+                const videoKey = videoUploadResponse[0].key;  // Use 'key' instead of 'location'
+                postData.videoUrl = videoKey;
             } else {
                 throw new Error(CONSTANTS.VIDEO_REQUIRED);
             }
         }
+
         const newPost = new PostModel(postData);
         const savedPost = await newPost.save();
         return savedPost;
@@ -48,7 +52,7 @@ const getAllPosts = async (page = 1, limit = 10, search = '') => {
         page,
         limit,
         populate: [
-            { path: 'userId', select: 'name' },
+            { path: 'userId', select: 'name profilePhoto' },
             { path: 'likeCount' },
             { path: 'commentCount' }
         ],
@@ -60,10 +64,10 @@ const getAllPosts = async (page = 1, limit = 10, search = '') => {
     const postsWithDetails = await Promise.all(
         posts.docs.map(async (post) => {
             const comments = await PostCommentModel.find({ postId: post._id })
-                .populate('postedBy', 'name')
+                .populate('postedBy', 'name profilePhoto')
                 .exec();
             const likes = await PostLikeModel.find({ postId: post._id })
-                .populate('userId', 'name')
+                .populate('userId', 'name profilePhoto')
                 .exec();
             return {
                 ...post.toObject(),
@@ -78,14 +82,14 @@ const getAllPosts = async (page = 1, limit = 10, search = '') => {
 // Fetch a post by ID
 const getPostById = async (id) => {
     const post = await PostModel.findById(id)
-        .populate('userId', 'name')
+        .populate('userId', 'name profilePhoto')
         .populate('likeCount')
         .populate('commentCount')
         .exec();
     if (!post) { throw new Error(CONSTANTS.NOT_FOUND) }
 
     const comments = await PostCommentModel.find({ postId: post._id })
-        .populate('postedBy', 'name _id')
+        .populate('postedBy', 'name profilePhoto _id')
         .exec();
     return {
         ...post.toObject(),
@@ -100,7 +104,7 @@ const getPostsByUserId = async (user, userId, page = 1, limit = 10, search = '')
         page,
         limit,
         populate: [
-            { path: 'userId', select: 'name' },
+            { path: 'userId', select: 'name profilePhoto' },
             { path: 'likeCount' },
             { path: 'commentCount' }
         ],
@@ -113,10 +117,10 @@ const getPostsByUserId = async (user, userId, page = 1, limit = 10, search = '')
     const postsWithDetails = await Promise.all(
         posts.docs.map(async (post) => {
             const comments = await PostCommentModel.find({ postId: post._id })
-                .populate('postedBy', 'name')
+                .populate('postedBy', 'name profilePhoto')
                 .exec();
             const likes = await PostLikeModel.find({ postId: post._id })
-                .populate('userId', 'name')
+                .populate('userId', 'name profilePhoto')
                 .exec();
             return {
                 ...post.toObject(),
@@ -134,8 +138,9 @@ const updatePost = async (id, caption, files) => {
     if (!existingPost) { throw new Error(CONSTANTS.NOT_FOUND_MSG); }
     const updateData = {};
     if (caption) { updateData.caption = caption; }
-
-    if (files && files.length > 0) {
+    // Handle updating images if provided
+    if (files && files.images && files.images.length > 0) {
+        // Delete old images from S3
         if (existingPost.images && existingPost.images.length > 0) {
             const oldImageKeys = existingPost.images.map((imageUrl) => {
                 const urlParts = imageUrl.split('/');
@@ -143,9 +148,23 @@ const updatePost = async (id, caption, files) => {
             });
             await deleteFromS3(oldImageKeys);
         }
-        const imageUploadResponse = await uploadDocuments(files, 'postImages');
-        const newImageUrls = imageUploadResponse.map(file => file.location);
-        updateData.images = newImageUrls;
+        // Upload new images
+        const imageUploadResponse = await uploadDocuments(files.images, 'postImages');
+        const newImageKeys = imageUploadResponse.map(file => file.key);
+        updateData.images = newImageKeys;
+    }
+    // Handle updating videos for reels or mixed posts
+    if (files && files.video && files.video.length > 0) {
+        if (existingPost.videoUrl) {
+            // Delete the old video from S3
+            const oldVideoUrlParts = existingPost.videoUrl.split('/');
+            const oldVideoKey = oldVideoUrlParts[oldVideoUrlParts.length - 1];
+            await deleteFromS3([oldVideoKey]);
+        }
+        // Upload new video
+        const videoUploadResponse = await uploadDocuments(files.video, 'postVideos');
+        const newVideoKey = videoUploadResponse[0].key;
+        updateData.videoUrl = newVideoKey;
     }
     const updatedPost = await PostModel.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
     if (!updatedPost) { throw new Error(CONSTANTS.INTERNAL_SERVER_ERROR_MSG); }
@@ -155,12 +174,14 @@ const updatePost = async (id, caption, files) => {
 // Delete a post
 const deletePost = async (id) => {
     const post = await PostModel.findById(id);
-    if (!post) { throw new Error(CONSTANTS.NOT_FOUND_MSG) }
+    if (!post) { throw new Error(CONSTANTS.NOT_FOUND_MSG); }
+    // Extract and delete image keys from S3
     const imageKeys = post.images.map((imageUrl) => {
         const urlParts = imageUrl.split('/');
-        return urlParts[urlParts.length - 1];
+        return urlParts[urlParts.length - 1];  // Extract the key from the URL
     });
     if (imageKeys.length > 0) { await deleteFromS3(imageKeys) }
+    // If the post is a reel or mixed type, delete the video from S3
     if (post.type === 'reel' && post.videoUrl) {
         const videoUrlParts = post.videoUrl.split('/');
         const videoKey = videoUrlParts[videoUrlParts.length - 1];

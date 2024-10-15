@@ -84,7 +84,7 @@ const update = {
             businessName: Joi.string(),
             businessType: Joi.string().custom(objectId),
             businessDescription: Joi.string(),
-            countryCode: countryCodeValidation,
+            countryCode: Joi.string(),
             mobile: Joi.string(),
             email: Joi.string().email(),
             businessAddress: addressValidation,

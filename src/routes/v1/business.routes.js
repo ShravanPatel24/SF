@@ -44,4 +44,7 @@ router.post(
     businessController.createBusinessForPartner
 );
 
+// Route to get dashboard counts for a partner
+router.get('/dashboard/counts', userAuth(), businessController.getDashboardCounts);
+
 module.exports = router;

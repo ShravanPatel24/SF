@@ -64,6 +64,12 @@ module.exports = {
     USER_BLOCKED_FOR_5_WRONG: 'For security reasons your account has been blocked due to repeated entry of incorrect details. Please try again after 5 minutes',
     USER_BLOCKED_FOR_24_WRONG: 'For security reasons your account has been blocked due to repeated entry of incorrect details. Please try again after 24 hours',
     USER_INVALID_EMAIL_PHONE: 'Must provide a valid email or phone number.',
+    USER_ID_AND_EMAIL_REQUIRED: 'User ID and email are required.',
+    USER_PHONE_UPDATE: 'Phone number updated. OTP sent to the new phone number for verification..',
+    USER_EMAIL_UPDATE: 'Email number updated. OTP sent to the new email for verification..',
+    USER_EMAIL_SAME_AS_CURRENT: "The new email address cannot be the same as the current one.",
+    USER_PHONE_SAME_AS_CURRENT: "The new phone cannot be the same as the current one.",
+
     RESEND_OTP_FOR_5: `You've exceeded the maximum allowed attempts. For security reasons, your account has been blocked. Please try again after 5 minutes`,
     RESEND_BLOCK_FOR_24_HOURS: `You've exceeded the maximum allowed resend attempts. For security reasons, your resend requests are temporarily blocked. Please try again after 24 hours`,
     OTP_RESEND: 'OTP resend successfully',
@@ -182,6 +188,9 @@ module.exports = {
     INVALID_QUANTITY: 'Quantity must be greater than zero.',
     INVALID_ITEM_TYPE: "Invalid item type.",
     INVALID_PRICE: "Invalid price for item.",
+    INVALID_ITEM_ID: 'The provided item ID is invalid.',
+    CHECKIN_CHECKOUT_REQUIRED: 'Check-in and check-out dates are required for room booking.',
+    INVALID_DATES: 'Invalid check-in or check-out dates.',
 
     // ORDER
     PAYMENT_SUCCESS_ONLINE_HOTEL_MSG: "Payment successful. Your hotel reservation has been successfully made.",

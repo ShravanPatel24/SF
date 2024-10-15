@@ -37,6 +37,7 @@ const createItem = {
         productDeliveryCharge: Joi.number().when('itemType', {
             is: 'product', then: Joi.required()
         }),
+        productFeatures: Joi.array().items(Joi.string()).when('itemType', { is: 'product', then: Joi.optional() }),
         size: Joi.array().items(Joi.string()).when('itemType', { is: 'product', then: Joi.optional() }),
         color: Joi.array().items(Joi.string()).when('itemType', { is: 'product', then: Joi.optional() }),
         nonReturnable: Joi.boolean().when('itemType', { is: 'product', then: Joi.optional() }),
@@ -106,6 +107,7 @@ const updateItem = {
             productDescription: Joi.string().optional(),
             productPrice: Joi.number().optional(),
             productDeliveryCharge: Joi.number().optional(),
+            productFeatures: Joi.array().items(Joi.string()).optional(),
             size: Joi.array().items(Joi.string()).optional(),
             color: Joi.array().items(Joi.string()).optional(),
             nonReturnable: Joi.boolean().optional(),

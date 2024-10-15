@@ -14,8 +14,8 @@ const createBusinessForPartner = catchAsync(async (req, res) => {
     const galleryImageUrls = await BusinessService.uploadBusinessImages(galleryFiles, "galleryImages");
 
     const business = await BusinessService.createBusinessForPartner(
-        partnerId, businessName, businessType, businessDescription, countryCode, mobile, email, businessAddress, 
-        openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImageUrls, galleryImageUrls, 
+        partnerId, businessName, businessType, businessDescription, countryCode, mobile, email, businessAddress,
+        openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImageUrls, galleryImageUrls,
         dineInStatus, operatingDetails, tableManagement
     );
 
@@ -37,9 +37,8 @@ const getBusinessesForPartner = catchAsync(async (req, res) => {
     const options = pick(req.query, ["page", "limit", "sortBy", "status", "searchBy", "businessType"]);
     const page = parseInt(options.page, 10) || 1;
     const limit = parseInt(options.limit, 10) || 10;
-
     try {
-        const result = await BusinessService.queryBusinesses(partnerId, options, page, limit);
+        const result = await BusinessService.getBusinessesForPartner(partnerId, options, page, limit);
 
         res.status(CONSTANTS.SUCCESSFUL).json({
             data: {
@@ -65,9 +64,7 @@ const getBusinessesForPartner = catchAsync(async (req, res) => {
 });
 
 const getBusinessesByType = catchAsync(async (req, res) => {
-    // Check if user is authenticated and is a partner
     if (!req.user || req.user.type !== 'user') { return res.status(CONSTANTS.UNAUTHORIZED).json({ code: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.PERMISSION_DENIED }) }
-
     const { businessTypeId } = req.params;
     const options = pick(req.query, ["page", "limit", "searchBy", "sortBy"]);
     const page = parseInt(options.page, 10) || 1;
@@ -102,7 +99,6 @@ const getBusinessesByType = catchAsync(async (req, res) => {
 const updateBusiness = catchAsync(async (req, res) => {
     const { businessId } = req.params;
     const { businessName, businessDescription, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImages, galleryImages, dineInStatus, operatingDetails, tableManagement } = req.body;
-
     try {
         const updatedBusiness = await BusinessService.updateBusinessById(
             businessId,
@@ -154,6 +150,35 @@ const getBusinessesNearUser = catchAsync(async (req, res) => {
     }
 });
 
+const getDashboardCounts = catchAsync(async (req, res) => {
+    const partnerId = req.user._id;
+    try {
+        const counts = await BusinessService.getDashboardCountsForPartner(partnerId);
+        res.status(CONSTANTS.SUCCESSFUL).json({
+            code: CONSTANTS.SUCCESSFUL,
+            message: 'Dashboard counts fetched successfully.',
+            data: counts,
+        });
+    } catch (error) {
+        res.status(CONSTANTS.BAD_REQUEST).json({ message: error.message });
+    }
+});
+
+const getPartnerEarnings = catchAsync(async (req, res) => {
+    const partnerId = req.user._id; // Assuming partner ID is retrieved from the user context
+
+    try {
+        const earnings = await BusinessService.calculateEarningsForPartner(partnerId);
+        res.status(CONSTANTS.SUCCESSFUL).json({
+            code: CONSTANTS.SUCCESSFUL,
+            message: 'Earnings calculated successfully.',
+            data: earnings,
+        });
+    } catch (error) {
+        res.status(CONSTANTS.BAD_REQUEST).json({ message: error.message });
+    }
+});
+
 module.exports = {
     getBusinessesForPartner,
     updateBusiness,
@@ -162,4 +187,6 @@ module.exports = {
     deleteBusiness,
     createBusinessForPartner,
     getBusinessesNearUser,
+    getDashboardCounts,
+    getPartnerEarnings
 };

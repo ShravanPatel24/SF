@@ -2,11 +2,15 @@ const express = require('express');
 const multer = require('multer');
 const { adminAuth } = require('../../../middlewares');
 const validate = require('../../../middlewares/validate');
-const { userValidation } = require('../../../validations');
-const { userController, adminAuthController } = require('../../../controllers')
+const { userValidation, businessValidation } = require('../../../validations');
+const { userController, adminAuthController, orderController, businessController } = require('../../../controllers'); // Import orderController for admin orders
 const upload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
+
+router.get('/orders', adminAuth('manageOrders'), orderController.getAllOrdersByAdmin);
+router.get('/business/:businessId', adminAuth('manageBusiness'), businessController.getBusinessById);
+router.patch('/update-business/:businessId', adminAuth('updateById'), validate(businessValidation.update), businessController.updateBusiness);
 
 router
   .route('/')
@@ -23,10 +27,10 @@ router
 router
   .post('/reset-password', adminAuth('manageUsers'), adminAuthController.adminResetUserPassword);
 
+// Uncomment if you want to use profile-specific routes in the future
 // router
 //     .route('/profile/:id')
 //     .patch(adminAuth('updateProfile'), upload.any(), userController.updateById)
 //     .get(adminAuth('updateProfile'), userController.getById);
-
 
 module.exports = router;

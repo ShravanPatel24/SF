@@ -1,15 +1,14 @@
 const { ItemModel } = require('../models');
-const awsS3Service = require('../lib/aws_S3');
+const { s3Service } = require('../services');
 
 // Create an item (Food, Room, or Product)
 const createItem = async (itemData, files) => {
     let imageUrls = [];
-    // Handle image uploads for all item types
     if (files && files.images && files.images.length > 0) {
-        const uploadResults = await awsS3Service.uploadDocuments(files.images, 'itemImages');
-        imageUrls = uploadResults.map(upload => upload.location);
-    } else if (itemData.images && itemData.images.length > 0) {
-        imageUrls = itemData.images;
+        const uploadResults = await s3Service.uploadDocuments(files.images, 'product-images', '');
+        if (uploadResults && uploadResults.length > 0) {
+            imageUrls = uploadResults.map(upload => upload.key);
+        }
     }
     const item = {
         business: itemData.businessId,
@@ -38,8 +37,10 @@ const createItem = async (itemData, files) => {
         item.productName = itemData.productName;
         item.productDescription = itemData.productDescription;
         item.productDeliveryCharge = itemData.productDeliveryCharge;
+        item.productFeatures = itemData.productFeatures;
         item.variants = itemData.variants;
     }
+
     const newItem = new ItemModel(item);
     await newItem.save();
     return newItem;
@@ -103,12 +104,16 @@ const getItemsByBusinessType = async (businessTypeId, page = 1, limit = 10) => {
 
 // Update an item by ID
 const updateItemById = async (itemId, updateData, files) => {
-    let imageUrls = updateData.images || [];
+    let imageUrls = [];
     if (files && files.images && files.images.length > 0) {
-        const uploadResults = await awsS3Service.uploadDocuments(files.images, 'itemImages');
-        imageUrls = uploadResults.map(upload => upload.location);
+        const uploadResults = await s3Service.uploadDocuments(files.images, 'itemImages');
+        imageUrls = uploadResults.map(upload => upload.key);
     }
-    updateData.images = imageUrls;
+    const item = await ItemModel.findById(itemId);
+    if (!item) { throw new Error('Item not found'); }
+    const combinedImages = [...item.images, ...imageUrls];
+    updateData.images = combinedImages;
+    if (updateData.itemType === 'product') { updateData.productFeatures = updateData.productFeatures || []; }
     const updatedItem = await ItemModel.findByIdAndUpdate(itemId, updateData, { new: true });
     return updatedItem;
 };

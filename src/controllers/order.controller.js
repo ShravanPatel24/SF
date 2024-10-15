@@ -35,6 +35,7 @@ const createOrder = catchAsync(async (req, res) => {
     }
     return res.status(201).json({
         message: successMessage,
+        _id: order._id,
         orderId: order.orderId,
         orderNumber: order.orderNumber,
         totalPrice: order.totalPrice,
@@ -55,7 +56,10 @@ const getOrderById = catchAsync(async (req, res) => {
     const { orderId } = req.params;
     // Fetch the order by ID, populate the items with product details
     const order = await OrderService.getOrderById(orderId);
-    if (!order) { return res.status(404).json({ message: CONSTANTS.ORDER_NOT_FOUND }) }
+    if (!order) {
+        return res.status(404).json({ message: CONSTANTS.ORDER_NOT_FOUND });
+    }
+
     // Return detailed order information to display on the order details page
     return res.status(200).json({
         orderId: order.orderId,
@@ -67,8 +71,8 @@ const getOrderById = catchAsync(async (req, res) => {
         subtotal: order.subtotal,
         tax: order.tax,
         items: order.items.map(item => ({
-            productId: item.product._id,
-            productName: item.product.productName || item.product.dishName,
+            productId: item.item._id,
+            productName: item.item.productName || item.item.dishName,
             quantity: item.quantity,
             price: item.price,
             selectedSize: item.selectedSize || null,
@@ -107,7 +111,7 @@ const cancelOrder = catchAsync(async (req, res) => {
     order.cancellationReason = reason;
     await order.save();
     return res.status(200).json({
-        message: CONSTANT.ORDER_CANCELLED,
+        message: CONSTANTS.ORDER_CANCELLED,
         orderId: order.orderId,
         status: order.status,
         cancellationReason: order.cancellationReason
@@ -122,6 +126,25 @@ const trackOrder = catchAsync(async (req, res) => {
     res.status(200).json({ data: order });
 });
 
+const getAllOrdersByAdmin = catchAsync(async (req, res) => {
+    const { userId, search, sortBy = 'createdAt', sortOrder = 'desc', page = 1, limit = 10 } = req.query;
+    const { orders, totalOrders } = await OrderService.getAllOrdersByAdmin(
+        userId,
+        search,
+        sortBy,
+        sortOrder,
+        parseInt(page),
+        parseInt(limit)
+    );
+    if (!orders || orders.length === 0) { return res.status(404).json({ message: CONSTANTS.ORDER_NOT_FOUND }) }
+    res.status(200).json({
+        data: orders,
+        totalOrders,
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalOrders / limit),
+    });
+});
+
 module.exports = {
     createOrder,
     updateOrderStatus,
@@ -129,4 +152,5 @@ module.exports = {
     getOrderById,
     cancelOrder,
     trackOrder,
+    getAllOrdersByAdmin
 };

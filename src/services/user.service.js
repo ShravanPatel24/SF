@@ -9,7 +9,7 @@ const config = require('../config/config');
 const moment = require("moment");
 var generator = require('generate-password');
 const validator = require("validator")
-const awsS3Service = require('../lib/aws_S3');
+const { s3Service } = require('../services');
 
 /**
  * Admin reset password for user or partner
@@ -153,12 +153,29 @@ const createUserByAdmin = async (requestBody, files) => {
  */
 const updateUserEmail = async (_id, newEmail) => {
   try {
+    const user = await UserModel.findById(_id);
+    if (!user) { return { code: CONSTANTS.NOT_FOUND, message: CONSTANTS.USER_NOT_FOUND } }
+    // Check if the new email matches the current email
+    if (user.email === newEmail) { return { code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_EMAIL_SAME_AS_CURRENT } }
+    // Check if email is already taken
     const isEmailTaken = await UserModel.isFieldValueTaken('email', newEmail, _id);
-    if (isEmailTaken) { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_EMAIL_ALREADY_EXISTS } }
-    return await updateUserById(_id, { email: newEmail });
+    if (isEmailTaken) { return { code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_EMAIL_ALREADY_EXISTS } }
+    // Generate email OTP and update user's email
+    const emailOtp = crypto.randomInt(1000, 9999).toString();
+    user.email = newEmail;
+    user.emailOTP = emailOtp;
+    user.emailVerificationStatus = false;
+    user.isEmailUpdate = true;
+    await user.save();
+    await mailFunctions.sendOtpOnMail(newEmail, user.name, emailOtp);
+    return {
+      code: CONSTANTS.SUCCESSFUL,
+      message: CONSTANTS.USER_EMAIL_UPDATE,
+      data: user
+    };
   } catch (error) {
     console.error("Error updating email:", error);
-    return { data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: error.message || CONSTANTS.INTERNAL_SERVER_ERROR_MSG };
+    return { code: CONSTANTS.INTERNAL_SERVER_ERROR, message: CONSTANTS.INTERNAL_SERVER_ERROR_MSG };
   }
 };
 
@@ -170,12 +187,29 @@ const updateUserEmail = async (_id, newEmail) => {
  */
 const updateUserPhone = async (_id, newPhone) => {
   try {
+    const user = await UserModel.findById(_id);
+    if (!user) { return { code: CONSTANTS.NOT_FOUND, message: CONSTANTS.USER_NOT_FOUND } }
+    // Check if the new email matches the current email
+    if (user.phone === newPhone) { return { code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_PHONE_SAME_AS_CURRENT } }
+    // Check if phone is already taken
     const isPhoneTaken = await UserModel.isFieldValueTaken('phone', newPhone, _id);
-    if (isPhoneTaken) { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_PHONE_ALREADY_EXISTS } }
-    return await updateUserById(_id, { phone: newPhone });
+    if (isPhoneTaken) { return { code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_PHONE_ALREADY_EXISTS } }
+    // Generate phone OTP and update user's phone
+    const mobileOtp = config.env === 'development' ? '1234' : crypto.randomInt(1000, 9999).toString();
+    user.phone = newPhone;
+    user.mobileOTP = mobileOtp;
+    user.mobileVerificationStatus = false;
+    await user.save();
+    // Optionally, send OTP via SMS (here mocked)
+    // await smsService.sendOtp(newPhone, mobileOtp);
+    return {
+      code: CONSTANTS.SUCCESSFUL,
+      message: CONSTANTS.USER_EMAIL_UPDATE,
+      data: user
+    };
   } catch (error) {
     console.error("Error updating phone:", error);
-    return { data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: error.message || CONSTANTS.INTERNAL_SERVER_ERROR_MSG };
+    return { code: CONSTANTS.INTERNAL_SERVER_ERROR, message: CONSTANTS.INTERNAL_SERVER_ERROR_MSG };
   }
 };
 
@@ -304,24 +338,11 @@ const updateUserById = async (_id, updateBody, files) => {
     }
 
     const previousStatus = user.status;
-    let phoneUpdated = false;
-    let emailUpdated = false;
 
-    // Handle phone update and OTP
-    if (updateBody.phone && updateBody.phone !== user.phone) {
-      phoneUpdated = await handlePhoneUpdate(updateBody);
-    }
-
-    // Handle email update and OTP
-    if (updateBody.email && updateBody.email !== user.email) {
-      emailUpdated = await handleEmailUpdate(updateBody);
-    }
-
-    // Validate unique email and phone if needed
-    if (await checkIfFieldTaken(updateBody.email, 'email', _id)) {
+    if (updateBody.email && await checkIfFieldTaken(updateBody.email, 'email', _id)) {
       return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_EMAIL_ALREADY_EXISTS };
     }
-    if (await checkIfFieldTaken(updateBody.phone, 'phone', _id)) {
+    if (updateBody.phone && await checkIfFieldTaken(updateBody.phone, 'phone', _id)) {
       return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_PHONE_ALREADY_EXISTS };
     }
 
@@ -330,11 +351,9 @@ const updateUserById = async (_id, updateBody, files) => {
       user.countryCode = updateBody.countryCode;
     }
 
-    // Handle the assignment of other updateBody fields
+    // Handle the assignment of other updateBody fields (excluding phone and email)
     Object.assign(user, {
       ...updateBody,
-      email: updateBody.email || user.email,
-      phone: updateBody.phone || user.phone,
       updatedAt: new Date(),
     });
 
@@ -346,38 +365,20 @@ const updateUserById = async (_id, updateBody, files) => {
       user.socialMediaLinks = updateBody.socialMediaLinks;
     }
 
-    await handleImageUploads(user, files);
-    await user.save();
+    await handleImageUploads(user, files);  // Handle profile picture and other file uploads
+    await user.save();  // Save the user document to persist changes
 
     // Handle activation email if status changes
     if (previousStatus === 0 && user.status === 1) {
       await mailFunctions.sendActivationEmail(user.email, user.name);
     }
 
-    return { data: user, phoneUpdated, emailUpdated, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.USER_UPDATE };
+    return { data: user, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.USER_UPDATE };
 
   } catch (error) {
     console.error('Error updating user:', error);
     return handleServiceError(error);
   }
-};
-
-// Helper function to handle phone update and OTP
-const handlePhoneUpdate = async (updateBody) => {
-  const mobileOtp = config.env === 'development' ? '1234' : crypto.randomInt(1000, 9999).toString();
-  updateBody.mobileOTP = mobileOtp;
-  updateBody.mobileVerificationStatus = false;
-  // Send OTP via SMS here if needed
-  return true;
-};
-
-// Helper function to handle email update and OTP
-const handleEmailUpdate = async (updateBody) => {
-  const emailOtp = crypto.randomInt(1000, 9999).toString();
-  updateBody.emailOTP = emailOtp;
-  updateBody.emailVerificationStatus = false;
-  await mailFunctions.sendOtpOnMail(updateBody.email, emailOtp);
-  return true;
 };
 
 // Helper function to check if field is already taken (email/phone)
@@ -388,9 +389,9 @@ const checkIfFieldTaken = async (value, field, excludeId) => {
 // Helper function to handle profile, banner, and gallery image uploads
 const handleImageUploads = async (user, files) => {
   if (files && files['profilePhoto'] && files['profilePhoto'].length > 0) {
-    const s3Response = await awsS3Service.uploadProfile(files['profilePhoto'][0], 'profilePictures');
+    const s3Response = await s3Service.uploadImage(files['profilePhoto'][0], 'profilePictures');
     if (s3Response && s3Response.data) {
-      user.profilePhoto = s3Response.data.Location;
+      user.profilePhoto = s3Response.data.Key;
     } else {
       throw new Error(CONSTANTS.S3_BUCKET_UPLOAD_FAILED);
     }
@@ -488,9 +489,7 @@ const loginUserWithEmailOrPhoneAndPassword = async (emailOrPhone, password, type
 
 const verifyUserEmailOtp = async (id, otp) => {
   try {
-    if (typeof otp !== 'number') {
-      return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.OTP_STRING_VERIFICATION };
-    }
+    if (typeof otp !== 'number') { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.OTP_STRING_VERIFICATION } }
     const result = await getUserById(id);
     const user = result.user;
     if (!user) { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_NOT_FOUND } }
@@ -498,23 +497,30 @@ const verifyUserEmailOtp = async (id, otp) => {
     const currentTime = moment();
     // Check if the email OTP is present
     if (user.emailOTP) {
-      const emailOtpCreationTime = moment(user.emailOtpCreatedAt); // Email OTP creation time
+      const emailOtpCreationTime = moment(user.emailOtpCreatedAt);
       const emailOtpExpirationTime = 14; // Expiration time in minutes
       const emailTimeDifference = currentTime.diff(emailOtpCreationTime, 'seconds');
       const emailOtpExpirationTimeInSeconds = emailOtpExpirationTime * 60;
+
       if (emailTimeDifference > emailOtpExpirationTimeInSeconds) { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.EXPIRE_OTP } }
+
       // Check if the OTP matches
       if (user.emailOTP === otp) {
         if (user.emailVerificationStatus) { return { data: {}, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.USER_ALREADY_VERIFIED } }
+
         // Update user's verification status and clear OTP
         await updateUserById(id, {
           emailVerificationStatus: true,
           emailOTP: null,
           isVerifyEmailOtp: true,
-          emailOtpCreatedAt: null
+          emailOtpCreatedAt: null,
         });
+
         const tokens = await tokenService.generateAuthTokens(user);
-        await mailFunctions.sendWelcomeEmail(user.email, user.name);
+        // Only send welcome email if this is not an email update
+        if (!user.isEmailUpdate) { await mailFunctions.sendWelcomeEmail(user.email, user.name) }
+        // Reset the isEmailUpdate flag after successful verification
+        await updateUserById(id, { isEmailUpdate: false });
         return { data: { user, tokens }, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.OTP_VERIFIED };
       }
     }

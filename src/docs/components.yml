@@ -1105,6 +1105,212 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /admin/user/business/{businessId}:
+    get:
+      summary: Retrieve a business by its ID
+      tags:
+        - Admin User
+      parameters:
+        - name: businessId
+          in: path
+          required: true
+          description: ID of the business to retrieve
+          schema:
+            type: string
+      security:
+        - bearerAuth: [] # Use Bearer Token for authenticated routes
+      responses:
+        "200":
+          description: Business details retrieved successfully
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /admin/user/update-business/{businessId}:
+    patch:
+      summary: Update business by ID
+      tags:
+        - Admin User
+      parameters:
+        - name: businessId
+          in: path
+          required: true
+          description: ID of the business to update
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                businessName:
+                  type: string
+                  description: Name of the business
+                businessDescription:
+                  type: string
+                  description: Description of the business
+                countryCode:
+                  type: string
+                  description: Country code in the format +<digits>
+                  example: "+1"
+                mobile:
+                  type: string
+                  description: Mobile number of the business
+                email:
+                  type: string
+                  format: email
+                  description: Email address of the business
+                businessAddress:
+                  type: object
+                  description: Business address
+                  properties:
+                    street:
+                      type: string
+                      description: Street name
+                    city:
+                      type: string
+                      description: City name
+                    state:
+                      type: string
+                      description: State name
+                    country:
+                      type: string
+                      description: Country name
+                    postalCode:
+                      type: string
+                      description: Postal code
+                    latitude:
+                      type: number
+                      description: Latitude of the business location
+                    longitude:
+                      type: number
+                      description: Longitude of the business location
+                    location:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum: ["Point"]
+                          description: Type of the location (always 'Point')
+                        coordinates:
+                          type: array
+                          items:
+                            type: number
+                          description: Geographical coordinates [longitude, latitude]
+                openingDays:
+                  type: array
+                  items:
+                    type: string
+                  description: Days the business is open (e.g., Monday, Tuesday)
+                sameTimeForAllDays:
+                  type: boolean
+                  description: Whether the business has the same opening/closing times for all days
+                uniformTiming:
+                  type: object
+                  description: Uniform timing for all days
+                  properties:
+                    openingTime:
+                      type: string
+                      description: Opening time (e.g., 09:00)
+                    closingTime:
+                      type: string
+                      description: Closing time (e.g., 18:00)
+                daywiseTimings:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      day:
+                        type: string
+                        description: The day of the week
+                      openingTime:
+                        type: string
+                        description: Opening time (e.g., 09:00)
+                      closingTime:
+                        type: string
+                        description: Closing time (e.g., 18:00)
+                  description: Daywise opening and closing times for each day
+      security:
+        - bearerAuth: [] # Use Bearer Token for authenticated routes
+      responses:
+        "200":
+          description: Business Updatedd Successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /admin/user/orders:
+    get:
+      summary: Retrieve an order by userID
+      tags:
+        - Admin User
+      parameters:
+        - name: userId
+          in: query
+          required: false
+          description: Optional ID of the user to filter orders
+          schema:
+            type: string
+            example: "60f69bf4fc13ae456b000001"
+        - name: page
+          in: query
+          required: false
+          description: Page number for pagination
+          schema:
+            type: integer
+            default: 1
+            example: 1
+        - name: limit
+          in: query
+          required: false
+          description: Number of orders per page
+          schema:
+            type: integer
+            default: 10
+            example: 10
+        - name: search
+          in: query
+          required: false
+          description: Search query to filter orders by user name or email
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          required: false
+          description: Field to sort orders by (e.g., `createdAt`, `totalPrice`)
+          schema:
+            type: string
+            default: "createdAt"
+        - name: sortOrder
+          in: query
+          required: false
+          description: Order of sorting, either `asc` or `desc`
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: "desc"
+      security:
+        - bearerAuth: [] # Use Bearer Token for authenticated routes
+      responses:
+        "200":
+          description: Admin User's order retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   # Business Type
   /business-type:
     get:
@@ -3509,7 +3715,7 @@ paths:
                   type: boolean
                   description: Availability status of the item
                   default: true
-                # Fields for food items
+                # Fields for food items (optional)
                 dishName:
                   type: string
                   description: Name of the dish (food items only)
@@ -3526,7 +3732,7 @@ paths:
                   type: number
                   description: Delivery Charge of the dish (food items only)
                   example: 10.99
-                # Fields for room items
+                # Fields for room items (optional)
                 roomName:
                   type: string
                   description: Name of the room (room items only)
@@ -3569,7 +3775,7 @@ paths:
                   description: Third amenity
                   example: "Pool"
 
-                # Fields for product items
+                # Fields for product items (optional)
                 productName:
                   type: string
                   description: Name of the product (product items only)
@@ -3590,6 +3796,18 @@ paths:
                   type: number
                   description: Delivery Charge of the product (product items only)
                   example: 10.99
+                productFeatures[0]:
+                  type: string
+                  description: First product feature (product items only)
+                  example: "Eco-friendly"
+                productFeatures[1]:
+                  type: string
+                  description: Second product feature (product items only)
+                  example: "Lightweight"
+                productFeatures[2]:
+                  type: string
+                  description: Third product feature (product items only)
+                  example: "Machine washable"
                 variants[0][variantName]:
                   type: string
                   description: Name of the variant (e.g., Small, Medium, Large)
@@ -3795,6 +4013,18 @@ paths:
                   type: number
                   description: Delivery Charge of the product (product items only)
                   example: 10.99
+                productFeatures[0]:
+                  type: string
+                  description: First product feature (product items only)
+                  example: "Eco-friendly"
+                productFeatures[1]:
+                  type: string
+                  description: Second product feature (product items only)
+                  example: "Lightweight"
+                productFeatures[2]:
+                  type: string
+                  description: Third product feature (product items only)
+                  example: "Machine washable"
                 variants[0][variantName]:
                   type: string
                   description: Name of the variant (e.g., Small, Medium, Large)
@@ -4380,12 +4610,6 @@ paths:
             format: int32
             example: 10
           description: Number of results per page (default is 10)
-        - in: query
-          name: searchBy
-          required: false
-          schema:
-            type: string
-          description: Search by business name
       security:
         - bearerAuth: []
       responses:
@@ -4518,6 +4742,25 @@ paths:
         "404":
           description: No businesses found nearby
 
+  /business/dashboard/counts:
+    get:
+      summary: Business Dashboard
+      tags:
+        - Partner Business
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Businesses found under business type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerBusiness"
+        "404":
+          description: Business not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   # Post
   /posts:
     post:
@@ -4546,6 +4789,12 @@ paths:
                     type: string
                     format: binary # For file uploads (images)
                   description: Array of image files
+                video:
+                  type: string
+                  items:
+                    type: string
+                    format: binary # For file uploads (video)
+                  description: Video
       responses:
         "201":
           description: Post created successfully
@@ -4577,7 +4826,6 @@ paths:
           name: search
           schema:
             type: string
-            example: "holiday"
           description: Search query to filter posts by caption (optional)
       responses:
         "200":
@@ -4621,7 +4869,6 @@ paths:
           name: search
           schema:
             type: string
-            example: "holiday"
           description: Search query to filter posts by caption (optional)
       security:
         - bearerAuth: []
@@ -5459,4 +5706,4 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
-  # Other routes can be updated similarly for User and Partner with appropriate security mechanisms
+  # Other routes can be updated similarly for User and Partner with appropriate security mechanism

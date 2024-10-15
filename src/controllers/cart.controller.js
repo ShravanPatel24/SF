@@ -2,38 +2,25 @@ const catchAsync = require('../utils/catchAsync');
 const { CartService } = require('../services');
 const { ItemModel } = require('../models');
 const CONSTANTS = require("../config/constant");
+const mongoose = require('mongoose');
 
 // Add an item (food, product or checkout for rooms) to the cart
 const addToCart = catchAsync(async (req, res) => {
     const { itemId, quantity, selectedSize, selectedColor, checkIn, checkOut, deliveryAddress } = req.body;
     const userId = req.user._id;
-
-    const item = await ItemModel.findById(itemId);  // Use 'item' instead of 'product'
-    if (!item) {
-        return res.status(404).json({ message: CONSTANTS.ITEM_NOT_FOUND });
-    }
-
+    if (!mongoose.isValidObjectId(itemId)) { return res.status(400).json({ message: CONSTANTS.INVALID_ITEM_ID }) }
+    const item = await ItemModel.findById(itemId);
+    if (!item) { return res.status(404).json({ message: CONSTANTS.ITEM_NOT_FOUND }) }
     let pricePerUnit = 0;
 
-    // Handle rooms
     if (item.itemType === 'room') {
-        // Ensure check-in and check-out dates are provided
-        if (!checkIn || !checkOut) {
-            return res.status(400).json({ message: CONSTANTS.CHECKIN_CHECKOUT_REQUIRED });
-        }
-
+        if (!checkIn || !checkOut) { return res.status(400).json({ message: CONSTANTS.CHECKIN_CHECKOUT_REQUIRED }) }
         const checkInDate = new Date(checkIn);
         const checkOutDate = new Date(checkOut);
-
-        // Calculate the number of nights
         const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
-        if (nights <= 0) {
-            return res.status(400).json({ message: CONSTANTS.INVALID_DATES });
-        }
-
+        if (nights <= 0) { return res.status(400).json({ message: CONSTANTS.INVALID_DATES }) }
         pricePerUnit = item.roomPrice * nights;
     }
-    // Handle products
     else if (item.itemType === 'product' && item.variants && item.variants.length > 0) {
         const variant = item.variants.find(v => v.size === selectedSize && v.color === selectedColor);
         if (!variant) {
@@ -41,20 +28,19 @@ const addToCart = catchAsync(async (req, res) => {
         }
         pricePerUnit = variant.productPrice;
     }
-    // Handle food
-    else if (item.itemType === 'food') {
-        pricePerUnit = item.dishPrice || item.price || 0;
-    }
+    else if (item.itemType === 'food') { pricePerUnit = item.dishPrice || item.price || 0 }
 
-    if (isNaN(pricePerUnit) || pricePerUnit <= 0) {
-        return res.status(400).json({ message: CONSTANTS.INVALID_PRICE });
-    }
-    if (quantity <= 0) {
-        return res.status(400).json({ message: CONSTANTS.QUANTITY_GREATER });
-    }
+    if (isNaN(pricePerUnit) || pricePerUnit <= 0) { return res.status(400).json({ message: CONSTANTS.INVALID_PRICE }) }
 
-    const cart = await CartService.addToCart(userId, itemId, quantity, selectedSize, selectedColor, checkIn, checkOut, deliveryAddress);
-    res.status(200).json({ message: CONSTANTS.ADDED_TO_CART, cart });
+    if (quantity <= 0) { return res.status(400).json({ message: CONSTANTS.QUANTITY_GREATER }) }
+    // Add the item to the cart using the CartService
+    try {
+        const cart = await CartService.addToCart(userId, itemId, quantity, selectedSize, selectedColor, checkIn, checkOut, deliveryAddress);
+        res.status(200).json({ message: CONSTANTS.ADDED_TO_CART, cart });
+    } catch (error) {
+        // Handle any unexpected errors
+        return res.status(500).json({ message: 'An unexpected error occurred.', error: error.message });
+    }
 });
 
 // Get the current user's cart

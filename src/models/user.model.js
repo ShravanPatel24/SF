@@ -39,6 +39,7 @@ const userSchema = new mongoose.Schema(
       type: [String],
       validate: [arrayLimit, 'You can add up to 5 social media links only'],
     },
+    isEmailUpdate: { type: Boolean, default: false, },
     isVerifyMobileOtp: { type: Boolean, default: false },
     mobileVerificationStatus: { type: Boolean, default: false },
     isVerifyEmailOtp: { type: Boolean, default: false },
