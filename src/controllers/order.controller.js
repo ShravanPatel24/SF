@@ -58,6 +58,7 @@ const getOrderById = catchAsync(async (req, res) => {
     const order = await OrderService.getOrderById(orderId);
     if (!order) { return res.status(404).json({ message: CONSTANTS.ORDER_NOT_FOUND }) }
     return res.status(200).json({
+        _id: order._id,
         orderId: order.orderId,
         orderNumber: order.orderNumber,
         status: order.status,
@@ -67,7 +68,7 @@ const getOrderById = catchAsync(async (req, res) => {
         subtotal: order.subtotal,
         tax: order.tax,
         items: order.items.map(item => ({
-            productId: item.item._id,
+            itemId: item.item._id,
             itemType: item.item.itemType,
             productName: item.item.productName || item.item.dishName,
             quantity: item.quantity,
@@ -129,25 +130,31 @@ const trackOrder = catchAsync(async (req, res) => {
     res.status(200).json({ data: order });
 });
 
+// Get Orders Of All Users
 const getAllOrdersAdmin = catchAsync(async (req, res) => {
     const options = pick(req.query, [
         'sortBy',
         'limit',
         'page',
-        'searchBy',
+        'search',
         'categoryId',
         'orderId',
-        'status'
+        'status',
+        'itemType',
+        'sortOrder'
     ]);
     const result = await OrderService.queryOrder(options);
     const orders = result.docs.map(order => ({
+        _id: order._id,
         orderId: order.orderId,
-        userName: order.user.name,
-        email: order.user.email,
+        userName: order.userDetails?.name || 'N/A',
+        email: order.userDetails?.email || 'N/A',
         createdAt: order.createdAt,
         status: order.status,
-        totalPrice: order.totalPrice
+        totalPrice: order.totalPrice,
+        itemTypes: order.itemDetails ? order.itemDetails.map(item => item.itemType).filter(Boolean) : []
     }));
+
     res.send({
         data: {
             docs: orders,
@@ -166,6 +173,7 @@ const getAllOrdersAdmin = catchAsync(async (req, res) => {
     });
 });
 
+// Get Orders Of Users By userId
 const getOrdersByUserIdAdmin = catchAsync(async (req, res) => {
     const { userId, search, sortBy = 'createdAt', sortOrder = 'desc', page = 1, limit = 10 } = req.query;
     const { orders, totalOrders } = await OrderService.getOrdersByUserIdAdmin(

@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const { toJSON } = require("./plugins");
 const mongoosePaginate = require("mongoose-paginate-v2");
+const aggregatePaginate = require('mongoose-aggregate-paginate-v2');
 
 const orderSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true },
@@ -31,11 +32,17 @@ const orderSchema = new mongoose.Schema({
         enum: ['ordered', 'processing', 'pending_payment', 'paid', 'payment_failed', 'delivered', 'cancelled'],
         default: 'ordered'  // Set default status as 'ordered'
     },
+    paymentMethod: {
+        type: String,
+        enum: ['credit_card', 'paypal', 'cash', 'online', 'bank_transfer'],
+        required: true
+    },
 }, { timestamps: true });
 
 // add plugin that converts mongoose to json
 orderSchema.plugin(toJSON);
 orderSchema.plugin(mongoosePaginate);
+orderSchema.plugin(aggregatePaginate);
 
 const OrderModel = mongoose.model("Order", orderSchema);
 

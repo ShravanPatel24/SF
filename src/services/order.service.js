@@ -116,28 +116,70 @@ const trackOrder = async (orderId) => {
     return order;
 };
 
+// Get Orders Of All Users
 const queryOrder = async (options) => {
-    var condition = {};
-    if (options.searchBy && options.searchBy !== 'undefined') {
-        condition.$or = [{
-            orderId: {
-                $regex: '.*' + options.searchBy + '.*',
-                $options: 'si',
-            }
-        }];
+    var matchCondition = {};
+    // Filter by search query (orderId, user name, or email)
+    if (options.search && options.search !== 'undefined') {
+        matchCondition.$or = [
+            { orderId: { $regex: '.*' + options.search + '.*', $options: 'i' } },
+            { 'userDetails.name': { $regex: '.*' + options.search + '.*', $options: 'i' } },
+            { 'userDetails.email': { $regex: '.*' + options.search + '.*', $options: 'i' } }
+        ];
     }
-    if (options.status && options.status !== 'undefined') { condition.status = options.status }
-    options['sort'] = { createdAt: -1 };
-    const data = await OrderModel.paginate(condition, {
-        ...options,
-        populate: {
-            path: 'user',
-            select: 'name email'
+    // Filter by status
+    if (options.status && options.status !== 'undefined') { matchCondition.status = options.status; }
+    // Aggregation pipeline
+    const aggregateQuery = [
+        {
+            $lookup: {
+                from: 'users',
+                localField: 'user',
+                foreignField: '_id',
+                as: 'userDetails'
+            }
+        },
+        { $unwind: '$userDetails' },
+        { $match: matchCondition },
+        {
+            $lookup: {
+                from: 'items',
+                localField: 'items.item',
+                foreignField: '_id',
+                as: 'itemDetails'
+            }
         }
-    });
+    ];
+    // If filtering by itemType, add a match for itemType inside items
+    if (options.itemType && options.itemType !== 'undefined') {
+        aggregateQuery.push({
+            $lookup: {
+                from: 'items',
+                localField: 'items.item',
+                foreignField: '_id',
+                as: 'itemDetails'
+            }
+        });
+        aggregateQuery.push({
+            $match: {
+                'itemDetails.itemType': options.itemType
+            }
+        });
+    }
+    // Apply sorting
+    const sortOption = {};
+    if (options.sortBy && options.sortBy !== 'undefined') {
+        sortOption[options.sortBy] = options.sortOrder === 'asc' ? 1 : -1;
+    } else {
+        sortOption['createdAt'] = -1;
+    }
+    aggregateQuery.push({ $sort: sortOption });
+    const aggregateQueryPipeline = OrderModel.aggregate(aggregateQuery);
+    const data = await OrderModel.aggregatePaginate(aggregateQueryPipeline, { page: options.page || 1, limit: options.limit || 10 });
     return data;
 };
 
+// Get Orders Of Users By userId
 const getOrdersByUserIdAdmin = async (userId = null, search = '', sortBy = 'createdAt', sortOrder = 'desc', page = 1, limit = 10) => {
     const query = userId ? { user: userId } : {};
     if (search) {

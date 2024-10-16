@@ -1381,6 +1381,13 @@ paths:
             type: string
             enum: [asc, desc]
             default: "desc"
+        - name: itemType
+          in: query
+          required: false
+          description: Filter orders by the type of item (e.g., `room`, `product`, `food`)
+          schema:
+            type: string
+            enum: [room, product, food]
       security:
         - bearerAuth: [] # Use Bearer Token for authenticated routes
       responses:
