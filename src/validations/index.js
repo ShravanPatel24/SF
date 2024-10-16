@@ -7,6 +7,7 @@ module.exports.contactValidation = require('./contactUs.validation');
 module.exports.faqValidation = require('./faq.validation');
 module.exports.businessTypeValidation = require('./businessType.validation');
 module.exports.businessValidation = require('./business.validation');
+module.exports.bankValidation = require('./bank.validation');
 module.exports.orderValidation = require('./order.validation');
 module.exports.postsValidation = require('./posts.validation');
 module.exports.itemsValidation = require('./item.validation');

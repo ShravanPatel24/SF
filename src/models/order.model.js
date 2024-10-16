@@ -1,4 +1,6 @@
 const mongoose = require("mongoose");
+const { toJSON } = require("./plugins");
+const mongoosePaginate = require("mongoose-paginate-v2");
 
 const orderSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true },
@@ -30,6 +32,10 @@ const orderSchema = new mongoose.Schema({
         default: 'ordered'  // Set default status as 'ordered'
     },
 }, { timestamps: true });
+
+// add plugin that converts mongoose to json
+orderSchema.plugin(toJSON);
+orderSchema.plugin(mongoosePaginate);
 
 const OrderModel = mongoose.model("Order", orderSchema);
 

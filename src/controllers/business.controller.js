@@ -165,7 +165,7 @@ const getDashboardCounts = catchAsync(async (req, res) => {
 });
 
 const getPartnerEarnings = catchAsync(async (req, res) => {
-    const partnerId = req.user._id; // Assuming partner ID is retrieved from the user context
+    const partnerId = req.user._id;
 
     try {
         const earnings = await BusinessService.calculateEarningsForPartner(partnerId);

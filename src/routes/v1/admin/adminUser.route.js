@@ -8,7 +8,9 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
 
-router.get('/orders', adminAuth('manageOrders'), orderController.getAllOrdersByAdmin);
+router.get('/orders/id/:orderId', adminAuth('manageOrders'), orderController.getOrderById);
+router.get('/orders/:userId', adminAuth('manageOrders'), orderController.getOrdersByUserIdAdmin);
+router.get('/orders', adminAuth('manageOrders'), orderController.getAllOrdersAdmin);
 router.get('/business/:businessId', adminAuth('manageBusiness'), businessController.getBusinessById);
 router.patch('/update-business/:businessId', adminAuth('updateById'), validate(businessValidation.update), businessController.updateBusiness);
 

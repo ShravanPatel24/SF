@@ -174,16 +174,25 @@ const getById = catchAsync(async (req, res) => {
 });
 
 const updateById = catchAsync(async (req, res) => {
-  const { profilePhoto, bio, facebook, instagram, followersCount, followingCount, ...updateBody } = req.body;
+  const { phone, email, profilePhoto, bio, facebook, instagram, followersCount, followingCount, ...updateBody } = req.body;
   const data = await UserService.updateUserById(req.params.id, {
     ...updateBody,
+    phone,
+    email,
     bio,
     facebook,
     instagram,
     followersCount,
     followingCount,
   }, req.files);
-  res.send({ data: data.data, message: CONSTANTS.UPDATED });
+  if (data.code !== CONSTANTS.SUCCESSFUL) {
+    return res.status(data.code || 500).send({ message: data.message });
+  }
+  const updateMessages = [];
+  if (data.phoneUpdated) updateMessages.push("Phone update pending verification. OTP sent to the new phone number.");
+  if (data.emailUpdated) updateMessages.push("Email update pending verification. OTP sent to the new email address.");
+  const message = updateMessages.length ? updateMessages.join(" ") : "Profile updated successfully.";
+  res.send({ data: data.data, message });
 });
 
 const deleteById = catchAsync(async (req, res) => {

@@ -334,51 +334,133 @@ const updateUserById = async (_id, updateBody, files) => {
   try {
     const user = await UserModel.findById(_id);
     if (!user) {
-      return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.USER_NOT_FOUND };
+      return {
+        data: {},
+        code: CONSTANTS.NOT_FOUND,
+        message: CONSTANTS.USER_NOT_FOUND
+      };
     }
-
+    const { phone: newPhone, email: newEmail } = updateBody;
+    // Check if the new phone is different from the current one (only if phone is provided)
+    if (newPhone && user.phone === newPhone) {
+      return {
+        code: CONSTANTS.BAD_REQUEST,
+        message: CONSTANTS.USER_PHONE_SAME_AS_CURRENT
+      };
+    }
+    // Check if the new email is different from the current one (only if email is provided)
+    if (newEmail && user.email === newEmail) {
+      return {
+        code: CONSTANTS.BAD_REQUEST,
+        message: CONSTANTS.USER_EMAIL_SAME_AS_CURRENT
+      };
+    }
     const previousStatus = user.status;
-
-    if (updateBody.email && await checkIfFieldTaken(updateBody.email, 'email', _id)) {
-      return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_EMAIL_ALREADY_EXISTS };
+    let phoneUpdated = false;
+    let emailUpdated = false;
+    // Handle phone update logic (only if phone is provided)
+    if (newPhone && newPhone !== user.phone) {
+      phoneUpdated = await handlePhoneUpdate(updateBody);
     }
-    if (updateBody.phone && await checkIfFieldTaken(updateBody.phone, 'phone', _id)) {
-      return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.USER_PHONE_ALREADY_EXISTS };
+    // Handle email update and OTP (only if email is provided)
+    if (newEmail && newEmail !== user.email) {
+      emailUpdated = await handleEmailUpdate(updateBody, user);
+      // Mark as email update to differentiate between registration and email update
+      await UserModel.findByIdAndUpdate(user._id, { isEmailUpdate: true });
     }
-
+    // Check if email or phone is already taken (only if provided)
+    if (newEmail && await checkIfFieldTaken(newEmail, 'email', _id)) {
+      return {
+        data: {},
+        code: CONSTANTS.BAD_REQUEST,
+        message: CONSTANTS.USER_EMAIL_ALREADY_EXISTS
+      };
+    }
+    if (newPhone && await checkIfFieldTaken(newPhone, 'phone', _id)) {
+      return {
+        data: {},
+        code: CONSTANTS.BAD_REQUEST,
+        message: CONSTANTS.USER_PHONE_ALREADY_EXISTS
+      };
+    }
     // Only update countryCode if provided in the request body
     if (updateBody.countryCode) {
       user.countryCode = updateBody.countryCode;
     }
-
-    // Handle the assignment of other updateBody fields (excluding phone and email)
-    Object.assign(user, {
+    // Handle the assignment of other updateBody fields (excluding email and phone if not provided)
+    const updatedFields = {
       ...updateBody,
       updatedAt: new Date(),
-    });
-
+    };
+    if (!newPhone) delete updatedFields.phone;  // Remove phone if not being updated
+    if (!newEmail) delete updatedFields.email;  // Remove email if not being updated
+    Object.assign(user, updatedFields);
     // Handle social media links validation
     if (updateBody.socialMediaLinks && Array.isArray(updateBody.socialMediaLinks)) {
       if (updateBody.socialMediaLinks.length > 5) {
-        return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.SOCIAL_MEDIA_LINKS_CAPACITY };
+        return {
+          data: {},
+          code: CONSTANTS.BAD_REQUEST,
+          message: CONSTANTS.SOCIAL_MEDIA_LINKS_CAPACITY
+        };
       }
       user.socialMediaLinks = updateBody.socialMediaLinks;
     }
-
-    await handleImageUploads(user, files);  // Handle profile picture and other file uploads
-    await user.save();  // Save the user document to persist changes
-
+    await handleImageUploads(user, files);
+    await user.save();
     // Handle activation email if status changes
     if (previousStatus === 0 && user.status === 1) {
       await mailFunctions.sendActivationEmail(user.email, user.name);
     }
-
-    return { data: user, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.USER_UPDATE };
+    return {
+      data: user,
+      phoneUpdated,
+      emailUpdated,
+      code: CONSTANTS.SUCCESSFUL,
+      message: CONSTANTS.USER_UPDATE
+    };
 
   } catch (error) {
     console.error('Error updating user:', error);
-    return handleServiceError(error);
+    // Custom error messages based on error type
+    if (error.name === 'ValidationError') {
+      return {
+        data: {},
+        code: CONSTANTS.BAD_REQUEST,
+        message: 'Validation failed: ' + error.message
+      };
+    } else if (error.code === 11000) {
+      // Mongoose unique constraint error
+      return {
+        data: {},
+        code: CONSTANTS.BAD_REQUEST,
+        message: 'Duplicate field value: ' + Object.keys(error.keyValue)
+      };
+    } else {
+      return {
+        data: {},
+        code: CONSTANTS.INTERNAL_SERVER_ERROR,
+        message: CONSTANTS.INTERNAL_SERVER_ERROR_MSG
+      };
+    }
   }
+};
+
+// Helper function to handle phone update and OTP
+const handlePhoneUpdate = async (updateBody) => {
+  const mobileOtp = config.env === 'development' ? '1234' : crypto.randomInt(1000, 9999).toString();
+  updateBody.mobileOTP = mobileOtp;
+  updateBody.mobileVerificationStatus = false;
+  // Send OTP via SMS here if needed
+  return true;
+};
+// Helper function to handle email update and OTP
+const handleEmailUpdate = async (updateBody, user) => {
+  const emailOtp = crypto.randomInt(1000, 9999).toString();
+  updateBody.emailOTP = emailOtp;
+  updateBody.emailVerificationStatus = false;
+  await mailFunctions.sendOtpOnMail(updateBody.email, user.name, emailOtp);
+  return true;
 };
 
 // Helper function to check if field is already taken (email/phone)
@@ -396,15 +478,6 @@ const handleImageUploads = async (user, files) => {
       throw new Error(CONSTANTS.S3_BUCKET_UPLOAD_FAILED);
     }
   }
-};
-
-// Handle service errors
-const handleServiceError = (error) => {
-  if (error.name === 'ValidationError') {
-    const errorMessages = Object.values(error.errors).map(err => err.message);
-    return { data: {}, code: CONSTANTS.BAD_REQUEST, message: errorMessages.join(', ') };
-  }
-  return { data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: CONSTANTS.INTERNAL_SERVER_ERROR_MSG };
 };
 
 /**
@@ -478,7 +551,7 @@ const loginUserWithEmailOrPhoneAndPassword = async (emailOrPhone, password, type
     const device = req.headers['user-agent'] || 'Unknown Device';
     const time = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
     const ipAddress = req.ip;
-    mailFunctions.sendLoginNotificationEmail(user.email, device, time, ipAddress);
+    // mailFunctions.sendLoginNotificationEmail(user.email, device, time, ipAddress);
 
     return { data: { user, tokens }, code: CONSTANTS.SUCCESS, message: CONSTANTS.LOGIN_MSG };
   } catch (error) {

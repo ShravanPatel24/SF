@@ -5,17 +5,20 @@ const CONSTANTS = require('../config/constant');
 // Create a new post
 const createPost = catchAsync(async (req, res) => {
     const { user } = req;
-    if (!user || !user._id) { return res.status(CONSTANTS.BAD_REQUEST).json({ message: CONSTANTS.NO_TOKEN }) }
+    if (!user || !user._id) {
+        return res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: CONSTANTS.NO_TOKEN });
+    }
     const { caption, type } = req.body;
     const files = req.files;
-    // Validate that a video file is uploaded for 'reel' or 'mixed' types
-    if ((type === 'reel' || type === 'mixed') && (!files || !files.video || files.video.length === 0)) { return res.status(CONSTANTS.BAD_REQUEST).json({ message: "Video is required for reels or mixed post types." }) }
+    if ((type === 'reel' || type === 'mixed') && (!files || !files.video || files.video.length === 0)) {
+        return res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: "Video is required for reels or mixed post types." });
+    }
     try {
         const newPost = await postService.createPost(user._id, caption, type, files);
-        res.status(CONSTANTS.SUCCESSFUL).json(newPost);
+        return res.status(CONSTANTS.CREATED_CODE).json({ statusCode: CONSTANTS.CREATED_CODE, message: 'Post created successfully', data: newPost });
     } catch (error) {
         console.error("Error in creating post:", error);
-        res.status(CONSTANTS.BAD_REQUEST).json({ error: error.message });
+        return res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: error.message })
     }
 });
 
@@ -36,7 +39,7 @@ const getAllPosts = catchAsync(async (req, res) => {
             prevPage: posts.prevPage,
             nextPage: posts.nextPage,
         },
-        code: CONSTANTS.SUCCESSFUL,
+        statusCode: CONSTANTS.SUCCESSFUL,
         message: CONSTANTS.LIST
     });
 });
@@ -48,7 +51,7 @@ const getPostById = catchAsync(async (req, res) => {
         return res.status(CONSTANTS.NOT_FOUND).json({ error: CONSTANTS.NOT_FOUND_MSG });
     }
     res.status(CONSTANTS.SUCCESSFUL).json({
-        code: CONSTANTS.SUCCESSFUL,
+        statusCode: CONSTANTS.SUCCESSFUL,
         message: CONSTANTS.DETAILS,
         data: post
     });
@@ -76,7 +79,7 @@ const getPostsByUserId = catchAsync(async (req, res) => {
                 prevPage: posts.prevPage,
                 nextPage: posts.nextPage,
             },
-            code: CONSTANTS.SUCCESSFUL,
+            statusCode: CONSTANTS.SUCCESSFUL,
             message: CONSTANTS.LIST
         });
     } catch (error) {
@@ -96,7 +99,7 @@ const updatePost = catchAsync(async (req, res) => {
     const updatedPost = await postService.updatePost(postId, caption, files);
     if (!updatedPost) { return res.status(CONSTANTS.NOT_FOUND).json({ error: CONSTANTS.NOT_FOUND_MSG }) }
     res.status(CONSTANTS.SUCCESSFUL).json({
-        code: CONSTANTS.SUCCESSFUL,
+        statusCode: CONSTANTS.SUCCESSFUL,
         message: CONSTANTS.UPDATED,
         data: updatedPost
     });
@@ -107,7 +110,7 @@ const deletePost = catchAsync(async (req, res) => {
     const deletedPost = await postService.deletePost(req.params.id);
     if (!deletedPost) { return res.status(CONSTANTS.NOT_FOUND).json({ error: CONSTANTS.NOT_FOUND_MSG }) }
     res.status(CONSTANTS.SUCCESSFUL).json({
-        code: CONSTANTS.SUCCESSFUL,
+        statusCode: CONSTANTS.SUCCESSFUL,
         message: CONSTANTS.DELETED,
         data: deletedPost
     });
@@ -117,12 +120,12 @@ const deletePost = catchAsync(async (req, res) => {
 const likePost = catchAsync(async (req, res) => {
     const { user } = req;
     const { postId } = req.params;
-    if (!user || !user._id) { return res.status(CONSTANTS.BAD_REQUEST).json({ message: CONSTANTS.NO_TOKEN }) }
+    if (!user || !user._id) { return res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: CONSTANTS.NO_TOKEN }) }
     try {
         await postService.addLike(postId, user._id);
-        res.status(CONSTANTS.SUCCESSFUL).json({ message: CONSTANTS.LIKE_SUCCESS });
+        res.status(CONSTANTS.SUCCESSFUL).json({ statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.LIKE_SUCCESS });
     } catch (error) {
-        res.status(CONSTANTS.BAD_REQUEST).json({ error: error.message });
+        res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: error.message });
     }
 });
 
@@ -130,12 +133,14 @@ const likePost = catchAsync(async (req, res) => {
 const unlikePost = catchAsync(async (req, res) => {
     const { user } = req;
     const { postId } = req.params;
-    if (!user || !user._id) { return res.status(CONSTANTS.BAD_REQUEST).json({ message: CONSTANTS.NO_TOKEN }) }
+    if (!user || !user._id) {
+        return res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: CONSTANTS.NO_TOKEN });
+    }
     try {
         await postService.removeLike(postId, user._id);
-        res.status(CONSTANTS.SUCCESSFUL).json({ message: CONSTANTS.UNLIKE_SUCCESS });
+        res.status(CONSTANTS.SUCCESSFUL).json({ statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.UNLIKE_SUCCESS });
     } catch (error) {
-        res.status(CONSTANTS.BAD_REQUEST).json({ error: error.message });
+        res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: error.message });
     }
 });
 
@@ -144,13 +149,17 @@ const addComment = catchAsync(async (req, res) => {
     const { user } = req;
     const { postId } = req.params;
     const { text } = req.body;
-    if (!user || !user._id) { return res.status(CONSTANTS.BAD_REQUEST).json({ message: CONSTANTS.NO_TOKEN }) }
-    if (!text) { return res.status(CONSTANTS.BAD_REQUEST).json({ message: CONSTANTS.COMMENT_TEXT_REQUIRED }) }
+    if (!user || !user._id) {
+        return res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: CONSTANTS.NO_TOKEN });
+    }
+    if (!text) {
+        return res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: CONSTANTS.COMMENT_TEXT_REQUIRED });
+    }
     try {
         await postService.addComment(postId, text, user._id);
-        res.status(CONSTANTS.SUCCESSFUL).json({ message: CONSTANTS.COMMENT_SUCCESS });
+        res.status(CONSTANTS.SUCCESSFUL).json({ statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.COMMENT_SUCCESS });
     } catch (error) {
-        res.status(CONSTANTS.BAD_REQUEST).json({ error: error.message });
+        res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: error.message });
     }
 });
 
@@ -159,9 +168,9 @@ const deleteComment = catchAsync(async (req, res) => {
     const { commentId } = req.params;
     try {
         await postService.deleteComment(commentId);
-        res.status(CONSTANTS.SUCCESSFUL).json({ message: CONSTANTS.COMMENT_DELETED });
+        res.status(CONSTANTS.SUCCESSFUL).json({ statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.COMMENT_DELETED });
     } catch (error) {
-        res.status(CONSTANTS.BAD_REQUEST).json({ error: error.message });
+        res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: error.message });
     }
 });
 

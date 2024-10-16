@@ -10,6 +10,7 @@ module.exports = {
     NOT_ACCEPTABLE: 406,
     UNAUTHORIZED: 401,
     LIMIT_EXCEEDED: 201,
+    CREATED_CODE: 201,
 
     LIMIT_EXCEEDED_MSG: 'Limit exceeded.',
     INTERNAL_SERVER_ERROR_MSG: 'An internal server error has occurred',

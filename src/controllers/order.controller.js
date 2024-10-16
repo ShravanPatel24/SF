@@ -2,6 +2,7 @@ const catchAsync = require('../utils/catchAsync');
 const { OrderService } = require('../services');
 const { CartModel, OrderModel } = require('../models');
 const CONSTANTS = require('../config/constant');
+const pick = require("../utils/pick");
 
 // Create a new order
 const createOrder = catchAsync(async (req, res) => {
@@ -54,13 +55,8 @@ const getUserOrders = catchAsync(async (req, res) => {
 // Get order details by ID
 const getOrderById = catchAsync(async (req, res) => {
     const { orderId } = req.params;
-    // Fetch the order by ID, populate the items with product details
     const order = await OrderService.getOrderById(orderId);
-    if (!order) {
-        return res.status(404).json({ message: CONSTANTS.ORDER_NOT_FOUND });
-    }
-
-    // Return detailed order information to display on the order details page
+    if (!order) { return res.status(404).json({ message: CONSTANTS.ORDER_NOT_FOUND }) }
     return res.status(200).json({
         orderId: order.orderId,
         orderNumber: order.orderNumber,
@@ -72,12 +68,19 @@ const getOrderById = catchAsync(async (req, res) => {
         tax: order.tax,
         items: order.items.map(item => ({
             productId: item.item._id,
+            itemType: item.item.itemType,
             productName: item.item.productName || item.item.dishName,
             quantity: item.quantity,
             price: item.price,
             selectedSize: item.selectedSize || null,
             selectedColor: item.selectedColor || null
         })),
+        user: {
+            userId: order.user._id,
+            name: order.user.name,
+            email: order.user.email,
+            phone: order.user.phone
+        },
         createdAt: order.createdAt,
         updatedAt: order.updatedAt
     });
@@ -126,9 +129,46 @@ const trackOrder = catchAsync(async (req, res) => {
     res.status(200).json({ data: order });
 });
 
-const getAllOrdersByAdmin = catchAsync(async (req, res) => {
+const getAllOrdersAdmin = catchAsync(async (req, res) => {
+    const options = pick(req.query, [
+        'sortBy',
+        'limit',
+        'page',
+        'searchBy',
+        'categoryId',
+        'orderId',
+        'status'
+    ]);
+    const result = await OrderService.queryOrder(options);
+    const orders = result.docs.map(order => ({
+        orderId: order.orderId,
+        userName: order.user.name,
+        email: order.user.email,
+        createdAt: order.createdAt,
+        status: order.status,
+        totalPrice: order.totalPrice
+    }));
+    res.send({
+        data: {
+            docs: orders,
+            totalDocs: result.totalDocs,
+            limit: result.limit,
+            totalPages: result.totalPages,
+            page: result.page,
+            pagingCounter: result.pagingCounter,
+            hasPrevPage: result.hasPrevPage,
+            hasNextPage: result.hasNextPage,
+            prevPage: result.prevPage,
+            nextPage: result.nextPage
+        },
+        code: CONSTANTS.SUCCESSFUL,
+        message: CONSTANTS.LIST
+    });
+});
+
+const getOrdersByUserIdAdmin = catchAsync(async (req, res) => {
     const { userId, search, sortBy = 'createdAt', sortOrder = 'desc', page = 1, limit = 10 } = req.query;
-    const { orders, totalOrders } = await OrderService.getAllOrdersByAdmin(
+    const { orders, totalOrders } = await OrderService.getOrdersByUserIdAdmin(
         userId,
         search,
         sortBy,
@@ -152,5 +192,6 @@ module.exports = {
     getOrderById,
     cancelOrder,
     trackOrder,
-    getAllOrdersByAdmin
+    getAllOrdersAdmin,
+    getOrdersByUserIdAdmin
 };

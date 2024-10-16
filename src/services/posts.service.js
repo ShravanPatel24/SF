@@ -3,47 +3,43 @@ const { s3Service } = require('../services');
 const CONSTANTS = require('../config/constant');
 
 // Create a new post
-const createPost = async (user, caption, type, files) => {
-    try {
-        if (user.type === 'partner') { throw new Error(CONSTANTS.PERMISSION_DENIED); }
+const createPost = async (userId, caption, type, files) => {
+  try {
+    const postData = {
+      userId,
+      caption,
+      type,
+      likes: 0,
+      comments: [],
+    };
 
-        const postData = {
-            userId: user._id,
-            caption,
-            type,
-            likes: 0,
-            comments: [],
-        };
+    // Handle image upload for photos or stories
+    if (type === 'photo' || type === 'story') {
+      if (!files || !files.images || files.images.length === 0) {
+        throw new Error(CONSTANTS.IMAGE_REQUIRED);  // Throw error if images are required but missing
+      }
 
-        // Handle image upload for photos or stories
-        if (type === 'photo' || type === 'story') {
-            if (files && files.images && files.images.length > 0) {
-                const imageUploadResponse = await s3Service.uploadDocuments(files.images, 'postImages');
-                const imageKeys = imageUploadResponse.map(file => file.key);  // Use 'key' instead of 'location'
-                postData.images = imageKeys;
-            } else {
-                throw new Error(CONSTANTS.IMAGE_REQUIRED);
-            }
-        }
-
-        // Handle video upload for reels or mixed posts
-        if (type === 'reel' || type === 'mixed') {
-            if (files && files.video && files.video.length > 0) {
-                const videoUploadResponse = await s3Service.uploadDocuments(files.video, 'postVideos');
-                const videoKey = videoUploadResponse[0].key;  // Use 'key' instead of 'location'
-                postData.videoUrl = videoKey;
-            } else {
-                throw new Error(CONSTANTS.VIDEO_REQUIRED);
-            }
-        }
-
-        const newPost = new PostModel(postData);
-        const savedPost = await newPost.save();
-        return savedPost;
-    } catch (error) {
-        console.error("Error in creating post service:", error);
-        throw error;
+      const imageUploadResponse = await s3Service.uploadDocuments(files.images, 'postImages');
+      postData.images = imageUploadResponse.map(file => file.key);  // Use 'key' for image storage
     }
+
+    // Handle video upload for reels or mixed posts
+    if (type === 'reel' || type === 'mixed') {
+      if (!files || !files.video || files.video.length === 0) {
+        throw new Error(CONSTANTS.VIDEO_REQUIRED);  // Throw error if video is required but missing
+      }
+
+      const videoUploadResponse = await s3Service.uploadDocuments(files.video, 'postVideos');
+      postData.videoUrl = videoUploadResponse[0].key;  // Store video URL
+    }
+
+    const newPost = new PostModel(postData);
+    const savedPost = await newPost.save();
+    return savedPost;
+  } catch (error) {
+    console.error('Error in creating post service:', error);
+    throw error;  // Propagate the error back to the controller
+  }
 };
 
 // Fetch all posts
@@ -180,7 +176,7 @@ const deletePost = async (id) => {
         const urlParts = imageUrl.split('/');
         return urlParts[urlParts.length - 1];  // Extract the key from the URL
     });
-    if (imageKeys.length > 0) { await deleteFromS3(imageKeys) }
+    if (imageKeys.length > 0) { await s3Service.deleteFromS3(imageKeys) }
     // If the post is a reel or mixed type, delete the video from S3
     if (post.type === 'reel' && post.videoUrl) {
         const videoUrlParts = post.videoUrl.split('/');

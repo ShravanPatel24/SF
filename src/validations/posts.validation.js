@@ -1,12 +1,12 @@
 const Joi = require('joi');
-const { objectId } = require('./custom.validation'); // Assuming you have objectId custom validator
+const { objectId } = require('./custom.validation');
 
 // Validation for creating a post
 const createPost = {
     body: Joi.object().keys({
         caption: Joi.string().required().max(500).messages({
             'string.empty': 'Caption cannot be empty.',
-            'string.max': 'Caption cannot exceed 500 characters.'
+            'string.max': 'Caption cannot exceed 500 characters.',
         }),
         type: Joi.string().valid('photo', 'reel', 'story').required().messages({
             'any.only': 'Type must be either photo, reel, or story.',
@@ -20,8 +20,8 @@ const createPost = {
                 text: Joi.string().required(),
                 postedBy: Joi.string().custom(objectId).required(),
                 postedAt: Joi.date().optional().messages({
-                    'date.base': 'postedAt must be a valid date.'
-                })
+                    'date.base': 'postedAt must be a valid date.',
+                }),
             })
         ).optional().messages({
             'array.base': 'Comments must be an array.',

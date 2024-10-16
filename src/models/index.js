@@ -8,6 +8,7 @@ module.exports.FollowModel = require("./follow.model");
 module.exports.FollowRequestModel = require("./followRequest.model");
 module.exports.BusinessTypeModel = require("./businessType.model");
 module.exports.BusinessModel = require("./business.model");
+module.exports.BankDetailModel = require("./bankDetail.model");
 module.exports.PostModel = require("./posts.model");
 module.exports.PostCommentModel = require("./postComment.model");
 module.exports.PostLikeModel = require("./postLike.model");

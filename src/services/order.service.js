@@ -95,6 +95,7 @@ const getOrdersByUser = async (userId) => {
 // Get order by ID
 const getOrderById = async (orderId) => {
     const order = await OrderModel.findById(orderId)
+        .populate('user', '_id name email phone')
         .populate('items.item');
     return order;
 };
@@ -115,7 +116,29 @@ const trackOrder = async (orderId) => {
     return order;
 };
 
-const getAllOrdersByAdmin = async (userId = null, search = '', sortBy = 'createdAt', sortOrder = 'desc', page = 1, limit = 10) => {
+const queryOrder = async (options) => {
+    var condition = {};
+    if (options.searchBy && options.searchBy !== 'undefined') {
+        condition.$or = [{
+            orderId: {
+                $regex: '.*' + options.searchBy + '.*',
+                $options: 'si',
+            }
+        }];
+    }
+    if (options.status && options.status !== 'undefined') { condition.status = options.status }
+    options['sort'] = { createdAt: -1 };
+    const data = await OrderModel.paginate(condition, {
+        ...options,
+        populate: {
+            path: 'user',
+            select: 'name email'
+        }
+    });
+    return data;
+};
+
+const getOrdersByUserIdAdmin = async (userId = null, search = '', sortBy = 'createdAt', sortOrder = 'desc', page = 1, limit = 10) => {
     const query = userId ? { user: userId } : {};
     if (search) {
         query.$or = [
@@ -143,5 +166,6 @@ module.exports = {
     getOrderById,
     cancelOrder,
     trackOrder,
-    getAllOrdersByAdmin
+    queryOrder,
+    getOrdersByUserIdAdmin
 };

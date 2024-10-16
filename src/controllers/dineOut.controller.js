@@ -23,7 +23,7 @@ const createDineOutRequest = catchAsync(async (req, res) => {
         if (req.user.type === 'partner') { return res.status(CONSTANTS.UNAUTHORIZED).json({ message: CONSTANTS.PERMISSION_DENIED }) }
         const partner = await UserModel.findById(partnerId).where({ type: 'partner' });
         if (!partner) { return res.status(CONSTANTS.NOT_FOUND).json({ message: CONSTANTS.PARTNER_NOT_FOUND_MSG }) }
-        await checkTimeSlotAvailability(businessId, date, time);
+        await DineOutRequestService.checkTimeSlotAvailability(businessId, date, time);
         const dineOutDateTime = moment(`${date} ${time}`, 'YYYY-MM-DD HH:mm').utc().toDate();
         const newRequest = await DineOutRequestService.createDineOutRequest({
             user: userId,
