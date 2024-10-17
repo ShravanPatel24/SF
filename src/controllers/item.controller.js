@@ -6,9 +6,9 @@ const CONSTANTS = require("../config/constant");
 const createItem = catchAsync(async (req, res) => {
     try {
         const newItem = await ItemService.createItem(req.body, req.files);
-        res.status(201).json({ message: CONSTANTS.ITEM_CREATED, newItem });
+        res.status(201).json({ statusCode: 201, message: CONSTANTS.ITEM_CREATED, data: newItem });
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        res.status(400).json({ statusCode: 400, message: error.message });
     }
 });
 
@@ -17,9 +17,9 @@ const getItemById = catchAsync(async (req, res) => {
     const { itemId } = req.params;
     const item = await ItemService.getItemById(itemId);
     if (!item) {
-        return res.status(404).json({ message: CONSTANTS.ITEM_NOT_FOUND });
+        return res.status(404).json({ statusCode: 404, message: CONSTANTS.ITEM_NOT_FOUND });
     }
-    res.status(200).json({ data: item });
+    res.status(200).json({ statusCode: 200, data: item });
 });
 
 // Get items by business
@@ -31,12 +31,12 @@ const getItemsByBusiness = catchAsync(async (req, res) => {
     try {
         const result = await ItemService.getItemsByBusiness(businessId, page, limit);
         res.status(200).json({
+            statusCode: 200,
             data: result,
-            code: 200,
-            message: 'Items retrieved successfully.'
+            message: 'Items retrieved successfully.',
         });
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        res.status(400).json({ statusCode: 400, message: error.message });
     }
 });
 
@@ -49,12 +49,12 @@ const getItemsByBusinessType = catchAsync(async (req, res) => {
     try {
         const result = await ItemService.getItemsByBusinessType(businessTypeId, page, limit);
         res.status(200).json({
+            statusCode: 200,
             data: result,
-            code: 200,
-            message: 'Items retrieved successfully.'
+            message: 'Items retrieved successfully.',
         });
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        res.status(400).json({ statusCode: 400, message: error.message });
     }
 });
 
@@ -63,9 +63,9 @@ const updateItem = catchAsync(async (req, res) => {
     const { itemId } = req.params;
     try {
         const updatedItem = await ItemService.updateItemById(itemId, req.body, req.files);
-        res.status(200).json({ message: CONSTANTS.ITEM_UPDATED, updatedItem });
+        res.status(200).json({ statusCode: 200, message: CONSTANTS.ITEM_UPDATED, data: updatedItem });
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        res.status(400).json({ statusCode: 400, message: error.message });
     }
 });
 
@@ -74,9 +74,9 @@ const deleteItem = catchAsync(async (req, res) => {
     const { itemId } = req.params;
     try {
         await ItemService.deleteItemById(itemId);
-        res.status(200).json({ message: CONSTANTS.DELETED });
+        res.status(200).json({ statusCode: 200, message: CONSTANTS.DELETED });
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        res.status(400).json({ statusCode: 400, message: error.message });
     }
 });
 

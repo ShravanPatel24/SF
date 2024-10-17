@@ -77,8 +77,8 @@ const processOnlinePayment = async (order) => {
 
 const updateOrderStatus = async (orderId, status) => {
     const order = await OrderModel.findById(orderId);
-    if (!order) { throw new Error(CONSTANTS.ORDER_NOT_FOUND) }
-    if (order.status === 'delivered' || order.status === 'cancelled') { throw new Error(CONSTANTS.UPDATE_STATUS_AFTER_DELIVERD_ERROR) }
+    if (!order) { throw { statusCode: 404, message: CONSTANTS.ORDER_NOT_FOUND } }
+    if (order.status === 'delivered' || order.status === 'cancelled') { throw { statusCode: 400, message: CONSTANTS.UPDATE_STATUS_AFTER_DELIVERD_ERROR } }
     order.status = status;
     await order.save();
     return order;

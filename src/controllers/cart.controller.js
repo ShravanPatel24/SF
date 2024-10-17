@@ -8,38 +8,43 @@ const mongoose = require('mongoose');
 const addToCart = catchAsync(async (req, res) => {
     const { itemId, quantity, selectedSize, selectedColor, checkIn, checkOut, deliveryAddress } = req.body;
     const userId = req.user._id;
-    if (!mongoose.isValidObjectId(itemId)) { return res.status(400).json({ message: CONSTANTS.INVALID_ITEM_ID }) }
+    if (!mongoose.isValidObjectId(itemId)) { return res.status(400).json({ statusCode: 400, message: CONSTANTS.INVALID_ITEM_ID }) }
     const item = await ItemModel.findById(itemId);
-    if (!item) { return res.status(404).json({ message: CONSTANTS.ITEM_NOT_FOUND }) }
-    let pricePerUnit = 0;
+    if (!item) { return res.status(404).json({ statusCode: 404, message: CONSTANTS.ITEM_NOT_FOUND }) }
 
+    let pricePerUnit = 0;
     if (item.itemType === 'room') {
-        if (!checkIn || !checkOut) { return res.status(400).json({ message: CONSTANTS.CHECKIN_CHECKOUT_REQUIRED }) }
+        if (!checkIn || !checkOut) { return res.status(400).json({ statusCode: 400, message: CONSTANTS.CHECKIN_CHECKOUT_REQUIRED }) }
         const checkInDate = new Date(checkIn);
         const checkOutDate = new Date(checkOut);
         const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
-        if (nights <= 0) { return res.status(400).json({ message: CONSTANTS.INVALID_DATES }) }
+        if (nights <= 0) {
+            return res.status(400).json({ statusCode: 400, message: CONSTANTS.INVALID_DATES });
+        }
         pricePerUnit = item.roomPrice * nights;
-    }
-    else if (item.itemType === 'product' && item.variants && item.variants.length > 0) {
+    } else if (item.itemType === 'product' && item.variants && item.variants.length > 0) {
         const variant = item.variants.find(v => v.size === selectedSize && v.color === selectedColor);
         if (!variant) {
-            return res.status(400).json({ message: CONSTANTS.VARIANT_NOT_FOUND });
+            return res.status(400).json({ statusCode: 400, message: CONSTANTS.VARIANT_NOT_FOUND });
         }
         pricePerUnit = variant.productPrice;
+    } else if (item.itemType === 'food') {
+        pricePerUnit = item.dishPrice || item.price || 0;
     }
-    else if (item.itemType === 'food') { pricePerUnit = item.dishPrice || item.price || 0 }
 
-    if (isNaN(pricePerUnit) || pricePerUnit <= 0) { return res.status(400).json({ message: CONSTANTS.INVALID_PRICE }) }
+    if (isNaN(pricePerUnit) || pricePerUnit <= 0) {
+        return res.status(400).json({ statusCode: 400, message: CONSTANTS.INVALID_PRICE });
+    }
 
-    if (quantity <= 0) { return res.status(400).json({ message: CONSTANTS.QUANTITY_GREATER }) }
-    // Add the item to the cart using the CartService
+    if (quantity <= 0) {
+        return res.status(400).json({ statusCode: 400, message: CONSTANTS.QUANTITY_GREATER });
+    }
+
     try {
         const cart = await CartService.addToCart(userId, itemId, quantity, selectedSize, selectedColor, checkIn, checkOut, deliveryAddress);
-        res.status(200).json({ message: CONSTANTS.ADDED_TO_CART, cart });
+        return res.status(200).json({ statusCode: 200, message: CONSTANTS.ADDED_TO_CART, cart });
     } catch (error) {
-        // Handle any unexpected errors
-        return res.status(500).json({ message: 'An unexpected error occurred.', error: error.message });
+        return res.status(500).json({ statusCode: 500, message: 'An unexpected error occurred.', error: error.message });
     }
 });
 
@@ -49,11 +54,11 @@ const getCart = catchAsync(async (req, res) => {
     try {
         const cart = await CartService.getCartByUser(userId);
         if (!cart) {
-            return res.status(404).json({ message: CONSTANTS.CART_NOT_FOUND });
+            return res.status(404).json({ statusCode: 404, message: CONSTANTS.CART_NOT_FOUND });
         }
-        res.status(200).json({ data: cart });
+        return res.status(200).json({ statusCode: 200, data: cart });
     } catch (error) {
-        res.status(403).json({ message: error.message });
+        return res.status(403).json({ statusCode: 403, message: error.message });
     }
 });
 
@@ -61,12 +66,16 @@ const getCart = catchAsync(async (req, res) => {
 const removeFromCart = catchAsync(async (req, res) => {
     const { itemId } = req.body;
     const userId = req.user._id;
-    if (!itemId) { return res.status(400).json({ message: "Item ID is missing." }) }
+
+    if (!itemId) {
+        return res.status(400).json({ statusCode: 400, message: "Item ID is missing." });
+    }
+
     try {
         const updatedCart = await CartService.removeFromCart(userId, itemId);
-        res.status(200).json({ message: CONSTANTS.REMOVED_FROM_CART, updatedCart });
+        return res.status(200).json({ statusCode: 200, message: CONSTANTS.REMOVED_FROM_CART, updatedCart });
     } catch (error) {
-        res.status(500).json({ code: 500, message: error.message });
+        return res.status(500).json({ statusCode: 500, message: error.message });
     }
 });
 
@@ -74,20 +83,31 @@ const removeFromCart = catchAsync(async (req, res) => {
 const updateCartItem = catchAsync(async (req, res) => {
     const { itemId, quantity } = req.body;
     const userId = req.user._id;
+
     try {
         const updatedCart = await CartService.updateCartItem(userId, itemId, quantity);
-        res.status(200).json({ message: CONSTANTS.CART_UPDATED, updatedCart });
+        return res.status(200).json({ statusCode: 200, message: CONSTANTS.CART_UPDATED, updatedCart });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        return res.status(500).json({ statusCode: 500, message: error.message });
     }
 });
 
 // Clear the cart
 const clearCart = catchAsync(async (req, res) => {
     const userId = req.user._id;
-    const cart = await CartService.clearCart(userId);
-    if (!cart) { return res.status(404).json({ message: CONSTANTS.CART_NOT_FOUND }) }
-    res.status(200).json({ message: CONSTANTS.CART_CLEARED, cart });
+    try {
+        const cart = await CartService.clearCart(userId);
+        return res.status(200).json({
+            statusCode: 200,
+            message: CONSTANTS.CART_CLEARED,
+            data: cart
+        });
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({
+            statusCode: error.statusCode || 500,
+            message: error.message || 'An error occurred while clearing the cart.'
+        });
+    }
 });
 
 module.exports = {

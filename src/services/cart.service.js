@@ -101,7 +101,7 @@ const updateCartItem = async (userId, itemId, quantity) => {
 // Clear the cart
 const clearCart = async (userId) => {
     const cart = await CartModel.findOne({ user: userId });
-    if (!cart) { throw new Error(CONSTANTS.CART_NOT_FOUND) }
+    if (!cart) { throw { statusCode: 404, message: CONSTANTS.CART_NOT_FOUND } }
     cart.items = [];
     cart.totalPrice = 0;
     cart.subtotal = 0;

@@ -4,9 +4,13 @@ const { ContactUsService } = require('../services');
 const CONSTANT = require('../config/constant');
 
 const createContact = catchAsync(async (req, res) => {
-    req.body['name'] = req.body.firstName + req.body.lastName ? (' ' + req.body.lastName) : '';
-    var data = await ContactUsService.createContact(req.body);
-    res.send(data);
+    req.body['name'] = req.body.firstName + (req.body.lastName ? (' ' + req.body.lastName) : '');
+    const data = await ContactUsService.createContact(req.body);
+    res.status(CONSTANT.SUCCESSFUL).json({
+        statusCode: CONSTANT.SUCCESSFUL,
+        message: CONSTANT.CONTACT_CREATED,
+        data
+    });
 });
 
 const getContacts = catchAsync(async (req, res) => {
@@ -18,35 +22,47 @@ const getContacts = catchAsync(async (req, res) => {
         'contactId',
         'status'
     ]);
-    // options['userType'] = req.user.userType;
     const result = await ContactUsService.queryContact(options);
-    res.send({ data: result, code: CONSTANT.SUCCESSFUL, message: CONSTANT.CONTACT_LIST });
+    res.status(CONSTANT.SUCCESSFUL).json({
+        statusCode: CONSTANT.SUCCESSFUL,
+        message: CONSTANT.CONTACT_LIST,
+        data: result
+    });
 });
 
 const getContact = catchAsync(async (req, res) => {
     const data = await ContactUsService.getContactById(req.params.contactId, 'id');
     if (!data) {
-        res.send({ data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.CONTACT_NOT_FOUND });
-    } else {
-        res.send({ data: data, code: CONSTANT.SUCCESSFUL, message: CONSTANT.CONTACT_DETAILS });
+        return res.status(CONSTANT.NOT_FOUND).json({
+            statusCode: CONSTANT.NOT_FOUND,
+            message: CONSTANT.CONTACT_NOT_FOUND,
+            data: {}
+        });
     }
+    res.status(CONSTANT.SUCCESSFUL).json({
+        statusCode: CONSTANT.SUCCESSFUL,
+        message: CONSTANT.CONTACT_DETAILS,
+        data
+    });
 });
 
 const updateContact = catchAsync(async (req, res) => {
-    var data = await ContactUsService.updateContactById(req.params.contactId, req.body)
-    res.send(data);
+    const data = await ContactUsService.updateContactById(req.params.contactId, req.body);
+    if (data.code !== CONSTANT.SUCCESSFUL) {
+        return res.status(data.code).json({ statusCode: data.code, message: data.message, data: data.data });
+    }
+    res.status(CONSTANT.SUCCESSFUL).json({ statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.CONTACT_UPDATE, data: data.data });
 });
 
 const deleteContact = catchAsync(async (req, res) => {
-    var details = await ContactUsService.deleteContactById(req.params.contactId, req.user);
-    if (details) {
-        res.send(details);
-    } else {
-        res.send(details);
+    const details = await ContactUsService.deleteContactById(req.params.contactId, req.user);
+    if (details.code !== CONSTANT.SUCCESSFUL) {
+        return res.status(details.code).json({ statusCode: details.code, message: details.message, data: details.data });
     }
+    res.status(CONSTANT.SUCCESSFUL).json({
+        statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.CONTACT_DELETE, data: details.data
+    });
 });
-
-
 
 module.exports = {
     createContact,

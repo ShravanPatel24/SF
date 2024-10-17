@@ -126,12 +126,11 @@ const getById = async (id) => {
  */
 const updateById = async (id, updateBody) => {
     const data = await getById(id);
-    if (updateBody.name && await BusinessTypeModel.isFieldValueTaken('name', updateBody.name, id)) {
-        return { data: {}, code: CONSTANT.BAD_REQUEST, message: `Business Type ${updateBody.name} already exists.` };
-    }
+    if (!data) { return { data: {}, statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.BUSINESS_TYPE_NOT_FOUND_MSG } }
+    if (updateBody.name && await BusinessTypeModel.isFieldValueTaken('name', updateBody.name, id)) { return { data: {}, statusCode: CONSTANT.BAD_REQUEST, message: `Business Type ${updateBody.name} already exists.` } }
     Object.assign(data, updateBody);
     await data.save();
-    return { data: data, code: CONSTANT.SUCCESSFUL, message: CONSTANT.UPDATED };
+    return { data: data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.UPDATED };
 };
 
 /**
@@ -142,11 +141,11 @@ const updateById = async (id, updateBody) => {
 const deleteById = async (id) => {
     const data = await getById(id);
     if (!data) {
-        return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.NOT_FOUND_MSG }
+        return { statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.BUSINESS_TYPE_NOT_FOUND_MSG, data: {} };
     }
     data.isDelete = 0;
     await data.save();
-    return { data: data, code: CONSTANT.SUCCESSFUL, message: CONSTANT.DELETED }
+    return { statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.DELETED, data };
 };
 
 const getListWithoutPagination = async (options) => {

@@ -1,6 +1,5 @@
-const { UserModel, BusinessTypeModel, FollowModel, FollowRequestModel } = require("../models");
+const { UserModel, BusinessTypeModel, FollowModel, FollowRequestModel, BankDetailModel, BusinessModel, CartModel, DineOutModel, OrderModel, PostCommentModel, PostLikeModel, PostModel, RoleBaseAccessModel, Token } = require("../models");
 const CONSTANTS = require("../config/constant");
-const Token = require("../models/token.model");
 const { tokenTypes } = require("../config/tokens");
 const tokenService = require("./token.service");
 const mailFunctions = require("../helpers/mailFunctions");
@@ -48,13 +47,29 @@ const getUserById = async (userId) => {
   try {
     const user = await UserModel.findOne({ _id: userId })
       .populate({ path: 'businessId', populate: { path: 'businessType', model: 'businessType' } });
-    if (!user) { throw new Error(CONSTANTS.USER_NOT_FOUND) }
+
+    if (!user) {
+      return {
+        statusCode: CONSTANTS.NOT_FOUND,
+        message: CONSTANTS.USER_NOT_FOUND
+      };
+    }
     const followersCount = await FollowModel.countDocuments({ following: userId });
     const followingCount = await FollowModel.countDocuments({ follower: userId });
-    return { user, followersCount, followingCount };
+    return {
+      user,
+      followersCount,
+      followingCount,
+      statusCode: CONSTANTS.SUCCESSFUL,
+      message: CONSTANTS.DETAILS
+    };
+
   } catch (error) {
     console.error('Error fetching user details:', error);
-    throw new Error(CONSTANTS.INTERNAL_SERVER_ERROR_MSG);
+    return {
+      statusCode: CONSTANTS.INTERNAL_SERVER_ERROR,
+      message: CONSTANTS.INTERNAL_SERVER_ERROR_MSG
+    };
   }
 };
 
@@ -336,110 +351,112 @@ const updateUserById = async (_id, updateBody, files) => {
     if (!user) {
       return {
         data: {},
-        code: CONSTANTS.NOT_FOUND,
+        statusCode: CONSTANTS.NOT_FOUND,
         message: CONSTANTS.USER_NOT_FOUND
       };
     }
     const { phone: newPhone, email: newEmail } = updateBody;
-    // Check if the new phone is different from the current one (only if phone is provided)
+
     if (newPhone && user.phone === newPhone) {
       return {
-        code: CONSTANTS.BAD_REQUEST,
+        statusCode: CONSTANTS.BAD_REQUEST,
         message: CONSTANTS.USER_PHONE_SAME_AS_CURRENT
       };
     }
-    // Check if the new email is different from the current one (only if email is provided)
+
     if (newEmail && user.email === newEmail) {
       return {
-        code: CONSTANTS.BAD_REQUEST,
+        statusCode: CONSTANTS.BAD_REQUEST,
         message: CONSTANTS.USER_EMAIL_SAME_AS_CURRENT
       };
     }
+
     const previousStatus = user.status;
     let phoneUpdated = false;
     let emailUpdated = false;
-    // Handle phone update logic (only if phone is provided)
+
     if (newPhone && newPhone !== user.phone) {
       phoneUpdated = await handlePhoneUpdate(updateBody);
     }
-    // Handle email update and OTP (only if email is provided)
+
     if (newEmail && newEmail !== user.email) {
       emailUpdated = await handleEmailUpdate(updateBody, user);
-      // Mark as email update to differentiate between registration and email update
       await UserModel.findByIdAndUpdate(user._id, { isEmailUpdate: true });
     }
-    // Check if email or phone is already taken (only if provided)
+
     if (newEmail && await checkIfFieldTaken(newEmail, 'email', _id)) {
       return {
         data: {},
-        code: CONSTANTS.BAD_REQUEST,
+        statusCode: CONSTANTS.BAD_REQUEST,
         message: CONSTANTS.USER_EMAIL_ALREADY_EXISTS
       };
     }
+
     if (newPhone && await checkIfFieldTaken(newPhone, 'phone', _id)) {
       return {
         data: {},
-        code: CONSTANTS.BAD_REQUEST,
+        statusCode: CONSTANTS.BAD_REQUEST,
         message: CONSTANTS.USER_PHONE_ALREADY_EXISTS
       };
     }
-    // Only update countryCode if provided in the request body
+
     if (updateBody.countryCode) {
       user.countryCode = updateBody.countryCode;
     }
-    // Handle the assignment of other updateBody fields (excluding email and phone if not provided)
+
     const updatedFields = {
       ...updateBody,
       updatedAt: new Date(),
     };
-    if (!newPhone) delete updatedFields.phone;  // Remove phone if not being updated
-    if (!newEmail) delete updatedFields.email;  // Remove email if not being updated
+
+    if (!newPhone) delete updatedFields.phone;
+    if (!newEmail) delete updatedFields.email;
     Object.assign(user, updatedFields);
-    // Handle social media links validation
+
     if (updateBody.socialMediaLinks && Array.isArray(updateBody.socialMediaLinks)) {
       if (updateBody.socialMediaLinks.length > 5) {
         return {
           data: {},
-          code: CONSTANTS.BAD_REQUEST,
+          statusCode: CONSTANTS.BAD_REQUEST,
           message: CONSTANTS.SOCIAL_MEDIA_LINKS_CAPACITY
         };
       }
       user.socialMediaLinks = updateBody.socialMediaLinks;
     }
+
     await handleImageUploads(user, files);
     await user.save();
-    // Handle activation email if status changes
+
     if (previousStatus === 0 && user.status === 1) {
       await mailFunctions.sendActivationEmail(user.email, user.name);
     }
+
     return {
       data: user,
       phoneUpdated,
       emailUpdated,
-      code: CONSTANTS.SUCCESSFUL,
+      statusCode: CONSTANTS.SUCCESSFUL,
       message: CONSTANTS.USER_UPDATE
     };
 
   } catch (error) {
     console.error('Error updating user:', error);
-    // Custom error messages based on error type
     if (error.name === 'ValidationError') {
       return {
         data: {},
-        code: CONSTANTS.BAD_REQUEST,
+        statusCode: CONSTANTS.BAD_REQUEST,
         message: 'Validation failed: ' + error.message
       };
     } else if (error.code === 11000) {
-      // Mongoose unique constraint error
       return {
         data: {},
-        code: CONSTANTS.BAD_REQUEST,
+        statusCode: CONSTANTS.BAD_REQUEST,
         message: 'Duplicate field value: ' + Object.keys(error.keyValue)
       };
     } else {
       return {
         data: {},
-        code: CONSTANTS.INTERNAL_SERVER_ERROR,
+        statusCode: CONSTANTS.INTERNAL_SERVER_ERROR,
         message: CONSTANTS.INTERNAL_SERVER_ERROR_MSG
       };
     }
@@ -486,11 +503,29 @@ const handleImageUploads = async (user, files) => {
  * @returns {Promise<user>}
  */
 const deleteUserById = async (userId) => {
-  const { user } = await getUserById(userId);
-  if (!user) { return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.USER_NOT_FOUND } }
-  user.isDelete = 0;
-  await user.save();
-  return { data: user, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.DELETED };
+  try {
+    const { user } = await getUserById(userId);
+    if (!user) { return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.USER_NOT_FOUND } }
+    await BankDetailModel.deleteMany({ user: userId });
+    await BusinessModel.deleteMany({ partner: userId });
+    await CartModel.deleteMany({ user: userId });
+    await DineOutModel.deleteMany({ user: userId });
+    await FollowModel.deleteMany({ $or: [{ follower: userId }, { following: userId }] });
+    await FollowRequestModel.deleteMany({ $or: [{ follower: userId }, { following: userId }] });
+    await OrderModel.deleteMany({ user: userId });
+    await PostCommentModel.deleteMany({ user: userId });
+    await PostLikeModel.deleteMany({ user: userId });
+    await PostModel.deleteMany({ user: userId });
+    await RoleBaseAccessModel.deleteMany({ user: userId });
+    await Token.deleteMany({ user: userId });
+    // Soft delete the user
+    user.isDelete = 0;
+    await user.save();
+    return { data: user, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.DELETED };
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    return { data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: CONSTANTS.INTERNAL_SERVER_ERROR_MSG };
+  }
 };
 
 /**
@@ -844,6 +879,8 @@ const getAboutUs = async (userId) => {
   const partner = await UserModel.findById(userId, 'aboutUs');
   return partner;
 };
+
+
 
 module.exports = {
   adminResetPassword,

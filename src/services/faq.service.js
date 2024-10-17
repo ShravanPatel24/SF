@@ -8,10 +8,10 @@ const CONSTANT = require('../config/constant');
  */
 const createFAQ = async (requestBody) => {
     if (await FAQModel.isQuestionTaken(requestBody.question, '')) {
-        return { data: {}, code: 400, message: CONSTANT.FAQ_QUESTION_ALREADY_EXISTS };
+        return { data: {}, statusCode: 400, message: CONSTANT.FAQ_QUESTION_ALREADY_EXISTS };
     } else {
         const data = await FAQModel.create(requestBody);
-        return { data: data, code: 200, message: CONSTANT.FAQ_CREATE };
+        return { data: data, statusCode: 200, message: CONSTANT.FAQ_CREATE };
     }
 };
 
@@ -91,15 +91,15 @@ const getFAQByCategory = async (id) => {
 const updateFAQById = async (faqId, updateBody) => {
     const data = await getFAQById(faqId);
     if (!data) {
-        return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.FAQ_NOT_FOUND };
+        return { data: {}, statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.FAQ_NOT_FOUND };
     }
     if (updateBody.question && (await FAQModel.isQuestionTaken(updateBody.question, faqId))) {
-        return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.FAQ_QUESTION_ALREADY_EXISTS };
+        return { data: {}, statusCode: CONSTANT.BAD_REQUEST, message: CONSTANT.FAQ_QUESTION_ALREADY_EXISTS };
     }
 
     Object.assign(data, updateBody);
     await data.save();
-    return { data: data, code: CONSTANT.SUCCESSFUL, message: CONSTANT.FAQ_UPDATE };
+    return { data: data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.FAQ_UPDATE };
 };
 
 /**
@@ -110,11 +110,11 @@ const updateFAQById = async (faqId, updateBody) => {
 const deleteFAQById = async (faqId) => {
     const data = await getFAQById(faqId);
     if (!data) {
-        return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.FAQ_NOT_FOUND };
+        return { data: {}, statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.FAQ_NOT_FOUND };
     }
     data.isDelete = 0;
     await data.save();
-    return { data: data, code: CONSTANT.SUCCESSFUL, message: CONSTANT.FAQ_DELETE };
+    return { data: data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.FAQ_DELETE };
 };
 
 /**

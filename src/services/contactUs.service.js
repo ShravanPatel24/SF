@@ -8,7 +8,7 @@ const CONSTANT = require('../config/constant');
  */
 const createContact = async (requestBody) => {
     const data = await ContactUsModel.create(requestBody);
-    return { data: data, code: 200, message: CONSTANT.CONTACT_CREATE };
+    return { data: data, statusCode: 200, message: CONSTANT.CONTACT_CREATE };
 };
 
 /**
@@ -68,11 +68,11 @@ const getContactById = async (id) => {
 const updateContactById = async (contactId, updateBody) => {
     const data = await getContactById(contactId);
     if (!data) {
-        return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.CONTACT_NOT_FOUND };
+        return { data: {}, statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.CONTACT_NOT_FOUND };
     }
     Object.assign(data, updateBody);
     await data.save();
-    return { data: data, code: CONSTANT.SUCCESSFUL, message: CONSTANT.CONTACT_UPDATE };
+    return { data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.CONTACT_UPDATE };
 };
 
 /**
@@ -83,13 +83,12 @@ const updateContactById = async (contactId, updateBody) => {
 const deleteContactById = async (contactId) => {
     const data = await getContactById(contactId);
     if (!data) {
-        return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.CONTACT_NOT_FOUND };
+        return { data: {}, statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.CONTACT_NOT_FOUND };
     }
     data.isDelete = 0;
     await data.save();
-    return { data: data, code: CONSTANT.SUCCESSFUL, message: CONSTANT.CONTACT_DELETE };
+    return { data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.CONTACT_DELETE };
 };
-
 
 module.exports = {
     createContact,

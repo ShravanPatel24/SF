@@ -20,7 +20,7 @@ const validate = (schema) => (req, res, next) => {
 
     // Send a 400 response with the error message
     return res.status(CONSTANT.BAD_REQUEST).json({
-      status: CONSTANT.BAD_REQUEST,
+      statusCode: CONSTANT.BAD_REQUEST,
       message: errorMessage,
       data: {},
     });

@@ -36,7 +36,8 @@ router
         ]),
         validate(userValidation.updateUser),
         userController.updateById)
-    .get(userAuth('updateProfile'), userController.getById);
+    .get(userAuth('updateProfile'), userController.getById)
+    .delete(userAuth('deleteUser'), userController.deleteUser);
 
 // Routes for updating email and phone without authentication
 router.patch('/update-email', userController.updateUserEmail);

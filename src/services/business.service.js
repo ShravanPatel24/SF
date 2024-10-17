@@ -3,42 +3,55 @@ const CONSTANTS = require("../config/constant");
 const { s3Service } = require('../services');
 const moment = require('moment');
 
-const createBusinessForPartner = async (partnerId, businessName, businessType, businessDescription, countryCode, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImages, galleryImages, dineInStatus, operatingDetails, tableManagement
+const createBusinessForPartner = async (
+    partnerId, businessName, businessType, businessDescription, countryCode, mobile, email, businessAddress, openingDays,
+    openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImages, galleryImages, dineInStatus,
+    operatingDetails, tableManagement
 ) => {
-    const partner = await UserModel.findById(partnerId);
-    if (!partner || partner.type !== "partner") { throw new Error(CONSTANTS.PARTNER_NOT_FOUND_MSG); }
-    if (partner.name === businessName) { throw new Error(CONSTANTS.BUSINESS_AND_PARTNER_NAME_DUPLICATION); }
-    const validBusinessType = await BusinessTypeModel.findById(businessType);
-    if (!validBusinessType) { throw new Error(CONSTANTS.INVALID_BUSINESS_TYPE); }
-    // Step 1: Convert uniformTiming times to Date objects (use today's date or a placeholder date)
-    if (uniformTiming) {
-        uniformTiming.openingTime = moment(`2024-10-10 ${uniformTiming.openingTime}`, 'YYYY-MM-DD hh:mm A').toDate();
-        uniformTiming.closingTime = moment(`2024-10-10 ${uniformTiming.closingTime}`, 'YYYY-MM-DD hh:mm A').toDate();
+    try {
+        const partner = await UserModel.findById(partnerId);
+        if (!partner || partner.type !== "partner") {
+            return { statusCode: 404, message: CONSTANTS.PARTNER_NOT_FOUND_MSG };
+        }
+        if (partner.name === businessName) {
+            return { statusCode: 400, message: CONSTANTS.BUSINESS_AND_PARTNER_NAME_DUPLICATION };
+        }
+        const validBusinessType = await BusinessTypeModel.findById(businessType);
+        if (!validBusinessType) {
+            return { statusCode: 400, message: CONSTANTS.INVALID_BUSINESS_TYPE };
+        }
+        // Convert timings
+        if (uniformTiming) {
+            uniformTiming.openingTime = moment(`2024-10-10 ${uniformTiming.openingTime}`, 'YYYY-MM-DD hh:mm A').toDate();
+            uniformTiming.closingTime = moment(`2024-10-10 ${uniformTiming.closingTime}`, 'YYYY-MM-DD hh:mm A').toDate();
+        }
+        if (daywiseTimings && daywiseTimings.length > 0) {
+            daywiseTimings = daywiseTimings.map(day => ({
+                ...day,
+                openingTime: moment(`2024-10-10 ${day.openingTime}`, 'YYYY-MM-DD hh:mm A').toDate(),
+                closingTime: moment(`2024-10-10 ${day.closingTime}`, 'YYYY-MM-DD hh:mm A').toDate(),
+            }));
+        }
+        if (operatingDetails && operatingDetails.length > 0) {
+            operatingDetails = operatingDetails.map(detail => ({
+                ...detail,
+                startTime: moment(`${detail.date}T${detail.startTime}`, 'YYYY-MM-DDTHH:mm:ssZ').toDate(),
+                endTime: moment(`${detail.date}T${detail.endTime}`, 'YYYY-MM-DDTHH:mm:ssZ').toDate(),
+            }));
+        }
+        const business = new BusinessModel({
+            businessName, partner: partnerId, businessType, businessDescription, countryCode, mobile, email, businessAddress,
+            openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImages, galleryImages,
+            dineInStatus, operatingDetails, tableManagement
+        });
+        await business.save();
+        await UserModel.findByIdAndUpdate(partnerId, { businessId: business._id });
+        return { statusCode: 201, data: business };
+    } catch (error) {
+        console.error("Error creating business:", error);
+        return { statusCode: 500, message: CONSTANTS.INTERNAL_SERVER_ERROR_MSG };
     }
-    // Step 2: Convert daywiseTimings times to Date objects (using a placeholder date)
-    if (daywiseTimings && daywiseTimings.length > 0) {
-        daywiseTimings = daywiseTimings.map(day => ({
-            ...day,
-            openingTime: moment(`2024-10-10 ${day.openingTime}`, 'YYYY-MM-DD hh:mm A').toDate(),
-            closingTime: moment(`2024-10-10 ${day.closingTime}`, 'YYYY-MM-DD hh:mm A').toDate(),
-        }));
-    }
-    // Step 3: Convert operatingDetails times to Date objects using the specific date from the detail
-    if (operatingDetails && operatingDetails.length > 0) {
-        operatingDetails = operatingDetails.map(detail => ({
-            ...detail,
-            startTime: moment(`${detail.date}T${detail.startTime}`, 'YYYY-MM-DDTHH:mm:ssZ').toDate(),
-            endTime: moment(`${detail.date}T${detail.endTime}`, 'YYYY-MM-DDTHH:mm:ssZ').toDate(),
-        }));
-    }
-    const business = new BusinessModel({
-        businessName, partner: partnerId, businessType, businessDescription, countryCode, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImages, galleryImages, dineInStatus, operatingDetails, tableManagement
-    });
-    await business.save();
-    await UserModel.findByIdAndUpdate(partnerId, { businessId: business._id });
-    return business;
 };
-
 
 /**
  * Get business details by ID

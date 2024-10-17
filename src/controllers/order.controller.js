@@ -12,29 +12,35 @@ const createOrder = catchAsync(async (req, res) => {
         path: 'items.item',
         strictPopulate: false // Allow flexible population
     });
-    if (!cart || cart.items.length === 0) { return res.status(400).json({ message: CONSTANTS.CART_EMPTY }) }
+
+    if (!cart || cart.items.length === 0) {
+        return res.status(400).json({ statusCode: 400, message: CONSTANTS.CART_EMPTY });
+    }
+
     let containsRoom = false;
-    // Ensure cart.items is an array
-    if (!Array.isArray(cart.items)) { return res.status(400).json({ message: "Invalid cart items." }) }
-    // Iterate over cart items and check for room
+
+    if (!Array.isArray(cart.items)) {
+        return res.status(400).json({ statusCode: 400, message: "Invalid cart items." });
+    }
+
     cart.items.forEach(item => {
         const product = item.item;
-        if (!product) { return }
-        if (product.itemType === 'room') { containsRoom = true }
+        if (!product) { return; }
+        if (product.itemType === 'room') { containsRoom = true; }
     });
+
     const order = await OrderService.createOrder(userId, cart, paymentMethod, orderNote);
-    if (paymentMethod === 'online' && order.paymentFailed) { return res.status(400).json({ message: "Payment failed. Please try again." }) }
-    let successMessage;
-    if (paymentMethod === 'online') {
-        successMessage = containsRoom
-            ? CONSTANTS.PAYMENT_SUCCESS_ONLINE_HOTEL_MSG
-            : CONSTANTS.PAYMENT_SUCCESS_ONLINE_ORDER_MSG;
-    } else {
-        successMessage = containsRoom
-            ? CONSTANTS.HOTEL_BOOKED_MSG
-            : CONSTANTS.ORDER_PLACED_MSG;
+
+    if (paymentMethod === 'online' && order.paymentFailed) {
+        return res.status(400).json({ statusCode: 400, message: "Payment failed. Please try again." });
     }
+
+    let successMessage = paymentMethod === 'online' ?
+        (containsRoom ? CONSTANTS.PAYMENT_SUCCESS_ONLINE_HOTEL_MSG : CONSTANTS.PAYMENT_SUCCESS_ONLINE_ORDER_MSG) :
+        (containsRoom ? CONSTANTS.HOTEL_BOOKED_MSG : CONSTANTS.ORDER_PLACED_MSG);
+
     return res.status(201).json({
+        statusCode: 201,
         message: successMessage,
         _id: order._id,
         orderId: order.orderId,
@@ -49,15 +55,21 @@ const createOrder = catchAsync(async (req, res) => {
 const getUserOrders = catchAsync(async (req, res) => {
     const userId = req.user._id;
     const orders = await OrderService.getOrdersByUser(userId);
-    res.status(200).json({ data: orders });
+    return res.status(200).json({
+        statusCode: 200,
+        data: orders
+    });
 });
 
 // Get order details by ID
 const getOrderById = catchAsync(async (req, res) => {
     const { orderId } = req.params;
     const order = await OrderService.getOrderById(orderId);
-    if (!order) { return res.status(404).json({ message: CONSTANTS.ORDER_NOT_FOUND }) }
+    if (!order) {
+        return res.status(404).json({ statusCode: 404, message: CONSTANTS.ORDER_NOT_FOUND });
+    }
     return res.status(200).json({
+        statusCode: 200,
         _id: order._id,
         orderId: order.orderId,
         orderNumber: order.orderNumber,
@@ -94,13 +106,17 @@ const updateOrderStatus = catchAsync(async (req, res) => {
     try {
         const order = await OrderService.updateOrderStatus(orderId, status);
         return res.status(200).json({
+            statusCode: 200,
             message: CONSTANTS.ORDER_STATUS_UPDATE,
             orderId: order.orderId,
             orderNumber: order.orderNumber,
             status: order.status
         });
     } catch (error) {
-        return res.status(400).json({ message: error.message });
+        return res.status(error.statusCode || 500).json({
+            statusCode: error.statusCode || 500,
+            message: error.message || 'An error occurred while updating the order status.'
+        });
     }
 });
 
@@ -109,12 +125,17 @@ const cancelOrder = catchAsync(async (req, res) => {
     const { orderId } = req.params;
     const { reason } = req.body;
     const order = await OrderModel.findById(orderId);
-    if (!order) { return res.status(404).json({ message: CONSTANTS.ORDER_NOT_FOUND }) }
-    if (order.status === 'delivered') { return res.status(400).json({ message: CONSTANTS.CANCEL_AFTER_DELIVERED_ERROR }) }
+    if (!order) {
+        return res.status(404).json({ statusCode: 404, message: CONSTANTS.ORDER_NOT_FOUND });
+    }
+    if (order.status === 'delivered') {
+        return res.status(400).json({ statusCode: 400, message: CONSTANTS.CANCEL_AFTER_DELIVERED_ERROR });
+    }
     order.status = 'cancelled';
     order.cancellationReason = reason;
     await order.save();
     return res.status(200).json({
+        statusCode: 200,
         message: CONSTANTS.ORDER_CANCELLED,
         orderId: order.orderId,
         status: order.status,
@@ -126,8 +147,13 @@ const cancelOrder = catchAsync(async (req, res) => {
 const trackOrder = catchAsync(async (req, res) => {
     const { orderId } = req.params;
     const order = await OrderService.trackOrder(orderId);
-    if (!order) { return res.status(404).json({ message: CONSTANTS.ORDER_NOT_FOUND }) }
-    res.status(200).json({ data: order });
+    if (!order) {
+        return res.status(404).json({ statusCode: 404, message: CONSTANTS.ORDER_NOT_FOUND });
+    }
+    return res.status(200).json({
+        statusCode: 200,
+        data: order
+    });
 });
 
 // Get Orders Of All Users
@@ -155,7 +181,8 @@ const getAllOrdersAdmin = catchAsync(async (req, res) => {
         itemTypes: order.itemDetails ? order.itemDetails.map(item => item.itemType).filter(Boolean) : []
     }));
 
-    res.send({
+    return res.status(200).json({
+        statusCode: 200,
         data: {
             docs: orders,
             totalDocs: result.totalDocs,
@@ -168,7 +195,6 @@ const getAllOrdersAdmin = catchAsync(async (req, res) => {
             prevPage: result.prevPage,
             nextPage: result.nextPage
         },
-        code: CONSTANTS.SUCCESSFUL,
         message: CONSTANTS.LIST
     });
 });
@@ -184,12 +210,15 @@ const getOrdersByUserIdAdmin = catchAsync(async (req, res) => {
         parseInt(page),
         parseInt(limit)
     );
-    if (!orders || orders.length === 0) { return res.status(404).json({ message: CONSTANTS.ORDER_NOT_FOUND }) }
-    res.status(200).json({
+    if (!orders || orders.length === 0) {
+        return res.status(404).json({ statusCode: 404, message: CONSTANTS.ORDER_NOT_FOUND });
+    }
+    return res.status(200).json({
+        statusCode: 200,
         data: orders,
         totalOrders,
         currentPage: parseInt(page),
-        totalPages: Math.ceil(totalOrders / limit),
+        totalPages: Math.ceil(totalOrders / limit)
     });
 });
 

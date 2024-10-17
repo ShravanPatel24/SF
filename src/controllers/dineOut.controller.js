@@ -9,9 +9,9 @@ const checkTimeSlot = catchAsync(async (req, res) => {
     const { businessId, date, time } = req.body;
     try {
         await DineOutRequestService.checkTimeSlotAvailability(businessId, date, time);
-        res.status(CONSTANTS.SUCCESSFUL).json({ message: 'Time slot is available' });
+        res.status(CONSTANTS.SUCCESSFUL).json({ statusCode: CONSTANTS.SUCCESSFUL, message: 'Time slot is available' });
     } catch (error) {
-        res.status(CONSTANTS.BAD_REQUEST).json({ message: error.message });
+        res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: error.message });
     }
 });
 
@@ -20,9 +20,13 @@ const createDineOutRequest = catchAsync(async (req, res) => {
     const { partnerId, businessId, date, time, guests, dinnerType } = req.body;
     const userId = req.user._id;
     try {
-        if (req.user.type === 'partner') { return res.status(CONSTANTS.UNAUTHORIZED).json({ message: CONSTANTS.PERMISSION_DENIED }) }
+        if (req.user.type === 'partner') {
+            return res.status(CONSTANTS.UNAUTHORIZED).json({ statusCode: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.PERMISSION_DENIED });
+        }
         const partner = await UserModel.findById(partnerId).where({ type: 'partner' });
-        if (!partner) { return res.status(CONSTANTS.NOT_FOUND).json({ message: CONSTANTS.PARTNER_NOT_FOUND_MSG }) }
+        if (!partner) {
+            return res.status(CONSTANTS.NOT_FOUND).json({ statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.PARTNER_NOT_FOUND_MSG });
+        }
         await DineOutRequestService.checkTimeSlotAvailability(businessId, date, time);
         const dineOutDateTime = moment(`${date} ${time}`, 'YYYY-MM-DD HH:mm').utc().toDate();
         const newRequest = await DineOutRequestService.createDineOutRequest({
@@ -35,24 +39,30 @@ const createDineOutRequest = catchAsync(async (req, res) => {
             dinnerType
         });
         res.status(CONSTANTS.SUCCESSFUL).json({
+            statusCode: CONSTANTS.SUCCESSFUL,
             message: CONSTANTS.CREATED,
             request: newRequest,
             requestNumber: newRequest.requestNumber
         });
     } catch (error) {
-        res.status(CONSTANTS.BAD_REQUEST).json({ message: error.message });
+        res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: error.message });
     }
 });
 
 // Get a specific dine-out request by ID
 const getDineOutRequestById = catchAsync(async (req, res) => {
     const { requestId } = req.params;
-    if (req.user.type !== 'partner') { return res.status(CONSTANTS.UNAUTHORIZED).json({ message: CONSTANTS.PERMISSION_DENIED }) }
+    if (req.user.type !== 'partner') {
+        return res.status(CONSTANTS.UNAUTHORIZED).json({ statusCode: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.PERMISSION_DENIED });
+    }
 
     const dineOutRequest = await DineOutRequestService.getDineOutRequestById(requestId);
-    if (!dineOutRequest) { return res.status(CONSTANTS.NOT_FOUND).json({ message: CONSTANTS.DINEOUT_NOT_FOUND }) }
+    if (!dineOutRequest) {
+        return res.status(CONSTANTS.NOT_FOUND).json({ statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.DINEOUT_NOT_FOUND });
+    }
 
     res.status(CONSTANTS.SUCCESSFUL).json({
+        statusCode: CONSTANTS.SUCCESSFUL,
         message: CONSTANTS.DETAILS,
         data: { ...dineOutRequest._doc, requestNumber: dineOutRequest.requestNumber, mobile: dineOutRequest.user.phone }
     });
@@ -62,41 +72,79 @@ const getDineOutRequestById = catchAsync(async (req, res) => {
 const getDineOutRequestsForBusiness = catchAsync(async (req, res) => {
     const { businessId } = req.params;
     const business = await BusinessModel.findById(businessId);
-    if (!business) { return res.status(CONSTANTS.NOT_FOUND).json({ message: CONSTANTS.BUSINESS_NOT_FOUND }) }
-    if (business.partner.toString() !== req.user._id.toString()) { return res.status(CONSTANTS.UNAUTHORIZED).json({ message: CONSTANTS.PERMISSION_DENIED }) }
+    if (!business) {
+        return res.status(CONSTANTS.NOT_FOUND).json({ statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.BUSINESS_NOT_FOUND });
+    }
+    if (business.partner.toString() !== req.user._id.toString()) {
+        return res.status(CONSTANTS.UNAUTHORIZED).json({ statusCode: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.PERMISSION_DENIED });
+    }
     const requests = await DineOutRequestService.getDineOutRequestsForBusiness(businessId);
-    if (!requests || requests.length === 0) { return res.status(CONSTANTS.NOT_FOUND).json({ message: CONSTANTS.NOT_FOUND_MSG }) }
-    res.status(CONSTANTS.SUCCESSFUL).json({ requests });
+    if (!requests || requests.length === 0) {
+        return res.status(CONSTANTS.NOT_FOUND).json({ statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.NOT_FOUND_MSG });
+    }
+    res.status(CONSTANTS.SUCCESSFUL).json({ statusCode: CONSTANTS.SUCCESSFUL, requests });
 });
 
 // Confirm the dine-out booking by the partner
 const updateDineOutRequestStatus = catchAsync(async (req, res) => {
     const { requestId } = req.params;
     const { status } = req.body;
-    const dineOutRequest = await DineOutRequestService.getDineOutRequestById(requestId);
-    if (!dineOutRequest) { return res.status(CONSTANTS.NOT_FOUND).json({ message: CONSTANTS.DINEOUT_NOT_FOUND }) }
-    if (dineOutRequest.partner._id.toString() !== req.user._id.toString()) { return res.status(CONSTANTS.UNAUTHORIZED).json({ message: CONSTANTS.PERMISSION_DENIED }) }
-    if (dineOutRequest.status === 'Accepted' && status === 'Rejected') { return res.status(CONSTANTS.BAD_REQUEST).json({ message: CONSTANTS.REJECT_AFTER_ACCEPTED }) }
-    let bookingId = null;
-    if (status === 'Accepted') { bookingId = Math.floor(Date.now() / 1000).toString(); }
-    const updatedRequest = await DineOutRequestService.updateDineOutRequestStatus(requestId, status, bookingId);
 
-    if (status === 'Accepted') {
-        const business = await BusinessModel.findById(dineOutRequest.business);
-        if (!business) { return res.status(CONSTANTS.NOT_FOUND).json({ message: CONSTANTS.BUSINESS_NOT_FOUND }) }
-        return res.status(CONSTANTS.SUCCESSFUL).json({
-            message: CONSTANTS.DINEOUT_REQUEST_ACCEPTED,
-            bookingId,
-            businessDetails: {
-                businessName: business.businessName,
-                address: business.businessAddress,
-                openingDays: business.openingDays,
-                openingTime: business.openingTime,
-                closingTime: business.closingTime,
+    try {
+        const dineOutRequest = await DineOutRequestService.getDineOutRequestById(requestId);
+
+        if (!dineOutRequest) {
+            return res.status(CONSTANTS.NOT_FOUND).json({ statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.DINEOUT_NOT_FOUND });
+        }
+
+        if (dineOutRequest.partner._id.toString() !== req.user._id.toString()) {
+            return res.status(CONSTANTS.UNAUTHORIZED).json({ statusCode: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.PERMISSION_DENIED });
+        }
+
+        if (dineOutRequest.status === 'Accepted' && status === 'Rejected') {
+            return res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: CONSTANTS.REJECT_AFTER_ACCEPTED });
+        }
+
+        let bookingId = null;
+        if (status === 'Accepted') {
+            bookingId = Math.floor(Date.now() / 1000).toString();
+        }
+
+        const updatedRequest = await DineOutRequestService.updateDineOutRequestStatus(requestId, status, bookingId);
+
+        if (status === 'Accepted') {
+            const business = await BusinessModel.findById(dineOutRequest.business);
+            if (!business) {
+                return res.status(CONSTANTS.NOT_FOUND).json({ statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.BUSINESS_NOT_FOUND });
             }
+            return res.status(CONSTANTS.SUCCESSFUL).json({
+                statusCode: CONSTANTS.SUCCESSFUL,
+                message: CONSTANTS.DINEOUT_REQUEST_ACCEPTED,
+                bookingId,
+                businessDetails: {
+                    businessName: business.businessName,
+                    address: business.businessAddress,
+                    openingDays: business.openingDays,
+                    openingTime: business.openingTime,
+                    closingTime: business.closingTime,
+                }
+            });
+        }
+
+        if (status === 'Rejected') {
+            return res.status(CONSTANTS.SUCCESSFUL).json({
+                statusCode: CONSTANTS.SUCCESSFUL,
+                message: CONSTANTS.DINEOUT_REQUEST_REJECTED,
+                request: updatedRequest
+            });
+        }
+
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({
+            statusCode: error.statusCode || 500,
+            message: error.message || 'An internal server error has occurred.'
         });
     }
-    if (status === 'Rejected') { return res.status(CONSTANTS.SUCCESSFUL).json({ message: CONSTANTS.DINEOUT_REQUEST_REJECTED, request: updatedRequest }) }
 });
 
 module.exports = {

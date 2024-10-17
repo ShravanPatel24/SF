@@ -138,6 +138,9 @@ module.exports = {
     STATUS: 'Status updated successfully.',
     NOTFOUNT: 'Details not amount successfully.',
 
+    // Business Type
+    BUSINESS_TYPE_NOT_FOUND_MSG: "Business Type Not Found",
+
     // FOLLOW-UNFOLLOW USER
     FOLLOW_YOURSELF: 'You cannot follow yourself.',
     FOLLOW_PARTNER_ERROR: 'You cannot follow a partner.',

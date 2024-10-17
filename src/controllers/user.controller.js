@@ -49,8 +49,8 @@ const updateUserPhone = catchAsync(async (req, res) => {
 const deleteUser = catchAsync(async (req, res) => {
   const userId = req.params.id;
   const details = await UserService.deleteUserById(userId);
-  if (!details) { return res.status(404).send({ message: CONSTANTS.USER_NOT_FOUND }) }
-  res.send(details);
+  if (details.code === CONSTANTS.NOT_FOUND) { return res.status(404).send({ statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.USER_NOT_FOUND }) }
+  return res.status(CONSTANTS.SUCCESSFUL).send({ statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.USER_DELETED, data: details });
 });
 
 const login = catchAsync(async (req, res) => {
@@ -141,8 +141,13 @@ const changePassword = catchAsync(async (req, res) => {
 
 const getLists = catchAsync(async (req, res) => {
   const options = pick(req.query, ["sortBy", "limit", "page", "searchBy", "status", 'type', 'filterDateRange']);
-  const result = await UserService.queryUsers(options);
-  res.send({ data: result, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.LIST });
+  try {
+    const result = await UserService.queryUsers(options);
+    res.status(CONSTANTS.SUCCESSFUL).send({ data: result, statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.LIST });
+  } catch (error) {
+    console.error('Error fetching user lists:', error);
+    res.status(CONSTANTS.INTERNAL_SERVER_ERROR).send({ statusCode: CONSTANTS.INTERNAL_SERVER_ERROR, message: CONSTANTS.INTERNAL_SERVER_ERROR_MSG })
+  }
 });
 
 const getUserListsToFollow = catchAsync(async (req, res) => {
@@ -160,7 +165,13 @@ const getUserListsToFollow = catchAsync(async (req, res) => {
 
 const getById = catchAsync(async (req, res) => {
   const result = await UserService.getUserById(req.params.id);
-  if (!result || !result.user) { return res.send({ data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.NOT_FOUND_MSG }) }
+  if (!result || !result.user) {
+    return res.status(CONSTANTS.NOT_FOUND).send({
+      data: {},
+      statusCode: CONSTANTS.NOT_FOUND,
+      message: CONSTANTS.USER_NOT_FOUND
+    });
+  }
   const { user, followersCount, followingCount } = result;
   const userData = {
     ...user.toObject(),
@@ -170,29 +181,35 @@ const getById = catchAsync(async (req, res) => {
     followingCount: followingCount,
   };
   delete userData._id;
-  res.send({ data: userData, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.DETAILS });
+  res.status(CONSTANTS.SUCCESSFUL).send({
+    data: userData,
+    statusCode: CONSTANTS.SUCCESSFUL,
+    message: CONSTANTS.DETAILS
+  });
 });
 
 const updateById = catchAsync(async (req, res) => {
   const { phone, email, profilePhoto, bio, facebook, instagram, followersCount, followingCount, ...updateBody } = req.body;
-  const data = await UserService.updateUserById(req.params.id, {
-    ...updateBody,
-    phone,
-    email,
-    bio,
-    facebook,
-    instagram,
-    followersCount,
-    followingCount,
-  }, req.files);
-  if (data.code !== CONSTANTS.SUCCESSFUL) {
-    return res.status(data.code || 500).send({ message: data.message });
-  }
+  const data = await UserService.updateUserById(
+    req.params.id,
+    {
+      ...updateBody,
+      phone,
+      email,
+      bio,
+      facebook,
+      instagram,
+      followersCount,
+      followingCount,
+    },
+    req.files
+  );
+  if (data.statusCode !== CONSTANTS.SUCCESSFUL) { return res.status(data.statusCode || 500).send({ statusCode: data.statusCode, message: data.message }) }
   const updateMessages = [];
   if (data.phoneUpdated) updateMessages.push("Phone update pending verification. OTP sent to the new phone number.");
   if (data.emailUpdated) updateMessages.push("Email update pending verification. OTP sent to the new email address.");
   const message = updateMessages.length ? updateMessages.join(" ") : "Profile updated successfully.";
-  res.send({ data: data.data, message });
+  res.status(data.statusCode).send({ statusCode: data.statusCode, data: data.data, message });
 });
 
 const deleteById = catchAsync(async (req, res) => {

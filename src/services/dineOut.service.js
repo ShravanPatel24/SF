@@ -30,18 +30,14 @@ const createDineOutRequest = async (data) => {
 
 // Get a specific dine-out request by ID
 const getDineOutRequestById = async (requestId) => {
-    try {
-        const request = await DineOutModel.findById(requestId)
-            .populate('user', 'name phone')
-            .populate('partner', 'name email phone')
-            .populate('business', 'businessName businessAddress openingDays openingTime closingTime');
-        if (!request) {
-            throw new Error(CONSTANTS.NOT_FOUND_MSG);
-        }
-        return request;
-    } catch (error) {
-        throw new Error(CONSTANTS.INTERNAL_SERVER_ERROR_MSG + ': ' + error.message);
+    const request = await DineOutModel.findById(requestId)
+        .populate('user', 'name phone')
+        .populate('partner', 'name email phone')
+        .populate('business', 'businessName businessAddress openingDays openingTime closingTime');
+    if (!request) {
+        throw { statusCode: 404, message: CONSTANTS.DINEOUT_NOT_FOUND }
     }
+    return request;
 };
 
 // Get all dine-out requests for a specific business

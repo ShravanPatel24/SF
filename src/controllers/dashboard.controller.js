@@ -5,7 +5,7 @@ const CONSTANT = require('../config/constant');
 
 const getDashboardData = catchAsync(async (req, res) => {
     const result = await DashboardService.getDashboardCount();
-    res.send({ data: result, code: CONSTANT.SUCCESSFUL, message: CONSTANT.CAREER_LIST });
+    res.send({ data: result, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.CAREER_LIST });
 });
 
 module.exports = {

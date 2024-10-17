@@ -11,6 +11,7 @@ const getDashboardCount = async () => {
         usersCount,
         patnerCount,
         recentUsers,
+        contactUsCount,
         recentPartners
     }
 }
