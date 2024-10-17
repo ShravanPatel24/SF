@@ -222,6 +222,102 @@ const getOrdersByUserIdAdmin = catchAsync(async (req, res) => {
     });
 });
 
+// Get Orders Of Partner By partnerId
+const getOrdersByPartnerId = catchAsync(async (req, res) => {
+    const { partnerId } = req.params;
+    const { search, itemType, sortBy = 'createdAt', sortOrder = 'desc', page = 1, limit = 10 } = req.query;
+
+    const { orders, totalOrders } = await OrderService.getOrdersByPartnerId(
+        partnerId,
+        search,
+        itemType,
+        sortBy,
+        sortOrder,
+        parseInt(page),
+        parseInt(limit)
+    );
+    if (!orders || orders.length === 0) { return res.status(404).json({ statusCode: 404, message: 'No orders found for this partner.' }) }
+    const formattedOrders = orders.map(order => ({
+        user: order.user,
+        partner: {
+            name: order.items[0]?.item?.partner?.name || 'Unknown',
+            email: order.items[0]?.item?.partner?.email || 'Unknown',
+            id: order.items[0]?.item?.partner?._id || 'Unknown'
+        },
+        business: {
+            name: order.items[0]?.item?.business?.businessName || 'Unknown',
+            status: order.items[0]?.item?.business?.status || 'Unknown'
+        },
+        businessType: order.items[0]?.item?.businessType?.name || 'Unknown',
+        items: order.items
+            .filter(item => item.item)
+            .map(item => {
+                const product = item.item;
+                let itemDetails = {
+                    itemId: product._id,
+                    itemType: product.itemType,
+                    quantity: item.quantity,
+                    selectedSize: item.selectedSize || null,
+                    selectedColor: item.selectedColor || null
+                };
+                if (product.itemType === 'food') {
+                    itemDetails.dishName = product.dishName;
+                    itemDetails.dishDescription = product.dishDescription;
+                    itemDetails.dishPrice = product.dishPrice;
+                    itemDetails.foodDeliveryCharge = product.foodDeliveryCharge;
+                } else if (product.itemType === 'product') {
+                    itemDetails.productName = product.productName;
+                    itemDetails.productDescription = product.productDescription;
+                    itemDetails.productPrice = product.variants?.[0]?.productPrice;
+                    itemDetails.variants = product.variants || [];
+                    itemDetails.productFeatures = product.productFeatures || [];
+                    itemDetails.productDeliveryCharge = product.productDeliveryCharge || [];
+                } else if (product.itemType === 'room') {
+                    itemDetails.roomName = product.roomName;
+                    itemDetails.roomDescription = product.roomDescription;
+                    itemDetails.roomPrice = product.roomPrice;
+                    itemDetails.amenities = product.amenities || [];
+                    itemDetails.checkIn = item.checkIn;
+                    itemDetails.checkOut = item.checkOut;
+                }
+
+                return itemDetails;
+            }),
+        totalPrice: order.totalPrice,
+        subtotal: order.subtotal,
+        tax: order.tax,
+        deliveryCharge: order.deliveryCharge,
+        orderId: order.orderId,
+        orderNumber: order.orderNumber,
+        orderStatus: order.status,
+        paymentMethod: order.paymentMethod,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt
+    }));
+
+    const totalPages = Math.ceil(totalOrders / limit);
+    const pagingCounter = (page - 1) * limit + 1;
+    const hasPrevPage = page > 1;
+    const hasNextPage = page < totalPages;
+
+    return res.status(200).json({
+        statusCode: 200,
+        data: {
+            docs: formattedOrders,
+            totalDocs: totalOrders,
+            limit: limit,
+            totalPages: totalPages,
+            page: parseInt(page),
+            pagingCounter: pagingCounter,
+            hasPrevPage: hasPrevPage,
+            hasNextPage: hasNextPage,
+            prevPage: hasPrevPage ? page - 1 : null,
+            nextPage: hasNextPage ? page + 1 : null
+        },
+        message: 'List retrieved successfully.'
+    });
+});
+
 module.exports = {
     createOrder,
     updateOrderStatus,
@@ -230,5 +326,6 @@ module.exports = {
     cancelOrder,
     trackOrder,
     getAllOrdersAdmin,
-    getOrdersByUserIdAdmin
+    getOrdersByUserIdAdmin,
+    getOrdersByPartnerId
 };

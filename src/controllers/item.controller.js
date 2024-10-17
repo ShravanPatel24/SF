@@ -5,7 +5,8 @@ const CONSTANTS = require("../config/constant");
 // Create an item (Food, Room, or Product)
 const createItem = catchAsync(async (req, res) => {
     try {
-        const newItem = await ItemService.createItem(req.body, req.files);
+        const partnerId = req.user._id;
+        const newItem = await ItemService.createItem(req.body, req.files, partnerId);
         res.status(201).json({ statusCode: 201, message: CONSTANTS.ITEM_CREATED, data: newItem });
     } catch (error) {
         res.status(400).json({ statusCode: 400, message: error.message });

@@ -2,7 +2,7 @@ const { ItemModel } = require('../models');
 const { s3Service } = require('../services');
 
 // Create an item (Food, Room, or Product)
-const createItem = async (itemData, files) => {
+const createItem = async (itemData, files, partnerId) => {
     let imageUrls = [];
     if (files && files.images && files.images.length > 0) {
         const uploadResults = await s3Service.uploadDocuments(files.images, 'product-images', '');
@@ -16,6 +16,7 @@ const createItem = async (itemData, files) => {
         itemType: itemData.itemType,
         images: imageUrls,
         available: itemData.available || true,
+        partner: partnerId,
         category: itemData.category,
     };
     // Handle item-specific fields (food, room, product)

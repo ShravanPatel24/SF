@@ -1,10 +1,26 @@
-const { OrderModel } = require('../models');
+const { OrderModel, CartModel } = require('../models');
 const CONSTANTS = require('../config/constant');
 
 // Create a new order
-const createOrder = async (userId, cart, paymentMethod, orderNote) => {
+const createOrder = async (userId, cartId, paymentMethod, orderNote) => {
     const customOrderId = Math.floor(Date.now() / 1000).toString();
     const orderNumber = `#${customOrderId}`;
+
+    // Fetch the cart and ensure that the 'partner' field in each item is populated
+    const cart = await CartModel.findById(cartId).populate({
+        path: 'items.item',
+        populate: { path: 'partner', select: '_id name' }  // Ensure partner is populated
+    });
+
+    if (!cart || cart.items.length === 0) {
+        return res.status(400).json({ statusCode: 400, message: CONSTANTS.CART_EMPTY });
+    }
+
+    // Extract the partnerId from the first item in the cart
+    const firstItem = cart.items[0].item;
+    const partnerId = firstItem.partner._id;  // Extract the partner ID
+
+    // Calculate the price for each item and prepare the order details
     cart.items.forEach(item => {
         const product = item.item;
 
@@ -26,8 +42,11 @@ const createOrder = async (userId, cart, paymentMethod, orderNote) => {
             item.price = product.dishPrice * item.quantity;
         }
     });
+
+    // Create the order with the user, partner, and other details
     const order = new OrderModel({
         user: userId,
+        partner: partnerId,  // Set the partner ID here
         items: cart.items,
         deliveryAddress: cart.deliveryAddress,
         totalPrice: cart.totalPrice,
@@ -43,7 +62,7 @@ const createOrder = async (userId, cart, paymentMethod, orderNote) => {
 
     await order.save();
 
-    // If payment method is online, handle payment processing
+    // Handle online payment and other logic if needed
     if (paymentMethod === 'online') {
         const paymentResult = await processOnlinePayment(order);
 
@@ -56,12 +75,15 @@ const createOrder = async (userId, cart, paymentMethod, orderNote) => {
         order.status = 'paid';
         await order.save();
     }
+
+    // Clear the cart after the order is placed
     cart.items = [];
     cart.totalPrice = 0;
     cart.subtotal = 0;
     cart.tax = 0;
     cart.deliveryCharge = 0;
     await cart.save();
+
     return order;
 };
 
@@ -200,6 +222,42 @@ const getOrdersByUserIdAdmin = async (userId = null, search = '', sortBy = 'crea
     return { orders, totalOrders };
 };
 
+// Get Orders Of Partner By partnerId
+const getOrdersByPartnerId = async (partnerId, search = '', itemType = '', sortBy = 'createdAt', sortOrder = 'desc', page = 1, limit = 10) => {
+    const query = { partner: partnerId };
+
+    if (search) {
+        query.$or = [
+            { 'user.name': { $regex: search, $options: 'i' } },
+            { 'user.email': { $regex: search, $options: 'i' } },
+            { 'orderId': { $regex: search, $options: 'i' } }
+        ];
+    }
+
+    const skip = (page - 1) * limit;
+    const sortOptions = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
+
+    const orders = await OrderModel.find(query)
+        .populate({
+            path: 'items.item',
+            match: itemType ? { itemType: itemType } : {},
+            populate: [
+                { path: 'partner', select: 'name email' },
+                { path: 'business', select: 'businessName status' },
+                { path: 'businessType', select: 'name' }
+            ]
+        })
+        .populate('user', 'name email')
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limit);
+
+    const filteredOrders = orders.filter(order => order.items.some(item => item.item));
+    const totalOrders = filteredOrders.length;
+
+    return { orders: filteredOrders, totalOrders };
+};
+
 module.exports = {
     createOrder,
     processOnlinePayment,
@@ -209,5 +267,6 @@ module.exports = {
     cancelOrder,
     trackOrder,
     queryOrder,
-    getOrdersByUserIdAdmin
+    getOrdersByUserIdAdmin,
+    getOrdersByPartnerId
 };

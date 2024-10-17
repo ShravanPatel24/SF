@@ -46,7 +46,16 @@ const getCartByUser = async (userId) => {
     const user = await UserModel.findById(userId);
     if (!user) { throw new Error(CONSTANTS.USER_NOT_FOUND); }
     if (user.type === 'partner') { throw new Error(CONSTANTS.PERMISSION_DENIED); }
-    const cart = await CartModel.findOne({ user: userId }).populate('items.item');
+    const cart = await CartModel.findOne({ user: userId })
+        .populate({
+            path: 'items.item',
+            populate: {
+                path: 'partner',
+                select: '_id name'
+            }
+        });
+
+    if (!cart) { throw new Error(CONSTANTS.CART_NOT_FOUND); }
     return cart;
 };
 

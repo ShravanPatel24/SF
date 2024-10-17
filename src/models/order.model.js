@@ -5,6 +5,7 @@ const aggregatePaginate = require('mongoose-aggregate-paginate-v2');
 
 const orderSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true },
+    partner: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true },
     items: [{
         item: { type: mongoose.Schema.Types.ObjectId, ref: 'Item', required: true },
         quantity: { type: Number, required: true },

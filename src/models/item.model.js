@@ -20,6 +20,7 @@ const itemSchema = new mongoose.Schema({
     available: { type: Boolean, default: true }, // Available toggle common across all
     business: { type: mongoose.Schema.Types.ObjectId, ref: 'Business' }, // Associated business
     businessType: { type: mongoose.Schema.Types.ObjectId, ref: 'businessType', required: true }, // Associated business type
+    partner: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true }, // Reference to the partner (user type = 'partner')
     // Fields for food menu
     dishName: { type: String },
     dishDescription: { type: String },
