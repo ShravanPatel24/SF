@@ -287,6 +287,7 @@ const getOrdersByPartnerId = catchAsync(async (req, res) => {
         subtotal: order.subtotal,
         tax: order.tax,
         deliveryCharge: order.deliveryCharge,
+        _id: order._id,
         orderId: order.orderId,
         orderNumber: order.orderNumber,
         orderStatus: order.status,

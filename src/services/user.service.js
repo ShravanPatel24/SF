@@ -46,8 +46,10 @@ const adminResetPassword = async (emailOrPhone, type) => {
 const getUserById = async (userId) => {
   try {
     const user = await UserModel.findOne({ _id: userId })
-      .populate({ path: 'businessId', populate: { path: 'businessType', model: 'businessType' } });
-
+      .populate({
+        path: 'businessType',
+        select: '_id name'
+      });
     if (!user) {
       return {
         statusCode: CONSTANTS.NOT_FOUND,
@@ -629,7 +631,12 @@ const verifyUserEmailOtp = async (id, otp) => {
         if (!user.isEmailUpdate) { await mailFunctions.sendWelcomeEmail(user.email, user.name) }
         // Reset the isEmailUpdate flag after successful verification
         await updateUserById(id, { isEmailUpdate: false });
-        return { data: { user, tokens }, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.OTP_VERIFIED };
+        return {
+          data: {
+            user: { ...user.toObject() },
+            tokens
+          }, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.OTP_VERIFIED
+        };
       }
     }
     // Check if the OTP is for password reset
@@ -680,7 +687,12 @@ const verifyMobileOtpToken = async (_id, otp) => {
         mobileOTP: null // Remove mobile OTP after verification
       });
       const tokens = await tokenService.generateAuthTokens(user);
-      return { data: { user, tokens }, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.OTP_VERIFIED };
+      return {
+        data: {
+          user: { ...user.toObject() },
+          tokens
+        }, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.OTP_VERIFIED
+      };
     }
 
     if (user.passwordResetMobileOTP === otp) {
