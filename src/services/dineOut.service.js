@@ -112,16 +112,16 @@ const getAllDineOutRequests = async ({ page = 1, limit = 10, search = '', sortBy
         // Map the requests to include requestId instead of _id
         const formattedRequests = requests.map(request => ({
             requestId: request._id, // Change here
-            user: request.user,
+            user: request.user ? request.user : { _id: null, name: 'Unknown User' }, // Check for user
             partner: {
-                _id: request.partner._id,
-                name: request.partner.name,
-                businessId: request.partner.businessId,
+                _id: request.partner ? request.partner._id : null, // Check for partner
+                name: request.partner ? request.partner.name : 'Unknown Partner', // Check for partner name
+                businessId: request.partner && request.partner.businessId ? request.partner.businessId : null,
             },
             business: {
-                _id: request.business._id,
-                businessName: request.business.businessName,
-                dineInStatus: request.business.dineInStatus,
+                _id: request.business ? request.business._id : null, // Check for business
+                businessName: request.business ? request.business.businessName : 'Unknown Business', // Check for business name
+                dineInStatus: request.business ? request.business.dineInStatus : null,
             },
             date: request.date,
             time: request.time,
