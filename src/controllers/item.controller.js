@@ -87,5 +87,5 @@ module.exports = {
     getItemsByBusiness,
     getItemsByBusinessType,
     updateItem,
-    deleteItem,
+    deleteItem
 };

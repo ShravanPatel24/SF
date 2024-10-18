@@ -19,7 +19,7 @@ const checkTimeSlotAvailability = async (businessId, date, time) => {
 const createDineOutRequest = async (data) => {
     try {
         const requestNumber = Math.floor(Date.now() / 1000).toString();
-        const newRequestData = { ...data, requestNumber };
+        const newRequestData = { ...data, requestNumber, user: data.user };
         const newRequest = new DineOutModel(newRequestData);
         await newRequest.save();
         return newRequest;
@@ -31,11 +31,12 @@ const createDineOutRequest = async (data) => {
 // Get a specific dine-out request by ID
 const getDineOutRequestById = async (requestId) => {
     const request = await DineOutModel.findById(requestId)
-        .populate('user', 'name phone')
-        .populate('partner', 'name email phone')
-        .populate('business', 'businessName businessAddress openingDays openingTime closingTime');
+        .populate('user', 'name email phone')
+        .populate('partner', 'name')
+        .populate('business', 'businessName businessAddress openingDays openingTime closingTime')
+        .lean();
     if (!request) {
-        throw { statusCode: 404, message: CONSTANTS.DINEOUT_NOT_FOUND }
+        throw { statusCode: 404, message: CONSTANTS.DINEOUT_NOT_FOUND };
     }
     return request;
 };
@@ -70,10 +71,91 @@ const updateDineOutRequestStatus = async (requestId, status, bookingId = null) =
     }
 };
 
+// Get all dine-out requests with detailed user and partner information for admin
+const getAllDineOutRequests = async ({ page = 1, limit = 10, search = '', sortBy = 'createdAt', sortOrder = 'desc' }) => {
+    try {
+        const options = {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            sort: { [sortBy]: sortOrder === 'desc' ? -1 : 1 },
+        };
+
+        const searchQuery = search ? {
+            $or: [
+                { 'user.name': { $regex: search, $options: 'i' } },
+                { 'partner.name': { $regex: search, $options: 'i' } },
+                { 'business.businessName': { $regex: search, $options: 'i' } },
+                { requestNumber: { $regex: search, $options: 'i' } },
+                { dinnerType: { $regex: search, $options: 'i' } },
+                { status: { $regex: search, $options: 'i' } }
+            ]
+        } : {};
+
+        const requests = await DineOutModel.find(searchQuery)
+            .populate('user', 'name _id')
+            .populate({
+                path: 'partner',
+                select: 'name businessId',
+                populate: {
+                    path: 'businessId',
+                    select: 'businessName dineInStatus'
+                }
+            })
+            .populate('business', 'businessName dineInStatus')
+            .sort(options.sort)
+            .skip((options.page - 1) * options.limit)
+            .limit(options.limit)
+            .lean();
+
+        const totalDocs = await DineOutModel.countDocuments(searchQuery);
+
+        // Map the requests to include requestId instead of _id
+        const formattedRequests = requests.map(request => ({
+            requestId: request._id, // Change here
+            user: request.user,
+            partner: {
+                _id: request.partner._id,
+                name: request.partner.name,
+                businessId: request.partner.businessId,
+            },
+            business: {
+                _id: request.business._id,
+                businessName: request.business.businessName,
+                dineInStatus: request.business.dineInStatus,
+            },
+            date: request.date,
+            time: request.time,
+            guests: request.guests,
+            dinnerType: request.dinnerType,
+            status: request.status,
+            bookingId: request.bookingId,
+            requestNumber: request.requestNumber,
+            createdAt: request.createdAt,
+            updatedAt: request.updatedAt,
+        }));
+
+        return {
+            docs: formattedRequests,
+            totalDocs,
+            limit: options.limit,
+            totalPages: Math.ceil(totalDocs / options.limit),
+            page: options.page,
+            pagingCounter: ((options.page - 1) * options.limit) + 1,
+            hasPrevPage: options.page > 1,
+            hasNextPage: options.page < Math.ceil(totalDocs / options.limit),
+            prevPage: options.page > 1 ? options.page - 1 : null,
+            nextPage: options.page < Math.ceil(totalDocs / options.limit) ? options.page + 1 : null,
+        };
+    } catch (error) {
+        throw new Error(CONSTANTS.INTERNAL_SERVER_ERROR_MSG + ': ' + error.message);
+    }
+};
+
 module.exports = {
     checkTimeSlotAvailability,
     createDineOutRequest,
     getDineOutRequestById,
     getDineOutRequestsForBusiness,
     updateDineOutRequestStatus,
+    getAllDineOutRequests
 };

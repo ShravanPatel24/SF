@@ -176,6 +176,8 @@ module.exports = {
     DINEOUT_REQUEST_SENT: 'Dine-out request sent successfully.',
     DINEOUT_NOT_FOUND: 'Dine-out request not found.',
     REJECT_AFTER_ACCEPTED: 'You cannot change the status to Rejected after it has been Accepted.',
+    BUSINESS_NOT_ASSOCOATED_WITH_PARTNER: 'Selected business is not associated with the specified partner.',
+    DINEOUT_DISABLED: 'The selected business does not have dine-out functionality enabled.',
 
     // CART
     ITEM_NOT_FOUND: 'Item not found in cart.',

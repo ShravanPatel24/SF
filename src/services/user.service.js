@@ -47,8 +47,10 @@ const getUserById = async (userId) => {
   try {
     const user = await UserModel.findOne({ _id: userId })
       .populate({
-        path: 'businessType',
-        select: '_id name'
+        path: 'businessId',
+        populate: {
+          path: 'businessType',
+        },
       });
     if (!user) {
       return {
@@ -570,25 +572,64 @@ const loginUserWithEmailOrPhoneAndPassword = async (emailOrPhone, password, type
   try {
     let user;
     if (validator.isEmail(emailOrPhone)) {
-      user = await UserModel.findOne({ email: emailOrPhone.toLowerCase(), type })
-        .populate('businessType', 'name');
+      user = await UserModel.findOne({ email: emailOrPhone.toLowerCase(), type });
     } else {
-      user = await UserModel.findOne({ phone: emailOrPhone, type })
-        .populate('businessType', 'name');
+      user = await UserModel.findOne({ phone: emailOrPhone, type });
     }
-    if (!user) { return { data: {}, code: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.UNAUTHORIZED_MSG } }
+
+    if (!user) {
+      return { data: {}, code: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.UNAUTHORIZED_MSG };
+    }
 
     const isPasswordValid = await user.isPasswordMatch(password);
-    if (!isPasswordValid) { return { data: {}, code: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.UNAUTHORIZED_MSG } }
+    if (!isPasswordValid) {
+      return { data: {}, code: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.UNAUTHORIZED_MSG };
+    }
 
-    if (!user.mobileVerificationStatus) { return { data: { phone: user.phone }, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.MOB_VERIFICATION_REQUIRED_MSG } }
+    if (!user.mobileVerificationStatus) {
+      return { data: { phone: user.phone }, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.MOB_VERIFICATION_REQUIRED_MSG };
+    }
 
     const tokens = await tokenService.generateAuthTokens(user);
 
-    const device = req.headers['user-agent'] || 'Unknown Device';
-    const time = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-    const ipAddress = req.ip;
-    // mailFunctions.sendLoginNotificationEmail(user.email, device, time, ipAddress);
+    // Check for suspicious login
+    const currentIpAddress = req.ip === '::1' ? '127.0.0.1' : req.ip;
+    const currentUserAgent = req.headers['user-agent'] || 'Unknown Device';
+    const currentTime = new Date();
+
+    let sendLoginNotification = false;
+
+    // Check if this is the first login
+    if (!user.lastLogin) {
+      user.lastLogin = {
+        ipAddress: currentIpAddress,
+        userAgent: currentUserAgent,
+        timestamp: currentTime
+      };
+      await user.save(); // Save the last login details
+    } else {
+      // Compare current login details with the last login
+      const { ipAddress, userAgent, timestamp } = user.lastLogin;
+
+      if (ipAddress !== currentIpAddress || userAgent !== currentUserAgent) {
+        sendLoginNotification = true; // Send notification for suspicious login
+      }
+
+      // Update the last login details
+      user.lastLogin = {
+        ipAddress: currentIpAddress,
+        userAgent: currentUserAgent,
+        timestamp: currentTime
+      };
+      await user.save(); // Save the updated last login details
+    }
+
+    // Send login notification if required
+    if (sendLoginNotification) {
+      const device = req.headers['user-agent'] || 'Unknown Device';
+      const time = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+      mailFunctions.sendLoginNotificationEmail(user.email, device, time, currentIpAddress);
+    }
 
     return { data: { user, tokens }, code: CONSTANTS.SUCCESS, message: CONSTANTS.LOGIN_MSG };
   } catch (error) {

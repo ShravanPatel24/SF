@@ -3,7 +3,7 @@ const multer = require('multer');
 const { adminAuth } = require('../../../middlewares');
 const validate = require('../../../middlewares/validate');
 const { userValidation, businessValidation } = require('../../../validations');
-const { userController, adminAuthController, orderController, businessController } = require('../../../controllers'); // Import orderController for admin orders
+const { userController, adminAuthController, orderController, businessController, dineOutController } = require('../../../controllers'); // Import orderController for admin orders
 const upload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
@@ -14,6 +14,8 @@ router.get('/orders/partner/:partnerId', adminAuth('manageOrders'), orderControl
 router.get('/orders', adminAuth('manageOrders'), orderController.getAllOrdersAdmin);
 router.get('/business/:businessId', adminAuth('manageBusiness'), businessController.getBusinessById);
 router.patch('/update-business/:businessId', adminAuth('updateById'), validate(businessValidation.update), businessController.updateBusiness);
+router.get('/dineout-requests', adminAuth('manageDineOutRequests'), dineOutController.getAllDineOutRequests);
+router.get('/dineout-requests/:requestId', adminAuth('manageDineOutRequests'), dineOutController.getDineOutRequestByIdAdmin);
 
 router
   .route('/')

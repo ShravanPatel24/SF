@@ -12,10 +12,7 @@ router.post('/create', userAuth(), upload.fields([
 ]), validate(itemsValidation.createItem), itemsController.createItem);
 
 router.get('/business/:businessId', userAuth(), validate(itemsValidation.getItemsByBusinessId), itemsController.getItemsByBusiness);
-
 router.get('/business-type/:businessTypeId', userAuth(), validate(itemsValidation.getItemsByBusinessTypeId), itemsController.getItemsByBusinessType);
-
-// This is the dynamic route
 router.get('/:itemId', userAuth(), validate(itemsValidation.getItemById), itemsController.getItemById);
 
 router.patch('/:itemId', userAuth(), upload.fields([

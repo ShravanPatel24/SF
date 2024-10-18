@@ -1,5 +1,6 @@
 const { OrderModel, CartModel } = require('../models');
 const CONSTANTS = require('../config/constant');
+const mongoose = require('mongoose');
 
 // Create a new order
 const createOrder = async (userId, cartId, paymentMethod, orderNote) => {
@@ -141,6 +142,11 @@ const trackOrder = async (orderId) => {
 // Get Orders Of All Users
 const queryOrder = async (options) => {
     var matchCondition = {};
+    // Filter by userId
+    if (options.userId && options.userId !== 'undefined') { matchCondition.user = new mongoose.Types.ObjectId(String(options.userId)) }
+    // Filter by partnerId
+    if (options.partnerId && options.partnerId !== 'undefined') { matchCondition.partner = new mongoose.Types.ObjectId(String(options.partnerId)) }
+
     // Filter by search query (orderId, user name, or email)
     if (options.search && options.search !== 'undefined') {
         matchCondition.$or = [
@@ -150,22 +156,31 @@ const queryOrder = async (options) => {
         ];
     }
     // Filter by status
-    if (options.status && options.status !== 'undefined') { matchCondition.status = options.status; }
+    if (options.status && options.status !== 'undefined') { matchCondition.status = options.status }
     // Aggregation pipeline
     const aggregateQuery = [
         {
             $lookup: {
-                from: 'users',
+                from: 'users', // Join with the users collection for user details
                 localField: 'user',
                 foreignField: '_id',
                 as: 'userDetails'
             }
         },
         { $unwind: '$userDetails' },
-        { $match: matchCondition },
         {
             $lookup: {
-                from: 'items',
+                from: 'users', // Join with the users collection for partner details
+                localField: 'partner',
+                foreignField: '_id',
+                as: 'partnerDetails'
+            }
+        },
+        { $unwind: { path: '$partnerDetails', preserveNullAndEmptyArrays: true } }, // Unwind partnerDetails
+        { $match: matchCondition }, // Apply match condition here
+        {
+            $lookup: {
+                from: 'items', // Join with the items collection for item details
                 localField: 'items.item',
                 foreignField: '_id',
                 as: 'itemDetails'
@@ -174,14 +189,6 @@ const queryOrder = async (options) => {
     ];
     // If filtering by itemType, add a match for itemType inside items
     if (options.itemType && options.itemType !== 'undefined') {
-        aggregateQuery.push({
-            $lookup: {
-                from: 'items',
-                localField: 'items.item',
-                foreignField: '_id',
-                as: 'itemDetails'
-            }
-        });
         aggregateQuery.push({
             $match: {
                 'itemDetails.itemType': options.itemType
@@ -196,6 +203,7 @@ const queryOrder = async (options) => {
         sortOption['createdAt'] = -1;
     }
     aggregateQuery.push({ $sort: sortOption });
+
     const aggregateQueryPipeline = OrderModel.aggregate(aggregateQuery);
     const data = await OrderModel.aggregatePaginate(aggregateQueryPipeline, { page: options.page || 1, limit: options.limit || 10 });
     return data;

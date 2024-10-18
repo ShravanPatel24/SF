@@ -76,7 +76,12 @@ const userSchema = new mongoose.Schema(
       default: "English",
     },
     status: { type: Number, default: 1 }, //0 is Inactive, 1 is Active
-    isDelete: { type: Number, default: 1 } //0 is delete, 1 is Active
+    isDelete: { type: Number, default: 1 }, //0 is delete, 1 is Active
+    lastLogin: {
+      ipAddress: { type: String },
+      userAgent: { type: String },
+      timestamp: { type: Date }
+    }
   },
   {
     timestamps: true,

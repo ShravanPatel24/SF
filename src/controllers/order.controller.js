@@ -12,16 +12,9 @@ const createOrder = catchAsync(async (req, res) => {
         path: 'items.item',
         strictPopulate: false // Allow flexible population
     });
-
-    if (!cart || cart.items.length === 0) {
-        return res.status(400).json({ statusCode: 400, message: CONSTANTS.CART_EMPTY });
-    }
-
+    if (!cart || cart.items.length === 0) { return res.status(400).json({ statusCode: 400, message: CONSTANTS.CART_EMPTY }) }
     let containsRoom = false;
-
-    if (!Array.isArray(cart.items)) {
-        return res.status(400).json({ statusCode: 400, message: "Invalid cart items." });
-    }
+    if (!Array.isArray(cart.items)) { return res.status(400).json({ statusCode: 400, message: "Invalid cart items." }) }
 
     cart.items.forEach(item => {
         const product = item.item;
@@ -31,9 +24,7 @@ const createOrder = catchAsync(async (req, res) => {
 
     const order = await OrderService.createOrder(userId, cart, paymentMethod, orderNote);
 
-    if (paymentMethod === 'online' && order.paymentFailed) {
-        return res.status(400).json({ statusCode: 400, message: "Payment failed. Please try again." });
-    }
+    if (paymentMethod === 'online' && order.paymentFailed) { return res.status(400).json({ statusCode: 400, message: "Payment failed. Please try again." }) }
 
     let successMessage = paymentMethod === 'online' ?
         (containsRoom ? CONSTANTS.PAYMENT_SUCCESS_ONLINE_HOTEL_MSG : CONSTANTS.PAYMENT_SUCCESS_ONLINE_ORDER_MSG) :
@@ -65,9 +56,7 @@ const getUserOrders = catchAsync(async (req, res) => {
 const getOrderById = catchAsync(async (req, res) => {
     const { orderId } = req.params;
     const order = await OrderService.getOrderById(orderId);
-    if (!order) {
-        return res.status(404).json({ statusCode: 404, message: CONSTANTS.ORDER_NOT_FOUND });
-    }
+    if (!order) { return res.status(404).json({ statusCode: 404, message: CONSTANTS.ORDER_NOT_FOUND }) }
     return res.status(200).json({
         statusCode: 200,
         _id: order._id,
@@ -167,12 +156,16 @@ const getAllOrdersAdmin = catchAsync(async (req, res) => {
         'orderId',
         'status',
         'itemType',
-        'sortOrder'
+        'sortOrder',
+        'userId',
+        'partnerId'
     ]);
     const result = await OrderService.queryOrder(options);
     const orders = result.docs.map(order => ({
         _id: order._id,
         orderId: order.orderId,
+        userId: order.userDetails?._id || 'N/A',
+        partnerId: order.partnerDetails?._id || 'N/A',
         userName: order.userDetails?.name || 'N/A',
         email: order.userDetails?.email || 'N/A',
         createdAt: order.createdAt,
@@ -315,7 +308,7 @@ const getOrdersByPartnerId = catchAsync(async (req, res) => {
             prevPage: hasPrevPage ? page - 1 : null,
             nextPage: hasNextPage ? page + 1 : null
         },
-        message: 'List retrieved successfully.'
+        message: CONSTANTS.LIST
     });
 });
 
