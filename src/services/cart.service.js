@@ -120,10 +120,99 @@ const clearCart = async (userId) => {
     return cart;
 };
 
+// Add an item to the cart (for guests)
+const addGuestToCart = async (cartId, itemId, quantity, selectedSize, selectedColor, checkIn, checkOut, deliveryAddress) => {
+    const item = await ItemModel.findById(itemId);
+    if (!item) {
+        throw new Error(CONSTANTS.ITEM_NOT_FOUND);
+    }
+
+    // Find or create a cart for the guest (identified by guestId)
+    let cart = await CartModel.findOne({ guestId: cartId });
+    if (!cart) {
+        // Create a new cart for the guest without user
+        cart = new CartModel({
+            guestId: cartId,
+            items: [],
+            deliveryAddress: deliveryAddress, // Use provided deliveryAddress
+            subtotal: 0,
+            tax: 0,
+            deliveryCharge: 0,
+            totalPrice: 0
+        });
+    }
+
+    // Check if the item is already in the cart
+    const itemIndex = cart.items.findIndex(cartItem => cartItem.item.toString() === itemId);
+
+    if (itemIndex > -1) {
+        // Update existing item logic
+        cart.items[itemIndex].quantity += item.itemType === 'room' ? 1 : quantity; // Increment quantity for rooms or set quantity
+        cart.items[itemIndex].checkIn = item.itemType === 'room' ? checkIn : cart.items[itemIndex].checkIn; // Update check-in date if it's a room
+        cart.items[itemIndex].checkOut = item.itemType === 'room' ? checkOut : cart.items[itemIndex].checkOut; // Update check-out date if it's a room
+    } else {
+        // Add the new item to the cart
+        cart.items.push({
+            item: itemId,
+            quantity: item.itemType === 'room' ? 1 : quantity, // For rooms, quantity is always 1
+            selectedSize,
+            selectedColor,
+            checkIn: item.itemType === 'room' ? checkIn : null, // Only add checkIn for rooms
+            checkOut: item.itemType === 'room' ? checkOut : null  // Only add checkOut for rooms
+        });
+    }
+
+    // Save the updated cart
+    await cart.save();
+    return cart;
+};
+
+// Get the cart for the guest
+const getGuestCart = async (guestId) => { // Parameter name
+    const cart = await CartModel.findOne({ guestId: guestId }) // Correct usage of guestId
+        .populate({
+            path: 'items.item',
+            populate: {
+                path: 'partner',
+                select: '_id name'
+            }
+        });
+
+    if (!cart) {
+        throw new Error(CONSTANTS.CART_NOT_FOUND);
+    }
+    return cart;
+};
+
+// Remove an item from the guest cart
+const removeFromGuestCart = async (guestId, cartItemId) => {
+    const cart = await CartModel.findOne({ guestId });
+    if (!cart) throw new Error(CONSTANTS.CART_NOT_FOUND);
+    const itemIndex = cart.items.findIndex(cartItem => cartItem._id.toString() === cartItemId);
+    if (itemIndex === -1) throw new Error(CONSTANTS.ITEM_NOT_FOUND);
+
+    cart.items.splice(itemIndex, 1);
+    await cart.save();
+    return cart;
+};
+
+// Clear the guest cart
+const clearGuestCart = async (guestId) => {
+    const cart = await CartModel.findOne({ guestId: guestId });
+    if (!cart) { throw { statusCode: 404, message: CONSTANTS.CART_NOT_FOUND } }
+    cart.items = [];
+    await cart.save();
+    return cart;
+};
+
 module.exports = {
     addToCart,
     getCartByUser,
     removeFromCart,
     updateCartItem,
-    clearCart
+    clearCart,
+    addGuestToCart,
+    getGuestCart,
+    removeFromGuestCart,
+    clearGuestCart
 };

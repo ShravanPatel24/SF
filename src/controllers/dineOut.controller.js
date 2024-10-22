@@ -143,7 +143,7 @@ const updateDineOutRequestStatus = catchAsync(async (req, res) => {
 
 // Get all dine-out requests for admin
 const getAllDineOutRequests = catchAsync(async (req, res) => {
-    const { page, limit, search, sortBy, sortOrder } = req.query;
+    const { page, limit, search, sortBy, sortOrder, status } = req.query;
     try {
         const result = await DineOutRequestService.getAllDineOutRequests({
             page,
@@ -151,6 +151,7 @@ const getAllDineOutRequests = catchAsync(async (req, res) => {
             search,
             sortBy,
             sortOrder,
+            status
         });
         res.status(CONSTANTS.SUCCESSFUL).json({
             statusCode: CONSTANTS.SUCCESSFUL,

@@ -4,6 +4,19 @@ const { StaticContentController } = require('../../controllers');
 
 const router = express.Router();
 
+// Routes for guest users
+router
+    .route('/guest/for/user')
+    .get(StaticContentController.getStaticPages); // Allow guests to get static pages
+
+router
+    .route('/guest/for-user/:for/:type')
+    .get(StaticContentController.getStaticPage); // Allow guests to get a specific static page
+
+router
+    .route('/guest/using-pageId/:pageId')
+    .get(StaticContentController.getStaticPage); // Allow guests to get a specific static page by ID
+
 router
     .route('/for/user')
     .get(basicAuth('getStaticPages'), StaticContentController.getStaticPages);

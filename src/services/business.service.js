@@ -497,6 +497,13 @@ const calculateEarningsForPartner = async (partnerId) => {
     return earnings;
 };
 
+// Get all businesses for guests
+const getAllBusinesses = async () => {
+    // const condition = { isDelete: 1, status: 1 };
+    const businesses = await BusinessModel.find();
+    return businesses;
+};
+
 module.exports = {
     createBusinessForPartner,
     getBusinessById,
@@ -507,5 +514,6 @@ module.exports = {
     deleteBusinessById,
     findBusinessesNearUser,
     getDashboardCountsForPartner,
-    calculateEarningsForPartner
+    calculateEarningsForPartner,
+    getAllBusinesses
 }

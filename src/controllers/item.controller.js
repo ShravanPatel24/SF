@@ -81,11 +81,37 @@ const deleteItem = catchAsync(async (req, res) => {
     }
 });
 
+// Guest Users
+
+// Get all items (products, food, rooms) for guest users
+const getAllItems = catchAsync(async (req, res) => {
+    try {
+        const items = await ItemService.getAllItems(); // Implement this in your service
+        res.status(200).json({ statusCode: 200, data: items });
+    } catch (error) {
+        res.status(400).json({ statusCode: 400, message: error.message });
+    }
+});
+
+// Search items for guest users
+const searchItems = catchAsync(async (req, res) => {
+    const searchQuery = req.query.search;
+    if (!searchQuery || typeof searchQuery !== 'string') { return res.status(400).json({ statusCode: 400, message: "Search query must be a valid string." }) }
+    try {
+        const items = await ItemService.searchItems(searchQuery);
+        res.status(200).json({ statusCode: 200, data: items });
+    } catch (error) {
+        res.status(400).json({ statusCode: 400, message: error.message });
+    }
+});
+
 module.exports = {
     createItem,
     getItemById,
     getItemsByBusiness,
     getItemsByBusinessType,
     updateItem,
-    deleteItem
+    deleteItem,
+    getAllItems,
+    searchItems,
 };

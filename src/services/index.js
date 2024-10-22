@@ -1,5 +1,6 @@
 module.exports.adminAuthService = require('./admin/adminAuth.service');
 module.exports.adminRoleService = require('./admin/adminRole.service');
+module.exports.adminStaffService = require('./admin/adminStaff.service');
 module.exports.DashboardService = require('./dashboard.service');
 module.exports.s3Service = require('./s3.service');
 module.exports.tokenService = require('./token.service');

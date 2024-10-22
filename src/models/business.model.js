@@ -64,7 +64,8 @@ const businessSchema = new mongoose.Schema(
         },
         bannerImages: [{ type: String }],
         galleryImages: [{ type: String }],
-        status: { type: Number, default: 1 },
+        isDelete: { type: Number, default: 1 }, // Default to active
+        status: { type: Number, default: 1 }, // Default to active
 
         // Dine-in functionality
         dineInStatus: { type: Boolean, default: false },

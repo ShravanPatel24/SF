@@ -132,11 +132,31 @@ const deleteItemById = async (itemId) => {
     await ItemModel.findByIdAndDelete(itemId);
 };
 
+// Guest Users
+
+// Get all items (products, food, rooms)
+const getAllItems = async () => {
+    return await ItemModel.find({}); // Adjust criteria based on your requirements
+};
+
+// Search items by query
+const searchItems = async (search) => {
+    return await ItemModel.find({
+        $or: [
+            { productName: { $regex: search, $options: 'i' } },
+            { dishName: { $regex: search, $options: 'i' } },
+            { roomName: { $regex: search, $options: 'i' } },
+        ]
+    });
+};
+
 module.exports = {
     createItem,
     getItemById,
     getItemsByBusiness,
     getItemsByBusinessType,
     updateItemById,
-    deleteItemById
+    deleteItemById,
+    getAllItems,
+    searchItems,
 };

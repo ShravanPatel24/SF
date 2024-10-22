@@ -110,10 +110,60 @@ const clearCart = catchAsync(async (req, res) => {
     }
 });
 
+
+// Add an item to the guest cart
+const addGuestToCart = catchAsync(async (req, res) => {
+    const { cartId, itemId, quantity, selectedSize, selectedColor, checkIn, checkOut, deliveryAddress } = req.body; // Ensure deliveryAddress is included
+
+    try {
+        const cart = await CartService.addGuestToCart(cartId, itemId, quantity, selectedSize, selectedColor, checkIn, checkOut, deliveryAddress);
+        return res.status(200).json({ statusCode: 200, message: CONSTANTS.ADDED_TO_CART, cart });
+    } catch (error) {
+        return res.status(500).json({ statusCode: 500, message: 'An unexpected error occurred.', error: error.message });
+    }
+});
+
+// Get the guest cart
+const getGuestCart = catchAsync(async (req, res) => {
+    const { cartId } = req.params; // Get cartId from URL parameters
+    try {
+        const cart = await CartService.getGuestCart(cartId); // Pass the cartId to the service
+        return res.status(200).json({ statusCode: 200, data: cart });
+    } catch (error) {
+        return res.status(404).json({ statusCode: 404, message: error.message });
+    }
+});
+
+// Remove an item from the guest cart
+const removeFromGuestCart = catchAsync(async (req, res) => {
+    const { guestId, cartItemId } = req.body;
+    try {
+        const updatedCart = await CartService.removeFromGuestCart(guestId, cartItemId);
+        return res.status(200).json({ statusCode: 200, message: CONSTANTS.REMOVED_FROM_CART, updatedCart });
+    } catch (error) {
+        return res.status(500).json({ statusCode: 500, message: error.message });
+    }
+});
+
+// Clear the guest cart
+const clearGuestCart = catchAsync(async (req, res) => {
+    const { guestId } = req.body;
+    try {
+        const cart = await CartService.clearGuestCart(guestId);
+        return res.status(200).json({ statusCode: 200, message: CONSTANTS.CART_CLEARED, data: cart });
+    } catch (error) {
+        return res.status(500).json({ statusCode: 500, message: error.message });
+    }
+});
+
 module.exports = {
     addToCart,
     getCart,
     removeFromCart,
     updateCartItem,
-    clearCart
+    clearCart,
+    addGuestToCart,
+    getGuestCart,
+    removeFromGuestCart,
+    clearGuestCart
 };

@@ -11,6 +11,7 @@ const cartRoute = require('./cart.routes')
 const orderRoute = require('./order.route')
 
 const AdminAuthRoute = require("./admin/auth.route");
+const AdminStaffRoute = require("./admin/adminStaff.route");
 const AdminRoleRoute = require("./admin/role.route");
 const AdminUserRoute = require('./admin/adminUser.route');
 const DashboardRoute = require('./dashboard.routes');
@@ -35,6 +36,7 @@ const defaultRoutes = [
   { path: '/dashboard', route: DashboardRoute },
   { path: "/admin/dashboard", route: AdminDashboardRoute },
   { path: "/admin/roles", route: AdminRoleRoute },
+  { path: "/admin/staff", route: AdminStaffRoute },
   { path: "/contact-us", route: ContactUsRoute },
   { path: "/faq", route: FAQRoute },
   { path: '/static-content', route: StaticContentRoute },
@@ -45,7 +47,7 @@ const defaultRoutes = [
   { path: '/dine-out', route: dineOutRoute },
   { path: '/cart', route: cartRoute },
   { path: '/order', route: orderRoute },
-  { path: '/posts', route: PostRoute }
+  { path: '/posts', route: PostRoute },
 ];
 
 const devRoutes = [

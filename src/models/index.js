@@ -1,5 +1,6 @@
 module.exports.AdminModel = require("./admin.model");
 module.exports.AdminRoles = require("./adminRoles.model");
+module.exports.AdminStaffModel = require("./adminStaff.model");
 module.exports.ContactUsModel = require("./contactUs.model");
 module.exports.FAQModel = require("./faq.model");
 module.exports.Token = require("./token.model");

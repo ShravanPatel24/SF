@@ -182,6 +182,16 @@ const getPartnerEarnings = catchAsync(async (req, res) => {
     }
 });
 
+// Get all businesses for guests
+const getAllBusinesses = catchAsync(async (req, res) => {
+    try {
+        const businesses = await BusinessService.getAllBusinesses();
+        res.status(CONSTANTS.SUCCESSFUL).json({ statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.LIST, data: businesses, });
+    } catch (error) {
+        res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: error.message });
+    }
+});
+
 module.exports = {
     getBusinessesForPartner,
     updateBusiness,
@@ -191,5 +201,6 @@ module.exports = {
     createBusinessForPartner,
     getBusinessesNearUser,
     getDashboardCounts,
-    getPartnerEarnings
+    getPartnerEarnings,
+    getAllBusinesses
 };

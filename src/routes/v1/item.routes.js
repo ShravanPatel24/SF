@@ -7,6 +7,11 @@ const validate = require('../../middlewares/validate');
 const { itemsValidation } = require('../../validations');
 const { itemsController } = require('../../controllers');
 
+// Routes for guest users
+router.get('guest/', itemsController.getAllItems); // Guest user - Get all items (products, food, rooms)
+router.get('guest/search', itemsController.searchItems); // Guest user - Search items
+router.get('/guest/:itemId', itemsController.getItemById); // Guest user - Get item by ID
+
 router.post('/create', userAuth(), upload.fields([
     { name: 'images', maxCount: 10 },
 ]), validate(itemsValidation.createItem), itemsController.createItem);

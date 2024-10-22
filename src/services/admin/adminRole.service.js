@@ -6,12 +6,12 @@ const CONSTANT = require('../../config/constant');
  * @returns {Promise<Roles>}
  */
 const createRole = async (roleBody) => {
-    if (await AdminRoles.isNameTaken(roleBody.name, '', roleBody.company)) {
-        // return new ApiError(httpStatus.BAD_REQUEST, CONSTANT.ROLE_NAME_ALREADY_EXISTS);
-        return { data: {}, code: 400, message: CONSTANT.ROLE_NAME_ALREADY_EXISTS }
-    } else {
-        const role = await AdminRoles.create(roleBody);
-        return { data: role, code: 200, message: CONSTANT.ROLE_CREATE };
+    try {
+        const role = await AdminRoles.create(roleBody); // Ensure this handles the 'resources' array
+        return { data: role, code: 200, message: "Role created successfully" };
+    } catch (error) {
+        console.error("Error while creating role:", error);
+        return { data: {}, code: 400, message: "Failed to create role" };
     }
 };
 

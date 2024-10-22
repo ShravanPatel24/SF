@@ -21,6 +21,11 @@ const adminSchema = mongoose.Schema({
         longitude: String,
         addressType: { type: String, default: "registered" }, //registered, billing, shipping
     },
+    role: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'AdminRoles', // Reference to your roles model
+        required: true
+    },
     profilePhoto: String,
     logo: String,
     type: { type: String, default: 'superadmin' },

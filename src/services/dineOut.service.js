@@ -72,7 +72,7 @@ const updateDineOutRequestStatus = async (requestId, status, bookingId = null) =
 };
 
 // Get all dine-out requests with detailed user and partner information for admin
-const getAllDineOutRequests = async ({ page = 1, limit = 10, search = '', sortBy = 'createdAt', sortOrder = 'desc' }) => {
+const getAllDineOutRequests = async ({ page = 1, limit = 10, search = '', sortBy = 'createdAt', sortOrder = 'desc', status = '' }) => {
     try {
         const options = {
             page: parseInt(page),
@@ -80,16 +80,23 @@ const getAllDineOutRequests = async ({ page = 1, limit = 10, search = '', sortBy
             sort: { [sortBy]: sortOrder === 'desc' ? -1 : 1 },
         };
 
-        const searchQuery = search ? {
-            $or: [
+        const searchQuery = {};
+
+        // Add a search condition if present
+        if (search) {
+            searchQuery.$or = [
                 { 'user.name': { $regex: search, $options: 'i' } },
                 { 'partner.name': { $regex: search, $options: 'i' } },
                 { 'business.businessName': { $regex: search, $options: 'i' } },
                 { requestNumber: { $regex: search, $options: 'i' } },
                 { dinnerType: { $regex: search, $options: 'i' } },
-                { status: { $regex: search, $options: 'i' } }
-            ]
-        } : {};
+            ];
+        }
+
+        // Add status filter if present
+        if (status && ['Pending', 'Accepted', 'Rejected'].includes(status)) {
+            searchQuery.status = status;
+        }
 
         const requests = await DineOutModel.find(searchQuery)
             .populate('user', 'name _id')
@@ -108,19 +115,17 @@ const getAllDineOutRequests = async ({ page = 1, limit = 10, search = '', sortBy
             .lean();
 
         const totalDocs = await DineOutModel.countDocuments(searchQuery);
-
-        // Map the requests to include requestId instead of _id
         const formattedRequests = requests.map(request => ({
-            requestId: request._id, // Change here
-            user: request.user ? request.user : { _id: null, name: 'Unknown User' }, // Check for user
+            requestId: request._id,
+            user: request.user ? request.user : { _id: null, name: 'Unknown User' },
             partner: {
-                _id: request.partner ? request.partner._id : null, // Check for partner
-                name: request.partner ? request.partner.name : 'Unknown Partner', // Check for partner name
+                _id: request.partner ? request.partner._id : null,
+                name: request.partner ? request.partner.name : 'Unknown Partner',
                 businessId: request.partner && request.partner.businessId ? request.partner.businessId : null,
             },
             business: {
-                _id: request.business ? request.business._id : null, // Check for business
-                businessName: request.business ? request.business.businessName : 'Unknown Business', // Check for business name
+                _id: request.business ? request.business._id : null,
+                businessName: request.business ? request.business.businessName : 'Unknown Business',
                 dineInStatus: request.business ? request.business.dineInStatus : null,
             },
             date: request.date,

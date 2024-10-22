@@ -28,9 +28,9 @@ const roleBaseAccessSchema = mongoose.Schema(
         required: true
       }
     }],
-    companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'company' },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'user' },
-    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'user' },
+    // companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'company' },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'admin' },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'admin' },
     status: { type: Number, default: 1 }, //0 is Inactive, 1 is Active
     isDelete: { type: Number, default: 1 }, //0 is delete, 1 is Active
   },

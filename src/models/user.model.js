@@ -28,6 +28,7 @@ const userSchema = new mongoose.Schema(
       example: "+1"
     },
     phone: { type: String, required: true },
+    fullPhoneNumber: { type: String },
     password: { type: String, required: true },
     mobileOTP: Number,
     emailOTP: Number,
@@ -132,8 +133,7 @@ userSchema.pre("save", async function (next) {
 });
 
 userSchema.pre("save", function (next) {
-  const fullPhoneNumber = `${this.countryCode}${this.phone}`;
-  console.log(`Full phone number: ${fullPhoneNumber}`);
+  this.fullPhoneNumber = `${this.countryCode}${this.phone}`;
   next();
 });
 

@@ -23,21 +23,6 @@ components:
         token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1ZWJhYzUzNDk1NGI1NDEzOTgwNmMxMTIiLCJpYXQiOjE1ODkyOTg0ODQsImV4cCI6MTU4OTMwMDI4NH0.m1U63blB0MLej_WfB7yC2FTMnCziif9X8yzwDEfJXAg
         expires: 2020-05-12T16:18:04.793Z
 
-    AuthTokens:
-      type: object
-      properties:
-        access:
-          $ref: "#/components/schemas/Token"
-        refresh:
-          $ref: "#/components/schemas/Token"
-      example:
-        access:
-          token: "newAccessToken123"
-          expires: "2024-12-31T23:59:59Z"
-        refresh:
-          token: "newRefreshToken123"
-          expires: "2024-12-31T23:59:59Z"
-
     Error:
       type: object
       properties:
@@ -63,6 +48,90 @@ components:
         id: "613b6f7a84d1b7f2b09467c5"
         name: "Retail"
         status: "1"
+
+    AdminStaff:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the admin staff
+          example: "John Doe"
+        email:
+          type: string
+          description: Email of the admin staff
+          example: "johndoe@example.com"
+        phone:
+          type: string
+          description: Phone number of the admin staff
+          example: "1234567890"
+        password:
+          type: string
+          description: Password of the admin staff
+          example: "string"
+        countryCode:
+          type: string
+          description: Country code of the admin staff
+          example: "+1"
+        role:
+          type: string
+          description: Role ID assigned to the admin staff
+          example: "60d0fe4f5311236168a109cb"
+
+    responses:
+      Unauthorized:
+        description: Authentication information is missing or invalid.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Unauthorized"
+      Duplicate:
+        description: The admin staff already exists.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Duplicate entry"
+    securitySchemes:
+      bearerAuth:
+        type: http
+        scheme: bearer
+        bearerFormat: JWT
+
+    Role:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the role
+          example: "Manager"
+        resource:
+          type: array
+          description: List of resources with permissions for the role
+          items:
+            type: object
+            properties:
+              moduleName:
+                type: string
+                description: The name of the module
+                example: "User Management"
+              moduleId:
+                type: string
+                description: Unique module identifier
+                example: "user_mgmt"
+              permissions:
+                type: array
+                description: Permissions assigned to the role for this resource
+                items:
+                  type: string
+                  enum: ["add", "edit", "delete", "view"]
+                  example: "view"
 
     ChangePasswordRequest:
       type: object
@@ -1528,6 +1597,13 @@ paths:
             type: string
             enum: [asc, desc]
             default: "desc"
+        - name: status
+          in: query
+          required: false
+          description: Filter dine-out requests by status (e.g., `Pending`, `Accepted`, `Rejected`)
+          schema:
+            type: string
+            enum: [Pending, Accepted, Rejected]
       security:
         - bearerAuth: [] # Use Bearer Token for authenticated routes
       responses:
@@ -1566,6 +1642,287 @@ paths:
                 $ref: "#/components/schemas/UserProfile"
         "404":
           $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # Admin Staff
+  /admin/staff/create:
+    post:
+      summary: Add a new Admin Staff
+      tags:
+        - Admin Staff
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminStaff"
+      responses:
+        "201":
+          description: Admin Staff added successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStaff"
+        "400":
+          description: Invalid input
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Duplicate"
+
+  /admin/staff/{staffId}/role:
+    get:
+      summary: Get Admin Staff with role and permissions by ID
+      tags:
+        - Admin Staff
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: staffId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the Admin Staff
+      responses:
+        "200":
+          description: Admin Staff with role and permissions retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStaff"
+        "404":
+          description: Admin Staff not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /admin/staff/{staffId}:
+    get:
+      summary: Get details of an Admin Staff by ID
+      tags:
+        - Admin Staff
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: staffId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the Admin Staff to retrieve
+      responses:
+        "200":
+          description: Admin Staff details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStaff"
+        "404":
+          description: Admin Staff not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    patch:
+      summary: Update an Admin Staff by ID
+      tags:
+        - Admin Staff
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: staffId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the Admin Staff to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminStaff"
+      responses:
+        "200":
+          description: Admin Staff updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStaff"
+        "400":
+          description: Invalid input
+        "404":
+          description: Admin Staff not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    delete:
+      summary: Delete an Admin Staff by ID
+      tags:
+        - Admin Staff
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: staffId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the Admin Staff to delete
+      responses:
+        "200":
+          description: Admin Staff deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStaff"
+        "404":
+          description: Admin Staff not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # Admin Staff Role
+  /admin/roles:
+    post:
+      summary: Create a new Role
+      tags:
+        - Role
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Role"
+      responses:
+        "201":
+          description: Role created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+        "400":
+          description: Invalid input
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Role already exists
+    get:
+      summary: Get all Roles
+      tags:
+        - Role
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sortBy
+          in: query
+          description: Sorting order of the roles
+          schema:
+            type: string
+            example: "createdAt:desc"
+        - name: limit
+          in: query
+          description: Limit for pagination
+          schema:
+            type: integer
+            example: 10
+        - name: page
+          in: query
+          description: Page number for pagination
+          schema:
+            type: integer
+            example: 1
+      responses:
+        "200":
+          description: Roles retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Role"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /admin/roles/{roleId}:
+    get:
+      summary: Get Role by ID
+      tags:
+        - Role
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the role to retrieve
+      responses:
+        "200":
+          description: Role details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+        "404":
+          description: Role not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    patch:
+      summary: Update a Role by ID
+      tags:
+        - Role
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the role to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Role"
+      responses:
+        "200":
+          description: Role updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+        "400":
+          description: Invalid input
+        "404":
+          description: Role not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    delete:
+      summary: Delete a Role by ID
+      tags:
+        - Role
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the role to delete
+      responses:
+        "200":
+          description: Role deleted successfully
+        "404":
+          description: Role not found
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -2822,7 +3179,7 @@ paths:
         - Cart
       security:
         - bearerAuth: []
-      summary: Add an item to the cart (Product/Food)
+      summary: Add an item to the cart (Product/Food/Room(Checkout))
       requestBody:
         description: The data required to add an item to the cart
         required: true
@@ -4942,8 +5299,6 @@ paths:
       summary: Get Near By Businesses
       tags:
         - Partner Business
-      security:
-        - bearerAuth: []
       parameters:
         - in: query
           name: latitude
@@ -5350,6 +5705,265 @@ paths:
           description: Comment deleted successfully
         "400":
           description: Invalid input
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  #  Guest Users
+  # GUEST USERS ITEMS
+  /items/guest:
+    get:
+      summary: Get All Items for guest user (Product, Room, Food)
+      tags:
+        - Guest User
+      responses:
+        "200":
+          description: Post found
+        "404":
+          description: Post not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /items/guest/search:
+    get:
+      summary: Search Items for guest user (Pizza, t-shirt)
+      tags:
+        - Guest User
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        "200":
+          description: not found
+        "404":
+          description: not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /items/guest/{itemId}:
+    get:
+      summary: Get Item Details
+      tags:
+        - Guest User
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: found
+        "404":
+          description: not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  # GUEST USERS CART
+  /cart/guest/add:
+    post:
+      tags:
+        - Guest User
+      summary: Add an item to the cart (Product/Food/Room(Checkout))
+      requestBody:
+        description: The data required to add an item to the cart
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                guestId:
+                  type: string
+                  desciption: The guest id to uniquely identify guest
+                  example: guest_123456
+                itemId:
+                  type: string
+                  description: The ID of the product or food item
+                  example: 66fc32743be26b54e9be9085
+                quantity:
+                  type: integer
+                  description: The quantity to add to the cart
+                  example: 2
+                checkIn:
+                  type: string
+                  description: The check in for the room
+                  example: 2024-10-20
+                checkOut:
+                  type: string
+                  description: The check out for the room
+                  example: 2024-10-20
+                selectedSize:
+                  type: string
+                  description: Size of the product (if applicable)
+                  example: M
+                selectedColor:
+                  type: string
+                  description: Color of the product (if applicable)
+                  example: Red
+                deliveryAddress:
+                  $ref: "#/components/schemas/DeliveryAddress"
+      responses:
+        "200":
+          description: Item added to cart successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Product added to cart successfully
+                  cart:
+                    $ref: "#/components/schemas/CartItem"
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "500":
+          description: Internal server error
+
+  /cart/guest/{guestId}:
+    get:
+      summary: Get Guest user's cart detail
+      tags:
+        - Guest User
+      parameters:
+        - name: guestId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: found
+        "404":
+          description: not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /cart/guest/remove:
+    delete:
+      summary: Remove Item from guest's cart
+      tags:
+        - Guest User
+      requestBody:
+        description: The data required to remove an item from cart
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                guestId:
+                  type: string
+                  desciption: The guest id to uniquely identify guest
+                cartItemId:
+                  type: string
+                  description: The ID of the product or food item
+                  example: 66fc32743be26b54e9be9085
+      responses:
+        "200":
+          description: found
+        "404":
+          description: not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /cart/guest/clear:
+    delete:
+      summary: Clear guest's cart
+      tags:
+        - Guest User
+      requestBody:
+        description: The data required to remove an item from cart
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                guestId:
+                  type: string
+                  desciption: The guest id to uniquely identify guest
+      responses:
+        "200":
+          description: found
+        "404":
+          description: not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  # GUEST USERS BUSINESS
+  /business/guest:
+    get:
+      summary: Get All Business for guest user
+      tags:
+        - Guest User
+      responses:
+        "200":
+          description: found
+        "404":
+          description: not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  # GUEST USERS STATIC PAGES
+  /static-content/guest/for/user:
+    get:
+      summary: Get static pages for guest user
+      tags:
+        - Guest User
+      responses:
+        "200":
+          description: found
+        "404":
+          description: not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /static-content/guest/for-user/{for}/{type}:
+    get:
+      summary: guests user to get a specific static page
+      tags:
+        - Guest User
+      parameters:
+        - name: for
+          in: path
+          required: true
+          example: 0 for user, 1 for partner
+          schema:
+            type: string
+        - name: type
+          in: path
+          required: true
+          example: privacy
+          schema:
+            type: string
+      responses:
+        "200":
+          description: found
+        "404":
+          description: not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /static-content/guest/using-pageId/{pageId}:
+    get:
+      summary: guests user to get a specific static page by ID
+      tags:
+        - Guest User
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: found
+        "404":
+          description: not found
         "401":
           $ref: "#/components/responses/Unauthorized"
 

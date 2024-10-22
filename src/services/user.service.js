@@ -50,18 +50,27 @@ const getUserById = async (userId) => {
         path: 'businessId',
         populate: {
           path: 'businessType',
+          select: '_id name' // Populate both ID and name of the businessType
         },
       });
+
     if (!user) {
       return {
         statusCode: CONSTANTS.NOT_FOUND,
         message: CONSTANTS.USER_NOT_FOUND
       };
     }
+
     const followersCount = await FollowModel.countDocuments({ following: userId });
     const followingCount = await FollowModel.countDocuments({ follower: userId });
+
+    // Return the original user object and add businessType separately to avoid affecting other functionality
     return {
       user,
+      businessType: user.businessId?.businessType ? {
+        _id: user.businessId.businessType._id,
+        name: user.businessId.businessType.name
+      } : null, // If businessType is available, include both _id and name
       followersCount,
       followingCount,
       statusCode: CONSTANTS.SUCCESSFUL,
@@ -571,25 +580,39 @@ const refreshAuth = async (refreshToken) => {
 const loginUserWithEmailOrPhoneAndPassword = async (emailOrPhone, password, type, req) => {
   try {
     let user;
+
+    // Check if login is by email or phone, and find the user accordingly
     if (validator.isEmail(emailOrPhone)) {
-      user = await UserModel.findOne({ email: emailOrPhone.toLowerCase(), type });
+      user = await UserModel.findOne({ email: emailOrPhone.toLowerCase(), type })
+        .populate({
+          path: 'businessType',  // Populate businessType directly from the user
+          select: '_id name'      // Select both ID and name of the businessType
+        });
     } else {
-      user = await UserModel.findOne({ phone: emailOrPhone, type });
+      user = await UserModel.findOne({ phone: emailOrPhone, type })
+        .populate({
+          path: 'businessType',  // Populate businessType directly from the user
+          select: '_id name'      // Select both ID and name of the businessType
+        });
     }
 
+    // Check if user exists
     if (!user) {
       return { data: {}, code: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.UNAUTHORIZED_MSG };
     }
 
+    // Check if the password is valid
     const isPasswordValid = await user.isPasswordMatch(password);
     if (!isPasswordValid) {
       return { data: {}, code: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.UNAUTHORIZED_MSG };
     }
 
+    // Check mobile verification status
     if (!user.mobileVerificationStatus) {
       return { data: { phone: user.phone }, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.MOB_VERIFICATION_REQUIRED_MSG };
     }
 
+    // Generate tokens
     const tokens = await tokenService.generateAuthTokens(user);
 
     // Check for suspicious login
@@ -599,7 +622,7 @@ const loginUserWithEmailOrPhoneAndPassword = async (emailOrPhone, password, type
 
     let sendLoginNotification = false;
 
-    // Check if this is the first login
+    // If it's the first login, save lastLogin details
     if (!user.lastLogin) {
       user.lastLogin = {
         ipAddress: currentIpAddress,
@@ -608,20 +631,20 @@ const loginUserWithEmailOrPhoneAndPassword = async (emailOrPhone, password, type
       };
       await user.save(); // Save the last login details
     } else {
-      // Compare current login details with the last login
-      const { ipAddress, userAgent, timestamp } = user.lastLogin;
+      // Compare current login details with the last login details
+      const { ipAddress, userAgent } = user.lastLogin;
 
       if (ipAddress !== currentIpAddress || userAgent !== currentUserAgent) {
-        sendLoginNotification = true; // Send notification for suspicious login
+        sendLoginNotification = true; // Mark for sending login notification if suspicious
       }
 
-      // Update the last login details
+      // Update lastLogin details
       user.lastLogin = {
         ipAddress: currentIpAddress,
         userAgent: currentUserAgent,
         timestamp: currentTime
       };
-      await user.save(); // Save the updated last login details
+      await user.save(); // Save updated last login details
     }
 
     // Send login notification if required
@@ -631,7 +654,22 @@ const loginUserWithEmailOrPhoneAndPassword = async (emailOrPhone, password, type
       mailFunctions.sendLoginNotificationEmail(user.email, device, time, currentIpAddress);
     }
 
-    return { data: { user, tokens }, code: CONSTANTS.SUCCESS, message: CONSTANTS.LOGIN_MSG };
+    // Return the user and tokens in the response
+    return {
+      data: {
+        user: {
+          ...user.toObject(),
+          businessType: user.businessType ? {
+            _id: user.businessType._id,
+            name: user.businessType.name
+          } : null // Include both _id and name of businessType if available
+        },
+        tokens
+      },
+      code: CONSTANTS.SUCCESS,
+      message: CONSTANTS.LOGIN_MSG
+    };
+
   } catch (error) {
     console.error("Error in loginUserWithEmailOrPhoneAndPassword:", error);
     return { data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: error.message || CONSTANTS.INTERNAL_SERVER_ERROR_MSG };

@@ -1,7 +1,7 @@
 // module.exports.disposableEmailValidation = require('./disposableEmailDomains.validation');
 // module.exports.authValidation = require('./auth.validation');
 // module.exports.roleValidation = require('./role.validation');
-// module.exports.staffValidation = require('./adminStaff.validation');
+module.exports.adminStaffValidation = require('./adminStaff.validation');
 module.exports.userValidation = require('./user.validation');
 module.exports.contactValidation = require('./contactUs.validation');
 module.exports.faqValidation = require('./faq.validation');
