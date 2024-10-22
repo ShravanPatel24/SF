@@ -516,29 +516,12 @@ const handleImageUploads = async (user, files) => {
  * @returns {Promise<user>}
  */
 const deleteUserById = async (userId) => {
-  try {
-    const { user } = await getUserById(userId);
-    if (!user) { return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.USER_NOT_FOUND } }
-    await BankDetailModel.deleteMany({ user: userId });
-    await BusinessModel.deleteMany({ partner: userId });
-    await CartModel.deleteMany({ user: userId });
-    await DineOutModel.deleteMany({ user: userId });
-    await FollowModel.deleteMany({ $or: [{ follower: userId }, { following: userId }] });
-    await FollowRequestModel.deleteMany({ $or: [{ follower: userId }, { following: userId }] });
-    await OrderModel.deleteMany({ user: userId });
-    await PostCommentModel.deleteMany({ user: userId });
-    await PostLikeModel.deleteMany({ user: userId });
-    await PostModel.deleteMany({ user: userId });
-    await RoleBaseAccessModel.deleteMany({ user: userId });
-    await Token.deleteMany({ user: userId });
-    // Soft delete the user
-    user.isDelete = 0;
-    await user.save();
-    return { data: user, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.DELETED };
-  } catch (error) {
-    console.error("Error deleting user:", error);
-    return { data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: CONSTANTS.INTERNAL_SERVER_ERROR_MSG };
-  }
+  const user = await getUserById(userId);
+  if (!user) { return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.USER_NOT_FOUND, } }
+  user.isDelete = 0;
+  await user.save();
+  var message = user.status == 1 ? CONSTANTS.USER_STATUS_ACTIVE : CONSTANTS.USER_STATUS_INACTIVE;
+  return { data: user, code: CONSTANTS.SUCCESSFUL, message: message };
 };
 
 /**

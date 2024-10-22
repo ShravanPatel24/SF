@@ -38,6 +38,7 @@ router
         userController.updateById)
     .get(userAuth('updateProfile'), userController.getById)
     .delete(userAuth('deleteUser'), userController.deleteUser);
+router.delete('/:id/profile-image', userAuth(), userController.deleteProfileImage);
 
 // Routes for updating email and phone without authentication
 router.patch('/update-email', userController.updateUserEmail);

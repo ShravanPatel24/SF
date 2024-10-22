@@ -4,6 +4,7 @@ const pick = require("../utils/pick");
 const { UserService, tokenService } = require("../services");
 const CONSTANTS = require("../config/constant");
 const validator = require("validator")
+const { s3Service } = require('../services');
 
 const createUser = catchAsync(async (req, res) => {
   req.body.userType = "user";
@@ -66,6 +67,26 @@ const login = catchAsync(async (req, res) => {
   } catch (error) {
     console.error("Error in login function:", error);
     return res.status(500).send({ data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: error.message || CONSTANTS.INTERNAL_SERVER_ERROR_MSG });
+  }
+});
+
+const deleteProfileImage = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  try {
+    const user = await UserModel.findById(id);
+    if (!user) { return res.status(CONSTANTS.NOT_FOUND).json({ statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.USER_NOT_FOUND }) }
+
+    if (!user.profilePhoto) { return res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: CONSTANTS.PROFILE_IMAGE_NOT_FOUND }) }
+
+    const imageKey = user.profilePhoto;
+    await s3Service.deleteFromS3([imageKey]);
+    user.profilePhoto = null;
+    await user.save();
+
+    return res.status(CONSTANTS.SUCCESSFUL).json({ statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.PROFILE_IMAGE_DELETED });
+  } catch (error) {
+    console.error('Error deleting profile image:', error);
+    return res.status(CONSTANTS.INTERNAL_SERVER_ERROR).json({ statusCode: CONSTANTS.INTERNAL_SERVER_ERROR, message: CONSTANTS.INTERNAL_SERVER_ERROR_MSG });
   }
 });
 
@@ -419,6 +440,7 @@ module.exports = {
   updateUserEmail,
   updateUserPhone,
   deleteUser,
+  deleteProfileImage,
   login,
   logout,
   refreshTokens,

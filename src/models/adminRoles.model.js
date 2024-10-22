@@ -17,8 +17,8 @@ const adminRolesSchema = mongoose.Schema({
             required: true,
         },
         permissions: {
-            type: [String], // Example: ['view', 'add', 'edit', 'delete']
-            enum: ['view', 'add', 'edit', 'delete'], // Define valid permissions
+            type: [String],
+            enum: ['view', 'add', 'edit', 'delete', 'selectedAll', 'list'],
             required: true,
         },
     }],

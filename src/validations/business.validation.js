@@ -81,15 +81,27 @@ const update = {
     }),
     body: Joi.object()
         .keys({
-            businessName: Joi.string(),
-            businessType: Joi.string().custom(objectId),
-            businessDescription: Joi.string(),
-            countryCode: Joi.string(),
-            mobile: Joi.string(),
-            email: Joi.string().email(),
-            businessAddress: addressValidation,
-            openingDays: Joi.array().items(Joi.string()),
-            sameTimeForAllDays: Joi.boolean(),
+            businessName: Joi.string().optional(),
+            businessType: Joi.string().custom(objectId).optional(),
+            businessDescription: Joi.string().optional(),
+            countryCode: Joi.string().optional(),
+            mobile: Joi.string().optional(),
+            email: Joi.string().email().optional(),
+            businessAddress: Joi.object({
+                street: Joi.string().optional(),
+                city: Joi.string().optional().allow(''),
+                state: Joi.string().optional(),
+                country: Joi.string().optional(),
+                postalCode: Joi.string().optional(),
+                latitude: Joi.number().optional(),
+                longitude: Joi.number().optional(),
+                location: Joi.object({
+                    type: Joi.string().valid('Point').optional(),
+                    coordinates: Joi.array().items(Joi.number()).optional(),
+                }).optional(),
+            }).optional(), // Make entire address optional
+            openingDays: Joi.array().items(Joi.string()).optional(),
+            sameTimeForAllDays: Joi.boolean().optional(),
             uniformTiming: Joi.object({
                 openingTime: Joi.string().optional(),
                 closingTime: Joi.string().optional(),
@@ -97,16 +109,16 @@ const update = {
                 is: true,
                 then: Joi.object().required(),
                 otherwise: Joi.forbidden(),
-            }),
+            }).optional(),
             daywiseTimings: Joi.array().items(Joi.object({
-                day: Joi.string(),
-                openingTime: Joi.string(),
-                closingTime: Joi.string(),
+                day: Joi.string().optional(),
+                openingTime: Joi.string().optional(),
+                closingTime: Joi.string().optional(),
             })).when('sameTimeForAllDays', {
                 is: false,
                 then: Joi.array().min(1).required(),
                 otherwise: Joi.forbidden(),
-            }),
+            }).optional(),
             bannerImages: Joi.array().items(Joi.string()).optional(),
             galleryImages: Joi.array().items(Joi.string()).optional(),
 
@@ -126,7 +138,7 @@ const update = {
                 })
             ).optional().when('dineInStatus', { is: true, then: Joi.required() }),
         })
-        .min(1),
+        .min(1), // Require at least one key in the body
 };
 
 const deleteById = {

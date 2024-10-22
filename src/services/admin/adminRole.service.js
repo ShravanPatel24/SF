@@ -1,5 +1,5 @@
 const { AdminRoles } = require('../../models');
-const CONSTANT = require('../../config/constant');
+const CONSTANTS = require('../../config/constant');
 /**
  * Create a role
  * @param {Object} roleBody
@@ -7,11 +7,11 @@ const CONSTANT = require('../../config/constant');
  */
 const createRole = async (roleBody) => {
     try {
-        const role = await AdminRoles.create(roleBody); // Ensure this handles the 'resources' array
-        return { data: role, code: 200, message: "Role created successfully" };
+        const role = await AdminRoles.create(roleBody);
+        return role;
     } catch (error) {
-        console.error("Error while creating role:", error);
-        return { data: {}, code: 400, message: "Failed to create role" };
+        console.error("Error while creating role:", error)
+        throw new Error(CONSTANTS.ROLE_CREATION_FAILED);
     }
 };
 
@@ -25,20 +25,20 @@ const createRole = async (roleBody) => {
  * @returns {Promise<QueryResult>}
  */
 const queryRoles = async (options) => {
-    var condition = { $and: [{ company: options.companyId, isDelete: 1 }] };
-    if (options.searchBy && options.searchBy != 'undefined') {
-        condition.$and.push({
-            $or: [{
-                name: {
-                    $regex: ".*" + options.searchBy + ".*",
-                    $options: "si"
-                }
-            }]
-        })
+    try {
+        const condition = { $and: [{ company: options.companyId, isDelete: 1 }] };
+        if (options.searchBy) {
+            condition.$and.push({
+                $or: [{ name: { $regex: `.*${options.searchBy}.*`, $options: 'si' } }]
+            });
+        }
+        options.sort = { createdAt: -1 };
+        const roles = await AdminRoles.paginate(condition, options);
+        return roles;
+    } catch (error) {
+        console.error("Error while querying roles:", error);
+        throw new Error(CONSTANTS.FAILED_QUERY_ROLES);
     }
-    options['sort'] = { createdAt: -1 }
-    const roles = await AdminRoles.paginate(condition, options);
-    return roles;
 };
 
 /**
@@ -47,7 +47,21 @@ const queryRoles = async (options) => {
  * @returns {Promise<Roles>}
  */
 const getRoleById = async (id) => {
-    return AdminRoles.findById(id);
+    try {
+        const role = await AdminRoles.findById(id);
+        if (!role) {
+            const error = new Error(CONSTANTS.ROLE_NOT_FOUND);
+            error.statusCode = 404;
+            throw error;
+        }
+        return role;
+    } catch (error) {
+        if (!error.statusCode) {
+            error.statusCode = 500;
+            error.message = "Failed to fetch role";
+        }
+        throw error;
+    }
 };
 
 /**
@@ -57,16 +71,15 @@ const getRoleById = async (id) => {
  * @returns {Promise<Roles>}
  */
 const updateRoleById = async (roleId, updateBody) => {
-    const role = await getRoleById(roleId);
+    const role = await AdminRoles.findById(roleId);
     if (!role) {
-        return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.ROLE_NOT_FOUND }
-    }
-    if (updateBody.email && (await AdminRoles.isNameTaken(updateBody.name, roleId, updateBody.company))) {
-        return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.ROLE_NAME_ALREADY_EXISTS }
+        const error = new Error(CONSTANTS.ROLE_NOT_FOUND);
+        error.statusCode = 404;
+        throw error;
     }
     Object.assign(role, updateBody);
     await role.save();
-    return { data: role, code: CONSTANT.SUCCESSFUL, message: CONSTANT.ROLE_UPDATE };
+    return role;
 };
 
 /**
@@ -75,15 +88,15 @@ const updateRoleById = async (roleId, updateBody) => {
  * @returns {Promise<Roles>}
  */
 const deleteRoleById = async (roleId) => {
-    const role = await getRoleById(roleId);
+    const role = await AdminRoles.findById(roleId);
     if (!role) {
-        return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.ROLE_NOT_FOUND }
+        const error = new Error(CONSTANTS.ROLE_NOT_FOUND);
+        error.statusCode = 404;
+        throw error;
     }
-    // role.status = role.status == 0 ? 1 : 0;
     role.isDelete = 0;
     await role.save();
-    console.log('check role===', role.isDelete)
-    return { data: role, code: CONSTANT.SUCCESSFUL, message: CONSTANT.ROLE_DELETE_STATUS }
+    return role;
 };
 
 /**
@@ -93,20 +106,19 @@ const deleteRoleById = async (roleId) => {
  * @returns {Promise<QueryResult>}
  */
 const queryRolesWithoutPagination = async (options) => {
-    var condition = { $and: [{ company: options.companyId, isDelete: 1 }] };
-    if (options.searchBy && options.searchBy != 'undefined') {
-        condition.$and.push({
-            $or: [{
-                name: {
-                    $regex: ".*" + options.searchBy + ".*",
-                    $options: "si"
-                }
-            }]
-        })
+    try {
+        const condition = { $and: [{ company: options.companyId, isDelete: 1 }] };
+        if (options.searchBy) {
+            condition.$and.push({
+                $or: [{ name: { $regex: `.*${options.searchBy}.*`, $options: 'si' } }]
+            });
+        }
+        const roles = await AdminRoles.find(condition);
+        return roles;
+    } catch (error) {
+        console.error("Error fetching roles:", error);
+        throw new Error(CONSTANTS.FAILED_QUERY_ROLES);
     }
-    // options['sort'] = { createdAt: -1 }
-    const roles = await AdminRoles.find(condition);
-    return roles;
 };
 
 module.exports = {

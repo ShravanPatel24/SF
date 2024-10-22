@@ -12,7 +12,7 @@ const orderRoute = require('./order.route')
 
 const AdminAuthRoute = require("./admin/auth.route");
 const AdminStaffRoute = require("./admin/adminStaff.route");
-const AdminRoleRoute = require("./admin/role.route");
+const AdminRoleRoute = require("./admin/adminRole.route");
 const AdminUserRoute = require('./admin/adminUser.route');
 const DashboardRoute = require('./dashboard.routes');
 const AdminDashboardRoute = require('./admin/dashboard.route');

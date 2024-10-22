@@ -1673,6 +1673,47 @@ paths:
         "409":
           $ref: "#/components/responses/Duplicate"
 
+  /admin/staff/list:
+    get:
+      summary: Get Admin Staff List
+      tags:
+        - Admin Staff
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          description: Limit the number of results per page
+          required: false
+          schema:
+            type: integer
+            example: 10
+        - name: page
+          in: query
+          description: The page number for pagination
+          required: false
+          schema:
+            type: integer
+            example: 1
+        - name: search
+          in: query
+          description: Search by staff name, email, phone, or role name
+          required: false
+          schema:
+            type: string
+            example: "John"
+      responses:
+        "200":
+          description: Admin Staff with list retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStaff"
+        "404":
+          description: Admin Staff not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /admin/staff/{staffId}/role:
     get:
       summary: Get Admin Staff with role and permissions by ID
@@ -1698,6 +1739,7 @@ paths:
           description: Admin Staff not found
         "401":
           $ref: "#/components/responses/Unauthorized"
+
   /admin/staff/{staffId}:
     get:
       summary: Get details of an Admin Staff by ID
@@ -1783,7 +1825,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
 
   # Admin Staff Role
-  /admin/roles:
+  /admin/roles/create:
     post:
       summary: Create a new Role
       tags:
@@ -1809,6 +1851,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           description: Role already exists
+
+  /admin/roles/list:
     get:
       summary: Get all Roles
       tags:
@@ -3077,6 +3121,30 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /user/{Id}/profile-image:
+    delete:
+      summary: Delete Profile image
+      tags:
+        - User
+      parameters:
+        - in: path
+          name: Id
+          required: true
+          schema:
+            type: string
+          description: ID of the user to delete profile image
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Successfully Deleted
+        "400":
+          description: Bad Request
+        "404":
+          description: User Not Found
+        "500":
+          description: Internal Server Error
+
   # Dine-Out-User
   /dine-out/request/create:
     post:
@@ -4119,6 +4187,30 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /partner/{Id}/profile-image:
+    delete:
+      summary: Delete Profile image
+      tags:
+        - Partner
+      parameters:
+        - in: path
+          name: Id
+          required: true
+          schema:
+            type: string
+          description: ID of the partner to delete profile image
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Successfully Deleted
+        "400":
+          description: Bad Request
+        "404":
+          description: User Not Found
+        "500":
+          description: Internal Server Error
 
   # About Us
   /partner/auth/{id}/about-us:
@@ -5163,6 +5255,43 @@ paths:
       responses:
         "200":
           description: Business deleted successfully
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /business/{businessId}/images:
+    delete:
+      summary: Delete Business Images (Gallery/Banner)
+      tags:
+        - Partner Business
+      parameters:
+        - name: businessId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Business ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                imageUrl:
+                  type: string
+                imageType:
+                  type: string
+                  example: gallery/banner
+              required:
+                - imageUrl
+                - imageType
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      responses:
+        "200":
+          description: Business images deleted successfully
         "404":
           $ref: "#/components/responses/NotFound"
         "401":

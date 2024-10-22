@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const mongoosePaginate = require('mongoose-paginate-v2');
+const aggregatePaginate = require('mongoose-aggregate-paginate-v2');
 
 const adminStaffSchema = new mongoose.Schema({
     name: { type: String, required: true },
@@ -46,6 +47,7 @@ adminStaffSchema.pre("save", function (next) {
 });
 
 adminStaffSchema.plugin(mongoosePaginate);
+adminStaffSchema.plugin(aggregatePaginate);
 
 const AdminStaff = mongoose.model('AdminStaff', adminStaffSchema);
 

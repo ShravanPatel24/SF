@@ -70,6 +70,8 @@ module.exports = {
     USER_EMAIL_UPDATE: 'Email number updated. OTP sent to the new email for verification..',
     USER_EMAIL_SAME_AS_CURRENT: "The new email address cannot be the same as the current one.",
     USER_PHONE_SAME_AS_CURRENT: "The new phone cannot be the same as the current one.",
+    PROFILE_IMAGE_NOT_FOUND: 'Profile image not found',
+    PROFILE_IMAGE_DELETED: 'Profile image deleted successfully',
 
     RESEND_OTP_FOR_5: `You've exceeded the maximum allowed attempts. For security reasons, your account has been blocked. Please try again after 5 minutes`,
     RESEND_BLOCK_FOR_24_HOURS: `You've exceeded the maximum allowed resend attempts. For security reasons, your resend requests are temporarily blocked. Please try again after 24 hours`,
@@ -137,6 +139,15 @@ module.exports = {
     DETAILS: 'Details retrieved successfully.',
     STATUS: 'Status updated successfully.',
     NOTFOUNT: 'Details not amount successfully.',
+
+    // Roles
+    ROLE_CREATE: "Role created successfully.",
+    ROLE_UPDATED: "Role updated successfully.",
+    ROLE_DELETED: "Role deleted successfully.",
+    ROLE_CREATION_FAILED: "Failed to create role.",
+    ROLE_NOT_FOUND: "Role not found.",
+    ROLE_LIST: "Role list retreived sucessfully.",
+    ROLE_DETAILS: "Role details.",
 
     // Business Type
     BUSINESS_TYPE_NOT_FOUND_MSG: "Business Type Not Found",

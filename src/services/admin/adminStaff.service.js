@@ -1,16 +1,40 @@
 const { AdminStaffModel } = require('../../models');
+const mongoose = require('mongoose');
 
 const createAdminStaffUser = async (staffData) => {
     return AdminStaffModel.create(staffData);
 };
 
 const queryAdminStaffUsers = async (options) => {
-    const { limit = 10, page = 1, searchBy, status, loginedInUser } = options;
-    const query = {};
-    if (searchBy) { query.name = { $regex: searchBy, $options: 'i' } }
-    if (status) { query.status = status }
-    const paginateOptions = { page: parseInt(page), limit: parseInt(limit) };
-    return AdminStaffModel.paginate(query, paginateOptions);
+    const { limit = 10, page = 1, search, status } = options;
+    const matchQuery = {};
+    if (search) {
+        matchQuery.$or = [
+            { name: { $regex: search, $options: 'i' } },
+            { email: { $regex: search, $options: 'i' } },
+            { phone: { $regex: search, $options: 'i' } },
+            { 'role.name': { $regex: search, $options: 'i' } }
+        ];
+    }
+    if (status) { matchQuery.status = status }
+    const aggregateQuery = mongoose.model('AdminStaff').aggregate([
+        {
+            $lookup: {
+                from: 'adminroles',
+                localField: 'role',
+                foreignField: '_id',
+                as: 'role'
+            }
+        },
+        { $unwind: '$role' },
+        { $match: matchQuery },
+    ]);
+    const result = await mongoose.model('AdminStaff').aggregatePaginate(aggregateQuery, {
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+    });
+
+    return result;
 };
 
 const getAdminStaffUserById = async (id) => {

@@ -20,6 +20,9 @@ router.get('/partner/:partnerId', userAuth(), validate(businessValidation.getBus
 // Route to get businesses by businessTypeId
 router.get('/type/:businessTypeId', userAuth(), businessController.getBusinessesByType);
 
+// Route to get dashboard counts for a partner
+router.get('/dashboard/counts', userAuth(), businessController.getDashboardCounts);
+
 // Business routes with businessId
 router
     .route('/:businessId')
@@ -47,7 +50,6 @@ router.post(
     businessController.createBusinessForPartner
 );
 
-// Route to get dashboard counts for a partner
-router.get('/dashboard/counts', userAuth(), businessController.getDashboardCounts);
+router.delete('/:businessId/images', userAuth('deleteImages'), businessController.deleteBusinessImages);
 
 module.exports = router;
