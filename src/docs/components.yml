@@ -1716,6 +1716,14 @@ paths:
           required: false
           schema:
             type: string
+        - name: status
+          in: query
+          description: Filter by staff status (0 for inactive, 1 for active)
+          required: false
+          schema:
+            type: integer
+            enum: [0, 1]
+            example: 1
       responses:
         "200":
           description: Admin Staff with list retrieved successfully

@@ -47,6 +47,8 @@ const updateStaff = {
       zipcode: Joi.string().allow('', null),
       profilePhoto: Joi.string().allow('', null),
       role: Joi.string().allow('', null),
+      status: Joi.number().allow('', null),
+      isDelete: Joi.number().allow('', null),
     })
     .min(1),
 };

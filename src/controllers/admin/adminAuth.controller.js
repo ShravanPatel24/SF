@@ -1,20 +1,14 @@
 const catchAsync = require('../../utils/catchAsync');
-const { adminAuthService, adminStaffService, tokenService, s3Service, UserService } = require('../../services');
+const { adminAuthService, adminStaffService, s3Service, UserService } = require('../../services');
 const CONSTANT = require('../../config/constant');
 
 const login = catchAsync(async (req, res) => {
   var { emailOrPhone, password } = req.body;
-  const admin = await adminAuthService.loginUserWithEmailOrPhone(emailOrPhone, password, req);
-  if (admin && admin.data && admin.code == 200) {
-    const tokens = await tokenService.generateAuthTokens(admin.data);
-    if (admin && tokens) {
-      res.send({ data: { admin: admin.data, tokens }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.LOGIN_MSG });
-    } else {
-      res.send(admin);
-    }
-  } else {
-    res.send(admin);
+  const user = await adminAuthService.loginUserWithEmailOrPhone(emailOrPhone, password, req);
+  if (user && user.data && user.code === CONSTANT.SUCCESSFUL) {
+    return res.status(CONSTANT.SUCCESSFUL).send({ data: user.data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.LOGIN_MSG });
   }
+  return res.status(user.code).send(user);
 });
 
 const logout = catchAsync(async (req, res) => {

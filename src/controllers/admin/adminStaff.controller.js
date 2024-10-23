@@ -42,6 +42,7 @@ const getAdminStaffUsers = catchAsync(async (req, res) => {
     const options = pick(req.query, ['sortBy', 'limit', 'page', 'search', 'status']);
     options['loginedInUser'] = req.user._id;
     const result = await adminStaffService.queryAdminStaffUsers(options);
+    if (!result.docs.length) { return res.status(404).send({ statusCode: 404, message: CONSTANTS.ADMIN_NOT_FOUND }) }
     return res.status(200).send({
         statusCode: CONSTANTS.SUCCESSFUL,
         data: {

@@ -7,6 +7,7 @@ const tokenService = require('../token.service');
 const s3Service = require('../s3.service');
 const crypto = require("crypto");
 const mailFunctions = require("../../helpers/mailFunctions");
+const adminStaffService = require('./adminStaff.service');
 
 /**
  * Get user by id
@@ -73,21 +74,36 @@ const loginUserWithEmailOrPhone = async (emailOrPhone, password, req) => {
   const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailOrPhone);
   if (isEmail) {
     details = await getAdminByEmail(emailOrPhone);
+    if (!details) {
+      details = await adminStaffService.getAdminStaffByEmail(emailOrPhone); // For staff login
+      if (details) {
+        details.type = 'staff';
+      }
+    } else {
+      details.type = 'superadmin';
+    }
   } else {
     const isPhone = /^\d{10,}$/.test(emailOrPhone);
     if (isPhone) {
       details = await getAdminByPhone(emailOrPhone);
+      if (!details) {
+        details = await adminStaffService.getAdminStaffByPhone(emailOrPhone); // For staff login
+        if (details) {
+          details.type = 'staff';
+        }
+      } else {
+        details.type = 'superadmin';
+      }
     } else {
       return { data: {}, code: CONSTANT.BAD_REQUEST, message: 'Invalid email or phone format' };
     }
   }
-  if (!details || !(await details.isPasswordMatch(password))) { return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.UNAUTHORIZED_MSG } }
-
-  const device = req.headers['user-agent'] || 'Unknown Device';
-  const time = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-  const ipAddress = req.ip;
-  // mailFunctions.sendLoginNotificationEmail(details.email, device, time, ipAddress);
-  return { data: details, code: CONSTANT.SUCCESSFUL, message: CONSTANT.LOGIN_MSG };
+  // Validate password
+  if (!details || !(await details.isPasswordMatch(password))) {
+    return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.UNAUTHORIZED_MSG };
+  }
+  const tokens = await tokenService.generateAuthTokens(details);
+  return { data: { user: details, tokens }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.LOGIN_MSG };
 };
 
 /**
