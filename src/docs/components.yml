@@ -1716,7 +1716,6 @@ paths:
           required: false
           schema:
             type: string
-            example: "John"
       responses:
         "200":
           description: Admin Staff with list retrieved successfully
@@ -5849,6 +5848,87 @@ paths:
           description: Comment deleted successfully
         "400":
           description: Invalid input
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /posts/{postId}/save:
+    post:
+      summary: Save a post
+      tags:
+        - Post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the post to save
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      responses:
+        "201":
+          description: Post Saved successfully
+        "400":
+          description: Invalid input
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /posts/{postId}/unsave:
+    delete:
+      summary: Unsave a post
+      tags:
+        - Post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the post to unsave
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      responses:
+        "201":
+          description: Post Unsaved successfully
+        "400":
+          description: Invalid input
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /posts/saved-posts:
+    get:
+      summary: Get list of saved posts
+      tags:
+        - Post
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            example: 1
+          description: Page number for pagination (optional)
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            example: 10
+          description: Number of posts per page (optional)
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search query to filter posts by caption (optional)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Post found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "404":
+          description: Post not found
         "401":
           $ref: "#/components/responses/Unauthorized"
 

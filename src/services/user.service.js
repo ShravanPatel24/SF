@@ -50,36 +50,43 @@ const getUserById = async (userId) => {
         path: 'businessId',
         populate: {
           path: 'businessType',
-          select: '_id name'
+          select: '_id name',
         },
+      })
+      .populate({
+        path: 'businessType',
+        select: '_id name',
       });
 
     if (!user) {
       return {
         statusCode: CONSTANTS.NOT_FOUND,
-        message: CONSTANTS.USER_NOT_FOUND
+        message: CONSTANTS.USER_NOT_FOUND,
       };
     }
-
     const followersCount = await FollowModel.countDocuments({ following: userId });
     const followingCount = await FollowModel.countDocuments({ follower: userId });
+    // Ensure businessType contains both id and name
+    const businessType = user.businessType
+      ? {
+        id: user.businessType._id.toString(),
+        name: user.businessType.name,
+      }
+      : null;
+
     return {
       user,
-      businessType: user.businessId?.businessType ? {
-        _id: user.businessId.businessType._id,
-        name: user.businessId.businessType.name
-      } : null,
+      businessType,
       followersCount,
       followingCount,
       statusCode: CONSTANTS.SUCCESSFUL,
-      message: CONSTANTS.DETAILS
+      message: CONSTANTS.DETAILS,
     };
-
   } catch (error) {
     console.error('Error fetching user details:', error);
     return {
       statusCode: CONSTANTS.INTERNAL_SERVER_ERROR,
-      message: CONSTANTS.INTERNAL_SERVER_ERROR_MSG
+      message: CONSTANTS.INTERNAL_SERVER_ERROR_MSG,
     };
   }
 };

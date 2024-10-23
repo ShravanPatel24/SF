@@ -18,6 +18,11 @@ const postSchema = new mongoose.Schema({
         type: String,
         required: function () { return this.type === 'reel' || this.type === 'mixed'; }  // Required for reels or mixed
     },
+    savedBy: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'user',
+        default: []  // Initialize as an empty array
+    }],
     createdAt: { type: Date, default: Date.now },  // Auto-timestamp
     updatedAt: { type: Date, default: Date.now }  // Auto-timestamp
 }, {
@@ -38,6 +43,14 @@ postSchema.virtual('commentCount', {
     localField: '_id', // Field in Post schema
     foreignField: 'postId', // Field in Comment schema
     count: true // Return the count of comments
+});
+
+// Add virtual field for counting saved posts
+postSchema.virtual('savedCount', {
+    ref: 'user',
+    localField: 'savedBy',
+    foreignField: '_id',
+    count: true // Return the count of users who saved the post
 });
 
 // To ensure virtual fields are serialized in the output

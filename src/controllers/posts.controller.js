@@ -174,6 +174,44 @@ const deleteComment = catchAsync(async (req, res) => {
     }
 });
 
+// Save a post
+const savePost = catchAsync(async (req, res) => {
+    const { user } = req;
+    const { postId } = req.params;
+
+    try {
+        const post = await postService.savePost(user._id, postId);
+        return res.status(CONSTANTS.SUCCESSFUL).json({ statusCode: CONSTANTS.SUCCESSFUL, message: 'Post saved successfully', data: post });
+    } catch (error) {
+        return res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: error.message });
+    }
+});
+
+// Unsave a post
+const unsavePost = catchAsync(async (req, res) => {
+    const { user } = req;
+    const { postId } = req.params;
+
+    try {
+        const post = await postService.unsavePost(user._id, postId);
+        return res.status(CONSTANTS.SUCCESSFUL).json({ statusCode: CONSTANTS.SUCCESSFUL, message: 'Post unsaved successfully', data: post });
+    } catch (error) {
+        return res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: error.message });
+    }
+});
+
+// Get saved posts
+const getSavedPosts = catchAsync(async (req, res) => {
+    const { user } = req;
+    const { page = 1, limit = 10 } = req.query;
+    try {
+        const savedPosts = await postService.getSavedPosts(user._id, Number(page), Number(limit));
+        return res.status(CONSTANTS.SUCCESSFUL).json({ statusCode: CONSTANTS.SUCCESSFUL, message: 'Saved posts retrieved successfully', data: savedPosts });
+    } catch (error) {
+        return res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: error.message });
+    }
+});
+
 module.exports = {
     createPost,
     getAllPosts,
@@ -185,4 +223,7 @@ module.exports = {
     unlikePost,
     addComment,
     deleteComment,
+    savePost,
+    unsavePost,
+    getSavedPosts,
 };

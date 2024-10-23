@@ -7,9 +7,9 @@ const { AdminStaffModel } = require('../../models');
 const createAdminStaffUser = catchAsync(async (req, res) => {
     try {
         const staff = await adminStaffService.createAdminStaffUser(req.body);
-        return res.status(201).send({
+        return res.status(200).send({
             data: staff,
-            statusCode: CONSTANTS.CREATED_CODE,
+            statusCode: CONSTANTS.SUCCESSFUL,
             message: CONSTANTS.ADMIN_STAFF_CREATE
         });
     } catch (error) {

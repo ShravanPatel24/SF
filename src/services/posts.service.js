@@ -4,42 +4,42 @@ const CONSTANTS = require('../config/constant');
 
 // Create a new post
 const createPost = async (userId, caption, type, files) => {
-  try {
-    const postData = {
-      userId,
-      caption,
-      type,
-      likes: 0,
-      comments: [],
-    };
+    try {
+        const postData = {
+            userId,
+            caption,
+            type,
+            likes: 0,
+            comments: [],
+        };
 
-    // Handle image upload for photos or stories
-    if (type === 'photo' || type === 'story') {
-      if (!files || !files.images || files.images.length === 0) {
-        throw new Error(CONSTANTS.IMAGE_REQUIRED);  // Throw error if images are required but missing
-      }
+        // Handle image upload for photos or stories
+        if (type === 'photo' || type === 'story') {
+            if (!files || !files.images || files.images.length === 0) {
+                throw new Error(CONSTANTS.IMAGE_REQUIRED);  // Throw error if images are required but missing
+            }
 
-      const imageUploadResponse = await s3Service.uploadDocuments(files.images, 'postImages');
-      postData.images = imageUploadResponse.map(file => file.key);  // Use 'key' for image storage
+            const imageUploadResponse = await s3Service.uploadDocuments(files.images, 'postImages');
+            postData.images = imageUploadResponse.map(file => file.key);  // Use 'key' for image storage
+        }
+
+        // Handle video upload for reels or mixed posts
+        if (type === 'reel' || type === 'mixed') {
+            if (!files || !files.video || files.video.length === 0) {
+                throw new Error(CONSTANTS.VIDEO_REQUIRED);  // Throw error if video is required but missing
+            }
+
+            const videoUploadResponse = await s3Service.uploadDocuments(files.video, 'postVideos');
+            postData.videoUrl = videoUploadResponse[0].key;  // Store video URL
+        }
+
+        const newPost = new PostModel(postData);
+        const savedPost = await newPost.save();
+        return savedPost;
+    } catch (error) {
+        console.error('Error in creating post service:', error);
+        throw error;  // Propagate the error back to the controller
     }
-
-    // Handle video upload for reels or mixed posts
-    if (type === 'reel' || type === 'mixed') {
-      if (!files || !files.video || files.video.length === 0) {
-        throw new Error(CONSTANTS.VIDEO_REQUIRED);  // Throw error if video is required but missing
-      }
-
-      const videoUploadResponse = await s3Service.uploadDocuments(files.video, 'postVideos');
-      postData.videoUrl = videoUploadResponse[0].key;  // Store video URL
-    }
-
-    const newPost = new PostModel(postData);
-    const savedPost = await newPost.save();
-    return savedPost;
-  } catch (error) {
-    console.error('Error in creating post service:', error);
-    throw error;  // Propagate the error back to the controller
-  }
 };
 
 // Fetch all posts
@@ -212,6 +212,41 @@ const deleteComment = async (commentId) => {
     await PostCommentModel.findByIdAndDelete(commentId);
 };
 
+// Save a post
+const savePost = async (userId, postId) => {
+    const post = await PostModel.findById(postId);
+    if (!post) throw new Error('Post not found.');
+    if (!post.savedBy) { post.savedBy = [] }
+    if (post.savedBy.includes(userId)) throw new Error('Post is already saved.');
+    post.savedBy.push(userId);
+    await post.save();
+    return post;
+};
+
+// Unsave a post
+const unsavePost = async (userId, postId) => {
+    const post = await PostModel.findById(postId);
+    if (!post) throw new Error('Post not found.');
+    post.savedBy = post.savedBy.filter(id => !id.equals(userId));
+    await post.save();
+    return post;
+};
+
+// Get saved posts list for a user
+const getSavedPosts = async (userId, page = 1, limit = 10) => {
+    const options = {
+        page,
+        limit,
+        populate: [
+            { path: 'userId', select: 'name profilePhoto' },
+            { path: 'savedBy', select: 'name' }
+        ],
+        sort: { createdAt: -1 }
+    };
+    const savedPosts = await PostModel.paginate({ savedBy: userId }, options);
+    return savedPosts;
+};
+
 module.exports = {
     createPost,
     getAllPosts,
@@ -222,5 +257,8 @@ module.exports = {
     addLike,
     removeLike,
     addComment,
-    deleteComment
+    deleteComment,
+    savePost,
+    unsavePost,
+    getSavedPosts,
 };

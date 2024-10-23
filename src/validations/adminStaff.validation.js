@@ -36,22 +36,17 @@ const updateStaff = {
   }),
   body: Joi.object()
     .keys({
-      name: Joi.string(),
-      phone: Joi.string().required(),  // Add phone validation for update
-      countryCode: Joi.string().required(),  // Add countryCode validation for update
-      email: Joi.string().required(),
-      password: Joi.string().allow('').allow(null),
-      address: Joi.string().allow('').allow(null),
-      city: Joi.string().allow('').allow(null),
-      state: Joi.string().allow('').allow(null),
-      zipcode: Joi.string().allow('').allow(null),
-      profilePhoto: Joi.string().allow('').allow(null),
-      role: Joi.string().allow('').allow(null),
-      status: Joi.number().required(),
-      isDelete: Joi.number().allow('').allow(null),
-      createdAt: Joi.date(),
-      updatedAt: Joi.date(),
-      id: Joi.string()
+      name: Joi.string().allow('', null),
+      phone: Joi.string().allow('', null),
+      countryCode: Joi.string().allow('', null),
+      email: Joi.string().allow('', null),
+      password: Joi.string().allow('', null),
+      address: Joi.string().allow('', null),
+      city: Joi.string().allow('', null),
+      state: Joi.string().allow('', null),
+      zipcode: Joi.string().allow('', null),
+      profilePhoto: Joi.string().allow('', null),
+      role: Joi.string().allow('', null),
     })
     .min(1),
 };

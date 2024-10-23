@@ -181,22 +181,23 @@ const getById = catchAsync(async (req, res) => {
     return res.status(CONSTANTS.NOT_FOUND).send({
       data: {},
       statusCode: CONSTANTS.NOT_FOUND,
-      message: CONSTANTS.USER_NOT_FOUND
+      message: CONSTANTS.USER_NOT_FOUND,
     });
   }
-  const { user, followersCount, followingCount } = result;
+  const { user, followersCount, followingCount, businessType } = result;
   const userData = {
     ...user.toObject(),
     id: user._id.toString(),
     profilePhoto: user.profilePhoto ? user.profilePhoto : null,
-    followersCount: followersCount,
-    followingCount: followingCount,
+    followersCount,
+    followingCount,
+    businessType,
   };
   delete userData._id;
   res.status(CONSTANTS.SUCCESSFUL).send({
     data: userData,
     statusCode: CONSTANTS.SUCCESSFUL,
-    message: CONSTANTS.DETAILS
+    message: CONSTANTS.DETAILS,
   });
 });
 
