@@ -2,7 +2,23 @@ const { AdminStaffModel } = require('../../models');
 const mongoose = require('mongoose');
 
 const createAdminStaffUser = async (staffData) => {
-    return AdminStaffModel.create(staffData);
+    try {
+        const staff = await AdminStaffModel.create(staffData);
+        return staff;
+    } catch (error) {
+        if (error.code === 11000) {
+            if (error.keyPattern && error.keyPattern.email) {
+                throw new Error('Email is already in use.');
+            }
+            if (error.keyPattern && error.keyPattern.phone) {
+                throw new Error('Phone number is already in use.');
+            }
+        }
+        if (error.name === 'ValidationError') {
+            throw new Error('Validation error: ' + error.message);
+        }
+        throw new Error('Failed to create admin staff user.');
+    }
 };
 
 const queryAdminStaffUsers = async (options) => {

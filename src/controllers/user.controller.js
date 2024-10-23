@@ -8,8 +8,12 @@ const { s3Service } = require('../services');
 
 const createUser = catchAsync(async (req, res) => {
   req.body.userType = "user";
-  const user = await UserService.createUser(req.body);
-  res.send(user);
+  const result = await UserService.createUser(req.body);
+  res.status(result.statusCode).send({
+    data: result.data,
+    statusCode: result.statusCode,
+    message: result.message
+  });
 });
 
 const createUserByAdmin = catchAsync(async (req, res) => {
@@ -41,7 +45,7 @@ const updateUserEmail = catchAsync(async (req, res) => {
 // Update user phone
 const updateUserPhone = catchAsync(async (req, res) => {
   const { userId, phone } = req.body;
-  if (!userId || !phone) { return res.status(400).json({ message: CONSTANTS.USER_ID_AND_EMAIL_REQUIRED }) }
+  if (!userId || !phone) { return res.status(400).json({ message: CONSTANTS.USER_ID_AND_PHONE_REQUIRED }) }
   const result = await UserService.updateUserPhone(userId, phone);
   if (result.code === CONSTANTS.NOT_FOUND) { return res.status(404).json({ message: CONSTANTS.USER_NOT_FOUND }) }
   res.status(result.code).json({ message: result.message, data: result.data });
@@ -91,8 +95,12 @@ const deleteProfileImage = catchAsync(async (req, res) => {
 });
 
 const logout = catchAsync(async (req, res) => {
-  await UserService.logout(req.body.refreshToken);
-  res.send({ data: {}, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.LOGOUT_MSG });
+  const result = await UserService.logout(req.body.refreshToken);
+  res.send({
+    data: result.data,
+    statusCode: result.statusCode,
+    message: result.message
+  });
 });
 
 const refreshTokens = catchAsync(async (req, res) => {
@@ -103,7 +111,7 @@ const refreshTokens = catchAsync(async (req, res) => {
 const forgotPassword = catchAsync(async (req, res) => {
   const { emailOrPhone, type } = req.body;
   const result = await UserService.forgotPassword(emailOrPhone, type);
-  return res.status(result.code).send(result);
+  return res.status(result.statusCode).send(result);
 });
 
 const verifyEmailOtp = catchAsync(async (req, res) => {
@@ -121,43 +129,24 @@ const verifyMobileOtpToken = catchAsync(async (req, res) => {
 const resetPassword = catchAsync(async (req, res) => {
   const { token, newPassword } = req.body;
   const result = await UserService.resetPassword(token, newPassword);
-  return res.status(result.code).send(result);
+  return res.status(result.statusCode).send(result);
 });
 
 const resendOTP = catchAsync(async (req, res) => {
   const user = await UserService.resendOTPUsingId(req.body?.userId, req?.body);
-  res.send(user);
+  res.status(user.statusCode).send(user);
 });
 
-
-// const verifyMobileOtpToken = catchAsync(async (req, res) => {
-//   const { id, otp } = req.body;
-
-//   const { data, code, message } = await tokenService.verifyOtpToken(id, otp);
-
-//   if (code !== 200) {
-//     return res.status(code).send({ data: {}, code, message });
-//   }
-//   await UserService.updateUserById(id, { mobileVerificationStatus: true });
-//   if (code == 200) {
-//     const tokens = await tokenService.generateAuthTokens(data);
-//     if (tokens) {
-//       return res.send({ data: { user: data, tokens }, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.OTP_VERIFIED });
-//     }
-//   } else {
-//     res.send({ data, code, message });
-//   }
-
-//   // res.send({ data: {}, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.OTP_VERIFIED });
-
-// });
-
 const changePassword = catchAsync(async (req, res) => {
-  var result;
   const { user: userDetails } = await UserService.getUserById(req.user._id);
-  if (!userDetails || !(await userDetails.isPasswordMatch(req.body.oldPassword))) { return res.send({ data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.OLD_PASSWORD_MSG }) }
-  result = await UserService.updateUserById(req.user._id, req.body);
-  if (result) { return res.send({ data: {}, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.CHANGE_PASSWORD }) }
+  if (!userDetails || !(await userDetails.isPasswordMatch(req.body.oldPassword))) {
+    return res.send({ data: {}, statusCode: CONSTANTS.BAD_REQUEST, message: CONSTANTS.OLD_PASSWORD_MSG });
+  }
+  const result = await UserService.updateUserById(req.user._id, req.body);
+  if (result) {
+    return res.send({ data: {}, statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.CHANGE_PASSWORD });
+  }
+  return res.status(CONSTANTS.INTERNAL_SERVER_ERROR).send({ data: {}, statusCode: CONSTANTS.INTERNAL_SERVER_ERROR, message: "Password change failed" });
 });
 
 const getLists = catchAsync(async (req, res) => {
@@ -176,12 +165,14 @@ const getUserListsToFollow = catchAsync(async (req, res) => {
   const options = pick(req.query, ["sortBy", "limit", "page", "searchBy", "status", 'filterDateRange']);
   const condition = { _id: { $ne: req.user._id }, isDelete: 1, status: 1, type: 'user' };
   const result = await UserService.queryUsersToFollow({ condition, ...options });
-  // Prepare the user list with follower status
   const userList = await Promise.all(result.map(async (user) => {
     const isFollowing = await FollowModel.findOne({ follower: req.user._id, following: user._id });
-    return { ...user.toObject(), isFollowing: !!isFollowing };
+    const userObj = user.toObject();
+    userObj.id = userObj._id.toString();
+    delete userObj._id;
+    return { ...userObj, isFollowing: !!isFollowing };
   }));
-  res.send({ data: userList, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.LIST });
+  res.send({ data: userList, statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.LIST });
 });
 
 const getById = catchAsync(async (req, res) => {
@@ -241,66 +232,47 @@ const deleteById = catchAsync(async (req, res) => {
   res.send(details);
 });
 
-// const getListWithoutPagination = catchAsync(async (req, res) => {
-//   const options = pick(req.query, ['sortBy', 'limit', 'page', 'searchBy', 'status']);
-//   const result = await UserService.getListWithoutPagination(options);
-//   res.send({ data: result, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.LIST });
-// });
-
 const followUser = catchAsync(async (req, res) => {
   const { followingId } = req.params;
   const followerId = req.user._id;
   const result = await UserService.followUser(followerId, followingId);
-  return res.status(result.code).send({ message: result.message });
+  return res.status(result.statusCode).json({
+    statusCode: result.statusCode,
+    message: result.message
+  });
 });
 
 const unfollowUser = catchAsync(async (req, res) => {
   const { followingId } = req.params;
   const followerId = req.user._id;
-  const followRecord = await FollowModel.findOneAndDelete({ follower: followerId, following: followingId });
-  if (!followRecord) { return res.status(400).send({ message: CONSTANTS.NOT_FOLLOWING_USER }) }
-  await UserModel.findByIdAndUpdate(followerId, { $inc: { followingCount: -1 } });
-  await UserModel.findByIdAndUpdate(followingId, { $inc: { followerCount: -1 } });
-  res.status(200).send({ message: CONSTANTS.UNFOLLOWED_SUCCESS });
+  const result = await UserService.unfollowUser(followerId, followingId);
+  return res.status(result.statusCode).json({
+    statusCode: result.statusCode,
+    message: result.message
+  });
 });
 
 // List of all pending requests of user
 const getFollowRequests = catchAsync(async (req, res) => {
   const userId = req.user._id;
-  // Extract pagination and search params from query
   const { page = 1, limit = 10, search = '', sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
-  // Create filter for searching follower's name or email
   const searchFilter = search
-    ? {
-      $or: [
-        { 'follower.name': { $regex: search, $options: 'i' } }, // Case-insensitive search
-        { 'follower.email': { $regex: search, $options: 'i' } },
-      ],
-    }
+    ? { $or: [{ 'follower.name': { $regex: search, $options: 'i' } }, { 'follower.email': { $regex: search, $options: 'i' } }] }
     : {};
 
-  // Convert page and limit to numbers
   const pageNumber = parseInt(page, 10);
   const limitNumber = parseInt(limit, 10);
-  // Find follow requests with pagination, search, and sorting
-  const followRequests = await FollowRequestModel.find({
-    following: userId,
-    status: 'pending',
-    ...searchFilter,
-  })
+  const followRequests = await FollowRequestModel.find({ following: userId, status: 'pending', ...searchFilter })
     .populate('follower', 'name email profilePhoto')
     .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
     .skip((pageNumber - 1) * limitNumber)
     .limit(limitNumber);
-  // Get total count of pending follow requests for pagination
-  const totalFollowRequests = await FollowRequestModel.countDocuments({
-    following: userId,
-    status: 'pending',
-    ...searchFilter,
-  });
+
+  const totalFollowRequests = await FollowRequestModel.countDocuments({ following: userId, status: 'pending', ...searchFilter });
   const totalPages = Math.ceil(totalFollowRequests / limitNumber);
   const hasPrevPage = pageNumber > 1;
   const hasNextPage = pageNumber < totalPages;
+
   res.status(200).send({
     data: {
       docs: followRequests,
@@ -314,7 +286,7 @@ const getFollowRequests = catchAsync(async (req, res) => {
       prevPage: hasPrevPage ? pageNumber - 1 : null,
       nextPage: hasNextPage ? pageNumber + 1 : null,
     },
-    code: 200,
+    statusCode: 200,
     message: CONSTANTS.LIST,
   });
 });
@@ -323,30 +295,44 @@ const approveFollowRequest = catchAsync(async (req, res) => {
   const { requestId } = req.params;
   const userId = req.user._id;
   const followRequest = await FollowRequestModel.findOne({ _id: requestId, following: userId, status: 'pending' });
-  if (!followRequest) { return res.status(404).send({ message: CONSTANTS.FOLLOW_ERROR }) }
+
+  if (!followRequest) {
+    return res.status(404).send({ statusCode: 404, message: CONSTANTS.FOLLOW_ERROR });
+  }
+
   followRequest.status = 'approved';
   await followRequest.save();
+
   const follow = new FollowModel({ follower: followRequest.follower, following: followRequest.following });
   await follow.save();
+
   await UserModel.findByIdAndUpdate(followRequest.follower, { $inc: { followingCount: 1 } });
   await UserModel.findByIdAndUpdate(followRequest.following, { $inc: { followerCount: 1 } });
-  res.status(200).send({ message: CONSTANTS.FOLLOW_REQUEST_APPROVED });
+
+  res.status(200).send({ statusCode: 200, message: CONSTANTS.FOLLOW_REQUEST_APPROVED });
 });
 
 const rejectFollowRequest = catchAsync(async (req, res) => {
   const { requestId } = req.params;
   const userId = req.user._id;
   const followRequest = await FollowRequestModel.findOne({ _id: requestId, following: userId, status: 'pending' });
-  if (!followRequest) { return res.status(404).send({ message: CONSTANTS.FOLLOW_ERROR }) }
+
+  if (!followRequest) {
+    return res.status(404).send({ statusCode: 404, message: CONSTANTS.FOLLOW_ERROR });
+  }
+
   followRequest.status = 'rejected';
   await followRequest.save();
-  res.status(200).send({ message: CONSTANTS.FOLLOW_REQUEST_REJECTED });
+
+  res.status(200).send({ statusCode: 200, message: CONSTANTS.FOLLOW_REQUEST_REJECTED });
 });
 
 // List of all followers of user
 const getFollowers = catchAsync(async (req, res) => {
   const { userId } = req.params;
   const { page = 1, limit = 10, search = '' } = req.query;
+
+  // Search filter for follower name or email
   const searchFilter = search
     ? {
       $or: [
@@ -355,11 +341,16 @@ const getFollowers = catchAsync(async (req, res) => {
       ]
     }
     : {};
+
+  // Fetch followers with pagination
   const followers = await FollowModel.find({ following: userId, ...searchFilter })
     .populate('follower', 'name email profilePhoto')
     .skip((page - 1) * limit)
     .limit(parseInt(limit));
+
+  // Get total count of followers
   const totalFollowers = await FollowModel.countDocuments({ following: userId, ...searchFilter });
+
   res.status(200).send({
     data: {
       docs: followers,
@@ -373,7 +364,7 @@ const getFollowers = catchAsync(async (req, res) => {
       prevPage: page > 1 ? page - 1 : null,
       nextPage: page < Math.ceil(totalFollowers / limit) ? page + 1 : null
     },
-    code: 200,
+    statusCode: 200,
     message: CONSTANTS.LIST
   });
 });
@@ -382,6 +373,8 @@ const getFollowers = catchAsync(async (req, res) => {
 const getFollowing = catchAsync(async (req, res) => {
   const { userId } = req.params;
   const { page = 1, limit = 10, search = '' } = req.query;
+
+  // Search filter for following user name or email
   const searchFilter = search
     ? {
       $or: [
@@ -390,11 +383,16 @@ const getFollowing = catchAsync(async (req, res) => {
       ]
     }
     : {};
+
+  // Fetch following users with pagination
   const following = await FollowModel.find({ follower: userId, ...searchFilter })
     .populate('following', 'name email profilePhoto')
     .skip((page - 1) * limit)
     .limit(parseInt(limit));
+
+  // Get total count of following users
   const totalFollowing = await FollowModel.countDocuments({ follower: userId, ...searchFilter });
+
   res.status(200).send({
     data: {
       docs: following,
@@ -408,26 +406,63 @@ const getFollowing = catchAsync(async (req, res) => {
       prevPage: page > 1 ? page - 1 : null,
       nextPage: page < Math.ceil(totalFollowing / limit) ? page + 1 : null
     },
-    code: 200,
+    statusCode: 200,
     message: CONSTANTS.LIST
   });
 });
 
 // Add or Update "About Us" for a partner
 const addOrUpdateAboutUs = catchAsync(async (req, res) => {
-  const { id } = req.params;
-  const { title, description } = req.body;
-  const updatedPartner = await UserService.addOrUpdateAboutUs(id, title, description);
-  if (!updatedPartner) { return res.status(404).json({ message: 'Partner not found' }) }
-  res.status(200).json({ message: 'About Us updated successfully', data: updatedPartner });
+  try {
+    const { id } = req.params;
+    const { title, description } = req.body;
+    if (!title || !description) {
+      return res.status(400).json({
+        statusCode: 400,
+        message: 'Title and description are required'
+      });
+    }
+    const updatedPartner = await UserService.addOrUpdateAboutUs(id, title, description);
+    if (!updatedPartner) {
+      return res.status(404).json({
+        statusCode: 404,
+        message: 'Partner not found'
+      });
+    }
+    res.status(200).json({
+      statusCode: 200,
+      message: 'About Us updated successfully',
+      data: updatedPartner.aboutUs
+    });
+  } catch (error) {
+    res.status(500).json({ statusCode: 500, message: 'An error occurred while updating About Us', error: error.message });
+  }
 });
 
 // Get "About Us" for a partner
 const getAboutUs = catchAsync(async (req, res) => {
-  const { id } = req.params;
-  const partner = await UserService.getAboutUs(id);
-  if (!partner) { return res.status(404).json({ message: CONSTANTS.PARTNER_NOT_FOUND_MSG }) }
-  res.status(200).json({ data: partner.aboutUs });
+  try {
+    const { id } = req.params;
+    const partner = await UserService.getAboutUs(id);
+    if (!partner) {
+      return res.status(404).json({
+        statusCode: 404,
+        message: 'Partner not found'
+      });
+    }
+    if (!partner.aboutUs || !partner.aboutUs.title || !partner.aboutUs.description) {
+      return res.status(404).json({
+        statusCode: 404,
+        message: 'About Us information not available for this partner'
+      });
+    }
+    res.status(200).json({
+      statusCode: 200,
+      data: partner.aboutUs
+    });
+  } catch (error) {
+    res.status(500).json({ statusCode: 500, message: 'An error occurred while fetching About Us', error: error.message });
+  }
 });
 
 module.exports = {

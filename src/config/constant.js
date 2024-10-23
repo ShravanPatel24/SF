@@ -66,6 +66,7 @@ module.exports = {
     USER_BLOCKED_FOR_24_WRONG: 'For security reasons your account has been blocked due to repeated entry of incorrect details. Please try again after 24 hours',
     USER_INVALID_EMAIL_PHONE: 'Must provide a valid email or phone number.',
     USER_ID_AND_EMAIL_REQUIRED: 'User ID and email are required.',
+    USER_ID_AND_PHONE_REQUIRED: 'User ID and phone are required.',
     USER_PHONE_UPDATE: 'Phone number updated. OTP sent to the new phone number for verification..',
     USER_EMAIL_UPDATE: 'Email number updated. OTP sent to the new email for verification..',
     USER_EMAIL_SAME_AS_CURRENT: "The new email address cannot be the same as the current one.",

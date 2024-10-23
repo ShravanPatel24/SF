@@ -7,7 +7,7 @@ const adminStaffSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     countryCode: { type: String, required: true },
-    phone: { type: String, required: true },
+    phone: { type: String, required: true, unique: true },
     fullPhoneNumber: { type: String },
     password: { type: String, required: true, },
     role: {

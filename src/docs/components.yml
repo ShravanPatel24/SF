@@ -31,6 +31,21 @@ components:
         message:
           type: string
 
+    AuthTokens:
+      type: object
+      properties:
+        access:
+          $ref: "#/components/schemas/Token"
+        refresh:
+          $ref: "#/components/schemas/Token"
+      example:
+        access:
+          token: "newAccessToken123"
+          expires: "2024-12-31T23:59:59Z"
+        refresh:
+          token: "newRefreshToken123"
+          expires: "2024-12-31T23:59:59Z"
+
     BusinessType:
       type: object
       properties:

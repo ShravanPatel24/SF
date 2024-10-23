@@ -5,8 +5,37 @@ const CONSTANTS = require('../../config/constant');
 const { AdminStaffModel } = require('../../models');
 
 const createAdminStaffUser = catchAsync(async (req, res) => {
-    const staff = await adminStaffService.createAdminStaffUser(req.body);
-    return res.status(200).send({ data: staff, statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.ADMIN_STAFF_CREATE });
+    try {
+        const staff = await adminStaffService.createAdminStaffUser(req.body);
+        return res.status(201).send({
+            data: staff,
+            statusCode: CONSTANTS.CREATED_CODE,
+            message: CONSTANTS.ADMIN_STAFF_CREATE
+        });
+    } catch (error) {
+        if (error.message.includes('Email is already in use')) {
+            return res.status(400).send({
+                statusCode: 400,
+                message: 'The email address is already registered.'
+            });
+        }
+        if (error.message.includes('Phone number is already in use')) {
+            return res.status(400).send({
+                statusCode: 400,
+                message: 'The phone number is already registered.'
+            });
+        }
+        if (error.message.includes('Validation error')) {
+            return res.status(400).send({
+                statusCode: 400,
+                message: error.message
+            });
+        }
+        return res.status(500).send({
+            statusCode: 500,
+            message: 'An error occurred while creating the staff user.'
+        });
+    }
 });
 
 const getAdminStaffUsers = catchAsync(async (req, res) => {
