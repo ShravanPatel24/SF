@@ -20,7 +20,15 @@ router.post('/cancel/:orderId', userAuth(), validate(orderValidation.cancelOrder
 // Route to track an order
 router.get('/track/:orderId', userAuth(), validate(orderValidation.trackOrderValidation), orderController.trackOrder);
 
+// -------- Partner-Specific Routes -------- //
+
 // Route to update order status
 router.patch('/status/:orderId', userAuth(), validate(orderValidation.updateOrderStatusValidation), orderController.updateOrderStatus);
+
+// Route for partner to get pending food requests
+router.get('/partner/food-requests', userAuth(), orderController.getPartnerFoodRequests);
+
+// Route for partner to accept/reject food order
+router.patch('/partner/food-requests/:orderId', userAuth(), validate(orderValidation.updatePartnerOrderStatusValidation), orderController.updatePartnerOrderStatus);
 
 module.exports = router;

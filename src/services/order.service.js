@@ -98,11 +98,11 @@ const processOnlinePayment = async (order) => {
     });
 };
 
-const updateOrderStatus = async (orderId, status) => {
+const updateOrderStatus = async (orderId, orderStatus) => {
     const order = await OrderModel.findById(orderId);
     if (!order) { throw { statusCode: 404, message: CONSTANTS.ORDER_NOT_FOUND } }
-    if (order.status === 'delivered' || order.status === 'cancelled') { throw { statusCode: 400, message: CONSTANTS.UPDATE_STATUS_AFTER_DELIVERD_ERROR } }
-    order.status = status;
+    if (order.orderStatus === 'delivered' || order.orderStatus === 'cancelled') { throw { statusCode: 400, message: CONSTANTS.UPDATE_STATUS_AFTER_DELIVERD_ERROR } }
+    order.orderStatus = orderStatus;
     await order.save();
     return order;
 };
@@ -120,6 +120,41 @@ const getOrderById = async (orderId) => {
     const order = await OrderModel.findById(orderId)
         .populate('user', '_id name email phone')
         .populate('items.item');
+    return order;
+};
+
+// Get pending food orders for the partner
+const getPendingFoodOrders = async (partnerId) => {
+    const orders = await OrderModel.find({
+        partner: partnerId,
+        orderStatus: 'pending',  // Assuming 'pending' means not yet accepted/rejected
+    }).populate('items.item'); // Populate the related items
+    return orders;
+};
+
+// Update the order status (Accept or Reject)
+const updatePartnerOrderStatus = async (orderId, partnerId, partnerResponse) => {
+    const order = await OrderModel.findOne({ _id: orderId, partner: partnerId });
+
+    if (!order) {
+        throw new Error("Order not found");
+    }
+
+    if (order.orderStatus !== 'pending') {
+        throw new Error("Order is no longer in pending state");
+    }
+
+    if (partnerResponse === 'accepted') {
+        order.orderStatus = 'ordered';
+        order.partnerResponse = 'accepted';
+    } else if (partnerResponse === 'rejected') {
+        order.orderStatus = 'rejected';
+        order.partnerResponse = 'rejected';
+    } else {
+        throw new Error("Invalid response");
+    }
+
+    await order.save();
     return order;
 };
 
@@ -272,6 +307,8 @@ module.exports = {
     updateOrderStatus,
     getOrdersByUser,
     getOrderById,
+    getPendingFoodOrders,
+    updatePartnerOrderStatus,
     cancelOrder,
     trackOrder,
     queryOrder,

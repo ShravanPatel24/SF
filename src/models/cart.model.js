@@ -10,6 +10,7 @@ const cartSchema = new mongoose.Schema({
         selectedColor: { type: String }, // Optional for room bookings, can be omitted
         checkIn: { type: Date }, // Check-in date for room bookings
         checkOut: { type: Date }, // Check-out date for room bookings
+        guestCount: { type: Number, required: function () { return this.itemType === 'room'; } },
     }],
     deliveryAddress: {
         name: { type: String, required: true },

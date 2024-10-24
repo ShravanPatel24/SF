@@ -6,6 +6,12 @@ const { AdminStaffModel } = require('../../models');
 
 const createAdminStaffUser = catchAsync(async (req, res) => {
     try {
+        if (req.user.type !== 'superadmin') {
+            return res.status(403).send({
+                statusCode: 403,
+                message: 'Only a superadmin can create staff members.'
+            });
+        }
         const staff = await adminStaffService.createAdminStaffUser(req.body);
         return res.status(200).send({
             data: staff,
@@ -42,17 +48,16 @@ const getAdminStaffUsers = catchAsync(async (req, res) => {
     const options = pick(req.query, ['sortBy', 'limit', 'page', 'search', 'status']);
     options['loginedInUser'] = req.user._id;
     const result = await adminStaffService.queryAdminStaffUsers(options);
-    if (!result.docs.length) { return res.status(404).send({ statusCode: 404, message: CONSTANTS.ADMIN_NOT_FOUND }) }
     return res.status(200).send({
         statusCode: CONSTANTS.SUCCESSFUL,
         data: {
-            docs: result.docs.map(staff => ({
+            docs: result.docs.length ? result.docs.map(staff => ({
                 ...staff,
                 role: staff.role ? {
                     _id: staff.role._id,
                     name: staff.role.name
                 } : null,
-            })),
+            })) : [],
             totalDocs: result.totalDocs,
             limit: result.limit,
             totalPages: result.totalPages,

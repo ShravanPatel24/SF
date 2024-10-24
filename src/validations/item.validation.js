@@ -71,6 +71,36 @@ const getItemsByBusinessTypeId = {
     }),
 };
 
+const getRoomsByBusinessId = {
+    params: Joi.object().keys({
+        businessId: Joi.string().required(),
+    }),
+    query: Joi.object().keys({
+        page: Joi.number().optional(),
+        limit: Joi.number().optional(),
+    }),
+};
+
+const getFoodByBusinessId = {
+    params: Joi.object().keys({
+        businessId: Joi.string().required(),
+    }),
+    query: Joi.object().keys({
+        page: Joi.number().optional(),
+        limit: Joi.number().optional(),
+    }),
+};
+
+const getProductByBusinessId = {
+    params: Joi.object().keys({
+        businessId: Joi.string().required(),
+    }),
+    query: Joi.object().keys({
+        page: Joi.number().optional(),
+        limit: Joi.number().optional(),
+    }),
+};
+
 const updateItem = {
     params: Joi.object().keys({
         itemId: Joi.string().custom(objectId).required(),
@@ -124,7 +154,6 @@ const updateItem = {
         .min(1),
 };
 
-
 const deleteItem = {
     params: Joi.object().keys({
         itemId: Joi.string().custom(objectId).required(),
@@ -136,6 +165,9 @@ module.exports = {
     getItemById,
     getItemsByBusinessId,
     getItemsByBusinessTypeId,
+    getRoomsByBusinessId,
+    getFoodByBusinessId,
+    getProductByBusinessId,
     updateItem,
     deleteItem,
 };

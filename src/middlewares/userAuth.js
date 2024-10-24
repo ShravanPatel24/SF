@@ -24,26 +24,26 @@ const userAuth = () => async (req, res, next) => {
                     // console.log('details====', details)
                     if (details) {
                         if (details.status == 0) {
-                            return res.send({ code: CONSTANT.UNAUTHORIZED, message: CONSTANT.ACCOUNT_DEACTIVATE });
+                            return res.send({ statusCode: CONSTANT.UNAUTHORIZED, message: CONSTANT.ACCOUNT_DEACTIVATE });
                         }
                         if (details.isDelete == 0) {
-                            return res.send({ code: CONSTANT.UNAUTHORIZED, message: CONSTANT.ACCOUNT_DELETE });
+                            return res.send({ statusCode: CONSTANT.UNAUTHORIZED, message: CONSTANT.ACCOUNT_DELETE });
                         }
                         details['userType'] = 'User';
                         req.user = details;
                     } else {
-                        return res.send({ code: CONSTANT.UNAUTHORIZED, message: 'Session is expired, please login again!' });
+                        return res.send({ statusCode: CONSTANT.UNAUTHORIZED, message: 'Session is expired, please login again!' });
                     }
                 } else if (err) {
-                    return res.send({ code: CONSTANT.UNAUTHORIZED, message: 'Session is expired, please login again!' });
+                    return res.send({ statusCode: CONSTANT.UNAUTHORIZED, message: 'Session is expired, please login again!' });
                 } else {
-                    return res.send({ code: CONSTANT.UNAUTHORIZED, message: 'Session is expired, please login again!' });
+                    return res.send({ statusCode: CONSTANT.UNAUTHORIZED, message: 'Session is expired, please login again!' });
                 }
                 next();
             })();
         });
     } else {
-        return res.send({ code: CONSTANT.UNAUTHORIZED, message: CONSTANT.NO_TOKEN });
+        return res.send({ statusCode: CONSTANT.UNAUTHORIZED, message: CONSTANT.NO_TOKEN });
     }
 };
 

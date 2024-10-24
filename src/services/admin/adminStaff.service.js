@@ -2,11 +2,11 @@ const { AdminStaffModel } = require('../../models');
 const mongoose = require('mongoose');
 
 const getAdminStaffByEmail = async (email) => {
-    return AdminStaffModel.findOne({ email });
+    return AdminStaffModel.findOne({ email }).populate('role');
 };
 
 const getAdminStaffByPhone = async (phone) => {
-    return AdminStaffModel.findOne({ phone });
+    return AdminStaffModel.findOne({ phone }).populate('role');
 };
 
 const createAdminStaffUser = async (staffData) => {

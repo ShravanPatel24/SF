@@ -2,38 +2,80 @@ const { CartModel, ItemModel, UserModel } = require('../models');
 const CONSTANTS = require('../config/constant');
 
 // Add an item (food, product or checkout for rooms) to the cart
-const addToCart = async (userId, itemId, quantity, selectedSize, selectedColor, checkIn, checkOut, deliveryAddress) => {
+const addToCart = async (userId, itemId, quantity, selectedSize, selectedColor, checkIn, checkOut, guestCount, deliveryAddress) => {
     const item = await ItemModel.findById(itemId);
-    if (!item) { throw new Error(CONSTANTS.ITEM_NOT_FOUND); }
+    if (!item) {
+        throw new Error(CONSTANTS.ITEM_NOT_FOUND);
+    }
+
+    // Check if delivery address is required for product and food
+    if ((item.itemType === 'product' || item.itemType === 'food') && !deliveryAddress) {
+        throw new Error(CONSTANTS.DELIVERY_ADDRESS_REQUIRED);
+    }
+
+    // Validate dates for rooms
+    if (item.itemType === 'room') {
+        if (!checkIn || !checkOut || !guestCount || guestCount <= 0) {
+            throw new Error(CONSTANTS.CHECKIN_CHECKOUT_GUEST_REQUIRED);
+        }
+
+        const checkInDate = new Date(checkIn);
+        const checkOutDate = new Date(checkOut);
+        const today = new Date();
+
+        if (checkInDate < today || checkOutDate < today) {
+            throw new Error(CONSTANTS.INVALID_FUTURE_DATES);
+        }
+
+        if (checkInDate >= checkOutDate) {
+            throw new Error(CONSTANTS.INVALID_DATE_ORDER);
+        }
+
+        const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
+        if (nights <= 0) {
+            throw new Error(CONSTANTS.INVALID_DATES);
+        }
+
+        let pricePerUnit = item.roomPrice * nights;
+        if (isNaN(pricePerUnit) || pricePerUnit <= 0) {
+            throw new Error(CONSTANTS.INVALID_PRICE);
+        }
+    }
 
     // Find or create a cart for the user
     let cart = await CartModel.findOne({ user: userId });
     if (!cart) {
-        cart = new CartModel({ user: userId, items: [], deliveryAddress });
+        // For rooms, set delivery address to null; otherwise, use the provided address
+        cart = new CartModel({
+            user: userId,
+            items: [],
+            deliveryAddress: item.itemType === 'room' ? null : deliveryAddress
+        });
     }
 
     // Check if the item is already in the cart
     const itemIndex = cart.items.findIndex(cartItem => cartItem.item.toString() === itemId);
 
     if (itemIndex > -1) {
-        // If the item is a room, replace the existing booking with new dates
+        // If the item is a room, replace the existing booking with new dates and guest count
         if (item.itemType === 'room') {
             cart.items[itemIndex].checkIn = checkIn;
             cart.items[itemIndex].checkOut = checkOut;
-            cart.items[itemIndex].quantity = 1;  // Keep the quantity as 1 for rooms
+            cart.items[itemIndex].guestCount = guestCount;
+            cart.items[itemIndex].quantity = 1; 
         } else {
-            // For non-rooms (products/food), increase the quantity
             cart.items[itemIndex].quantity += quantity;
         }
     } else {
         // Add the new item to the cart
         cart.items.push({
             item: itemId,
-            quantity: item.itemType === 'room' ? 1 : quantity,  // For rooms, quantity is always 1
+            quantity: item.itemType === 'room' ? 1 : quantity,
             selectedSize,
             selectedColor,
-            checkIn: item.itemType === 'room' ? checkIn : null,  // Only add checkIn for rooms
-            checkOut: item.itemType === 'room' ? checkOut : null  // Only add checkOut for rooms
+            checkIn: item.itemType === 'room' ? checkIn : null,
+            checkOut: item.itemType === 'room' ? checkOut : null,
+            guestCount: item.itemType === 'room' ? guestCount : null
         });
     }
 
@@ -44,19 +86,44 @@ const addToCart = async (userId, itemId, quantity, selectedSize, selectedColor, 
 // Get the cart for the current user
 const getCartByUser = async (userId) => {
     const user = await UserModel.findById(userId);
-    if (!user) { throw new Error(CONSTANTS.USER_NOT_FOUND); }
-    if (user.type === 'partner') { throw new Error(CONSTANTS.PERMISSION_DENIED); }
+    if (!user) { throw new Error(CONSTANTS.USER_NOT_FOUND) }
+    if (user.type === 'partner') { throw new Error(CONSTANTS.PERMISSION_DENIED) }
     const cart = await CartModel.findOne({ user: userId })
         .populate({
             path: 'items.item',
-            populate: {
-                path: 'partner',
-                select: '_id name'
-            }
+            populate: [
+                {
+                    path: 'business',
+                    select: '_id businessName',
+                },
+                {
+                    path: 'businessType',
+                    select: '_id name',
+                }
+            ]
         });
+    if (!cart) { throw new Error(CONSTANTS.CART_NOT_FOUND) }
+    const cartData = cart.toObject();
+    cartData.items = cartData.items.map(item => {
+        const modifiedItem = {
+            ...item,
+            item: {
+                ...item.item,
+                businessId: item.item.business._id,
+                businessName: item.item.business.businessName,
+                businessTypeId: item.item.businessType._id,
+                businessTypeName: item.item.businessType.name
+            },
+            guestCount: item.guestCount
+        };
 
-    if (!cart) { throw new Error(CONSTANTS.CART_NOT_FOUND); }
-    return cart;
+        delete modifiedItem.item.business;
+        delete modifiedItem.item.businessType;
+        delete modifiedItem._id;
+
+        return modifiedItem;
+    });
+    return cartData;
 };
 
 // Remove an item from the cart

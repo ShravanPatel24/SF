@@ -6,42 +6,15 @@ const mongoose = require('mongoose');
 
 // Add an item (food, product or checkout for rooms) to the cart
 const addToCart = catchAsync(async (req, res) => {
-    const { itemId, quantity, selectedSize, selectedColor, checkIn, checkOut, deliveryAddress } = req.body;
+    const { itemId, quantity, selectedSize, selectedColor, checkIn, checkOut, guestCount, deliveryAddress } = req.body;
     const userId = req.user._id;
-    if (!mongoose.isValidObjectId(itemId)) { return res.status(400).json({ statusCode: 400, message: CONSTANTS.INVALID_ITEM_ID }) }
-    const item = await ItemModel.findById(itemId);
-    if (!item) { return res.status(404).json({ statusCode: 404, message: CONSTANTS.ITEM_NOT_FOUND }) }
-
-    let pricePerUnit = 0;
-    if (item.itemType === 'room') {
-        if (!checkIn || !checkOut) { return res.status(400).json({ statusCode: 400, message: CONSTANTS.CHECKIN_CHECKOUT_REQUIRED }) }
-        const checkInDate = new Date(checkIn);
-        const checkOutDate = new Date(checkOut);
-        const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
-        if (nights <= 0) {
-            return res.status(400).json({ statusCode: 400, message: CONSTANTS.INVALID_DATES });
-        }
-        pricePerUnit = item.roomPrice * nights;
-    } else if (item.itemType === 'product' && item.variants && item.variants.length > 0) {
-        const variant = item.variants.find(v => v.size === selectedSize && v.color === selectedColor);
-        if (!variant) {
-            return res.status(400).json({ statusCode: 400, message: CONSTANTS.VARIANT_NOT_FOUND });
-        }
-        pricePerUnit = variant.productPrice;
-    } else if (item.itemType === 'food') {
-        pricePerUnit = item.dishPrice || item.price || 0;
-    }
-
-    if (isNaN(pricePerUnit) || pricePerUnit <= 0) {
-        return res.status(400).json({ statusCode: 400, message: CONSTANTS.INVALID_PRICE });
-    }
-
-    if (quantity <= 0) {
-        return res.status(400).json({ statusCode: 400, message: CONSTANTS.QUANTITY_GREATER });
+    
+    if (!mongoose.isValidObjectId(itemId)) {
+        return res.status(400).json({ statusCode: 400, message: CONSTANTS.INVALID_ITEM_ID });
     }
 
     try {
-        const cart = await CartService.addToCart(userId, itemId, quantity, selectedSize, selectedColor, checkIn, checkOut, deliveryAddress);
+        const cart = await CartService.addToCart(userId, itemId, quantity, selectedSize, selectedColor, checkIn, checkOut, guestCount, deliveryAddress);
         return res.status(200).json({ statusCode: 200, message: CONSTANTS.ADDED_TO_CART, cart });
     } catch (error) {
         return res.status(500).json({ statusCode: 500, message: 'An unexpected error occurred.', error: error.message });
@@ -53,9 +26,7 @@ const getCart = catchAsync(async (req, res) => {
     const userId = req.user._id;
     try {
         const cart = await CartService.getCartByUser(userId);
-        if (!cart) {
-            return res.status(404).json({ statusCode: 404, message: CONSTANTS.CART_NOT_FOUND });
-        }
+        if (!cart) { return res.status(404).json({ statusCode: 404, message: CONSTANTS.CART_NOT_FOUND }) }
         return res.status(200).json({ statusCode: 200, data: cart });
     } catch (error) {
         return res.status(403).json({ statusCode: 403, message: error.message });

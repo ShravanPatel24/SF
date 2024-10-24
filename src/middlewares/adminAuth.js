@@ -8,7 +8,7 @@ const adminAuth = () => async (req, res, next) => {
     
     // Check if the authorization header is provided
     if (!bearerHeader) {
-        return res.status(401).send({ code: CONSTANT.UNAUTHORIZED, message: CONSTANT.NO_TOKEN });
+        return res.status(401).send({ statusCode: CONSTANT.UNAUTHORIZED, message: CONSTANT.NO_TOKEN });
     }
 
     // Extract the token from the header
@@ -23,15 +23,15 @@ const adminAuth = () => async (req, res, next) => {
 
         // If user is not found, return unauthorized
         if (!user) {
-            return res.status(401).send({ code: CONSTANT.UNAUTHORIZED, message: 'Session is expired, please login again!' });
+            return res.status(401).send({ statusCode: CONSTANT.UNAUTHORIZED, message: 'Session is expired, please login again!' });
         }
 
         // Check if the user's account is deactivated or deleted
         if (user.status === 0) {
-            return res.status(401).send({ code: CONSTANT.UNAUTHORIZED, message: CONSTANT.ACCOUNT_DEACTIVATE });
+            return res.status(401).send({ statusCode: CONSTANT.UNAUTHORIZED, message: CONSTANT.ACCOUNT_DEACTIVATE });
         }
         if (user.isDelete === 0) {
-            return res.status(401).send({ code: CONSTANT.UNAUTHORIZED, message: CONSTANT.ACCOUNT_DELETE });
+            return res.status(401).send({ statusCode: CONSTANT.UNAUTHORIZED, message: CONSTANT.ACCOUNT_DELETE });
         }
 
         // Attach the authenticated user to the request object
@@ -39,7 +39,7 @@ const adminAuth = () => async (req, res, next) => {
         next(); // Continue to the next middleware or route handler
 
     } catch (err) {
-        return res.status(401).send({ code: CONSTANT.UNAUTHORIZED, message: 'Session is expired, please login again!' });
+        return res.status(401).send({ statusCode: CONSTANT.UNAUTHORIZED, message: 'Session is expired, please login again!' });
     }
 };
 

@@ -28,9 +28,9 @@ const orderSchema = new mongoose.Schema({
     orderNote: { type: String },
     orderId: { type: String, unique: true, required: true },  // Custom orderId
     orderNumber: { type: String, unique: true, required: true }, // Custom orderNumber
-    status: {
+    orderStatus: {
         type: String,
-        enum: ['ordered', 'processing', 'pending_payment', 'paid', 'payment_failed', 'delivered', 'cancelled'],
+        enum: ['pending', 'accepted', 'rejected', 'ordered', 'processing', 'pending_payment', 'paid', 'payment_failed', 'delivered', 'cancelled'],
         default: 'ordered'  // Set default status as 'ordered'
     },
     paymentMethod: {

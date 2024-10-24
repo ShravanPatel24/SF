@@ -232,6 +232,21 @@ const sendPasswordResetEmailByAdmin = async (email, name, newPassword) => {
     await sgMail.send(msg);
 };
 
+// const sendOrderNotificationToPartner = async (partnerId, order) => {
+//     // Send email or push notification to the partner about the new order
+//     const partner = await PartnerModel.findById(partnerId);
+//     if (!partner) {
+//         throw new Error("Partner not found");
+//     }
+
+//     // Example: Send an email
+//     sendEmail({
+//         to: partner.email,
+//         subject: "New Order Pending",
+//         text: `You have a new order pending review. Order ID: ${order.orderId}. Please review and accept or reject the order.`,
+//     });
+// };
+
 module.exports = {
     sendEmail,
     sendOtpOnMail: sendOtpOnMail,

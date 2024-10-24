@@ -91,21 +91,54 @@ const getOrderById = catchAsync(async (req, res) => {
 // Update Status
 const updateOrderStatus = catchAsync(async (req, res) => {
     const { orderId } = req.params;
-    const { status } = req.body;
+    const { orderStatus } = req.body;
     try {
-        const order = await OrderService.updateOrderStatus(orderId, status);
+        const order = await OrderService.updateOrderStatus(orderId, orderStatus);
         return res.status(200).json({
             statusCode: 200,
             message: CONSTANTS.ORDER_STATUS_UPDATE,
             orderId: order.orderId,
             orderNumber: order.orderNumber,
-            status: order.status
+            orderStatus: order.orderStatus
         });
     } catch (error) {
         return res.status(error.statusCode || 500).json({
             statusCode: error.statusCode || 500,
             message: error.message || 'An error occurred while updating the order status.'
         });
+    }
+});
+
+// Get pending food orders for the partner
+const getPartnerFoodRequests = catchAsync(async (req, res) => {
+    const partnerId = req.user._id; // From auth middleware
+    const orders = await OrderService.getPendingFoodOrders(partnerId); // Call service method
+    res.status(200).json({
+        statusCode: 200,
+        data: orders,
+        message: "Pending food orders retrieved successfully",
+    });
+});
+
+// Accept or Reject the order
+const updatePartnerOrderStatus = catchAsync(async (req, res) => {
+    const { orderId } = req.params;
+    const { partnerResponse } = req.body;  // 'accepted' or 'rejected'
+    const partnerId = req.user._id;  // Assuming the partner is authenticated
+
+    try {
+        const updatedOrder = await OrderService.updatePartnerOrderStatus(orderId, partnerId, partnerResponse);
+        return res.status(200).json({
+            statusCode: 200,
+            message: "Order status updated successfully",
+            order: {
+                _id: updatedOrder._id,
+                status: updatedOrder.status,
+                partnerResponse: updatedOrder.partnerResponse
+            }
+        });
+    } catch (error) {
+        return res.status(400).json({ statusCode: 400, message: error.message });
     }
 });
 
@@ -317,6 +350,8 @@ module.exports = {
     updateOrderStatus,
     getUserOrders,
     getOrderById,
+    getPartnerFoodRequests,
+    updatePartnerOrderStatus,
     cancelOrder,
     trackOrder,
     getAllOrdersAdmin,

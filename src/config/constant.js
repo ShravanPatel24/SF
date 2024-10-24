@@ -208,12 +208,15 @@ module.exports = {
     INVALID_PRICE: "Invalid price for item.",
     INVALID_ITEM_ID: 'The provided item ID is invalid.',
     CHECKIN_CHECKOUT_REQUIRED: 'Check-in and check-out dates are required for room booking.',
+    INVALID_FUTURE_DATES: "Both check-in and check-out dates must be in the future.",
+    INVALID_DATE_ORDER: "Check-in date must be before the check-out date.",
+    CHECKIN_CHECKOUT_GUEST_REQUIRED: "Check-in date, check-out date, and guest count are required for room bookings.",
     INVALID_DATES: 'Invalid check-in or check-out dates.',
 
     // ORDER
     PAYMENT_SUCCESS_ONLINE_HOTEL_MSG: "Payment successful. Your hotel reservation has been successfully made.",
     PAYMENT_SUCCESS_ONLINE_ORDER_MSG: "Payment successful. Your order has been placed.",
-    HOTEL_BOOKED_MSG: "Your hotel reservation has been successfully made.",
+    HOTEL_BOOKED_MSG: "Your Hotel Reservation Has Been Successfully Made.",
     ORDER_PLACED_MSG: "Your order has been placed.",
     ORDER_NOT_FOUND: 'Order not found.',
     ORDER_STATUS_UPDATE: 'Order status updated successfully.',

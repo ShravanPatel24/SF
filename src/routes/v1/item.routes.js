@@ -12,6 +12,13 @@ router.get('guest/', itemsController.getAllItems); // Guest user - Get all items
 router.get('guest/search', itemsController.searchItems); // Guest user - Search items
 router.get('/guest/:itemId', itemsController.getItemById); // Guest user - Get item by ID
 
+// Route to get all rooms under a specific hotel (business)
+router.get('/rooms/business/:businessId', userAuth(), validate(itemsValidation.getRoomsByBusinessId), itemsController.getRoomsByBusiness);
+// Route to get all menu under a specific restaurant (business)
+router.get('/foods/business/:businessId', userAuth(), validate(itemsValidation.getFoodByBusinessId), itemsController.getFoodByBusiness);
+// Route to get all product under a specific Clothing (business)
+router.get('/products/business/:businessId', userAuth(), validate(itemsValidation.getProductByBusinessId), itemsController.getProductByBusiness);
+
 router.post('/create', userAuth(), upload.fields([
     { name: 'images', maxCount: 10 },
 ]), validate(itemsValidation.createItem), itemsController.createItem);

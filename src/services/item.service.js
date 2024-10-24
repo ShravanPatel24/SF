@@ -1,4 +1,4 @@
-const { ItemModel } = require('../models');
+const { ItemModel, BusinessModel } = require('../models');
 const { s3Service } = require('../services');
 
 // Create an item (Food, Room, or Product)
@@ -103,6 +103,105 @@ const getItemsByBusinessType = async (businessTypeId, page = 1, limit = 10) => {
     };
 };
 
+// Get all rooms by business ID
+const getRoomsByBusiness = async (businessId, page = 1, limit = 10) => {
+    const skip = (page - 1) * limit;
+    // Check if the businessId is valid
+    const business = await BusinessModel.findById(businessId);
+    if (!business) {
+        throw new Error('Invalid business ID');
+    }
+    const rooms = await ItemModel.find({
+        business: businessId,
+        itemType: 'room'
+    })
+        .skip(skip)
+        .limit(limit)
+        .exec();
+    const totalDocs = await ItemModel.countDocuments({
+        business: businessId,
+        itemType: 'room'
+    });
+    return {
+        docs: rooms,
+        totalDocs,
+        limit,
+        totalPages: Math.ceil(totalDocs / limit),
+        page,
+        pagingCounter: (page - 1) * limit + 1,
+        hasPrevPage: page > 1,
+        hasNextPage: page * limit < totalDocs,
+        prevPage: page > 1 ? page - 1 : null,
+        nextPage: page * limit < totalDocs ? page + 1 : null,
+    };
+};
+
+// Get all rooms by business ID
+const getFoodByBusiness = async (businessId, page = 1, limit = 10) => {
+    const skip = (page - 1) * limit;
+    // Check if the businessId is valid
+    const business = await BusinessModel.findById(businessId);
+    if (!business) {
+        throw new Error('Invalid business ID');
+    }
+    const rooms = await ItemModel.find({
+        business: businessId,
+        itemType: 'food'
+    })
+        .skip(skip)
+        .limit(limit)
+        .exec();
+    const totalDocs = await ItemModel.countDocuments({
+        business: businessId,
+        itemType: 'food'
+    });
+    return {
+        docs: rooms,
+        totalDocs,
+        limit,
+        totalPages: Math.ceil(totalDocs / limit),
+        page,
+        pagingCounter: (page - 1) * limit + 1,
+        hasPrevPage: page > 1,
+        hasNextPage: page * limit < totalDocs,
+        prevPage: page > 1 ? page - 1 : null,
+        nextPage: page * limit < totalDocs ? page + 1 : null,
+    };
+};
+
+// Get all rooms by business ID
+const getProductByBusiness = async (businessId, page = 1, limit = 10) => {
+    const skip = (page - 1) * limit;
+    // Check if the businessId is valid
+    const business = await BusinessModel.findById(businessId);
+    if (!business) {
+        throw new Error('Invalid business ID');
+    }
+    const rooms = await ItemModel.find({
+        business: businessId,
+        itemType: 'product'
+    })
+        .skip(skip)
+        .limit(limit)
+        .exec();
+    const totalDocs = await ItemModel.countDocuments({
+        business: businessId,
+        itemType: 'product'
+    });
+    return {
+        docs: rooms,
+        totalDocs,
+        limit,
+        totalPages: Math.ceil(totalDocs / limit),
+        page,
+        pagingCounter: (page - 1) * limit + 1,
+        hasPrevPage: page > 1,
+        hasNextPage: page * limit < totalDocs,
+        prevPage: page > 1 ? page - 1 : null,
+        nextPage: page * limit < totalDocs ? page + 1 : null,
+    };
+};
+
 // Update an item by ID
 const updateItemById = async (itemId, updateData, files) => {
     let imageUrls = [];
@@ -154,6 +253,9 @@ module.exports = {
     createItem,
     getItemById,
     getItemsByBusiness,
+    getRoomsByBusiness,
+    getFoodByBusiness,
+    getProductByBusiness,
     getItemsByBusinessType,
     updateItemById,
     deleteItemById,

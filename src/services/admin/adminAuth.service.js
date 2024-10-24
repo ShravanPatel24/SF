@@ -1,5 +1,5 @@
 // const httpStatus = require('http-status');
-const { AdminModel } = require('../../models');
+const { AdminModel, AdminRoles } = require('../../models');
 const CONSTANT = require('../../config/constant');
 const Token = require('../../models/token.model');
 const { tokenTypes } = require('../../config/tokens');
@@ -72,11 +72,14 @@ const getAdminByPhone = async (phone) => {
 const loginUserWithEmailOrPhone = async (emailOrPhone, password, req) => {
   let details;
   const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailOrPhone);
+
   if (isEmail) {
     details = await getAdminByEmail(emailOrPhone);
     if (!details) {
-      details = await adminStaffService.getAdminStaffByEmail(emailOrPhone); // For staff login
+      // For staff login, fetch details and populate role
+      details = await adminStaffService.getAdminStaffByEmail(emailOrPhone);
       if (details) {
+        details = await details.populate('role');
         details.type = 'staff';
       }
     } else {
@@ -87,8 +90,10 @@ const loginUserWithEmailOrPhone = async (emailOrPhone, password, req) => {
     if (isPhone) {
       details = await getAdminByPhone(emailOrPhone);
       if (!details) {
-        details = await adminStaffService.getAdminStaffByPhone(emailOrPhone); // For staff login
+        // For staff login, fetch details and populate role
+        details = await adminStaffService.getAdminStaffByPhone(emailOrPhone);
         if (details) {
+          details = await details.populate('role');
           details.type = 'staff';
         }
       } else {
@@ -98,12 +103,59 @@ const loginUserWithEmailOrPhone = async (emailOrPhone, password, req) => {
       return { data: {}, code: CONSTANT.BAD_REQUEST, message: 'Invalid email or phone format' };
     }
   }
+
   // Validate password
   if (!details || !(await details.isPasswordMatch(password))) {
     return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.UNAUTHORIZED_MSG };
   }
+
+  // Generate tokens
   const tokens = await tokenService.generateAuthTokens(details);
-  return { data: { user: details, tokens }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.LOGIN_MSG };
+
+  // Superadmin response structure
+  if (details.type === 'superadmin') {
+    return {
+      data: {
+        user: {
+          registeredAddress: details.registeredAddress,
+          name: details.name,
+          email: details.email,
+          emailOtpVerificationStatus: details.emailOtpVerificationStatus,
+          type: details.type,
+          status: details.status,
+          isDelete: details.isDelete,
+          createdAt: details.createdAt,
+          updatedAt: details.updatedAt,
+          id: details._id.toString(),
+        },
+        tokens,
+      },
+      code: CONSTANT.SUCCESSFUL,
+      message: CONSTANT.LOGIN_MSG,
+    };
+  }
+
+  // Staff login with role details
+  let roleDetails = null;
+  if (details.type === 'staff' && details.role) {
+    roleDetails = await AdminRoles.findById(details.role._id).select('name resource');
+  }
+
+  return {
+    data: {
+      user: {
+        _id: details._id,
+        name: details.name,
+        email: details.email,
+        phone: details.fullPhoneNumber || details.phone,
+        type: details.type,
+        role: details.type === 'staff' ? roleDetails : undefined, // Only include role for staff
+      },
+      tokens,
+    },
+    code: CONSTANT.SUCCESSFUL,
+    message: CONSTANT.LOGIN_MSG,
+  };
 };
 
 /**

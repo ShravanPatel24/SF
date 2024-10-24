@@ -9,7 +9,7 @@ const createOrderValidation = Joi.object({
 
 // Validation for updating order status
 const updateOrderStatusValidation = Joi.object({
-    status: Joi.string().valid('ordered', 'processing', 'out-for-delivery', 'delivered', 'cancelled')
+    orderStatus: Joi.string().valid('ordered', 'processing', 'out-for-delivery', 'delivered', 'cancelled')
         .required()
         .messages({
             'any.only': 'Invalid status. Valid statuses are: ordered, processing, out-for-delivery, delivered, and cancelled.',

@@ -59,6 +59,60 @@ const getItemsByBusinessType = catchAsync(async (req, res) => {
     }
 });
 
+// Get all rooms by business (hotel)
+const getRoomsByBusiness = catchAsync(async (req, res) => {
+    const { businessId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    try {
+        const result = await ItemService.getRoomsByBusiness(businessId, page, limit);
+        res.status(200).json({
+            statusCode: 200,
+            data: result,
+            message: 'Rooms retrieved successfully.',
+        });
+    } catch (error) {
+        res.status(400).json({ statusCode: 400, message: error.message });
+    }
+});
+
+// Get all rooms by business (hotel)
+const getFoodByBusiness = catchAsync(async (req, res) => {
+    const { businessId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    try {
+        const result = await ItemService.getFoodByBusiness(businessId, page, limit);
+        res.status(200).json({
+            statusCode: 200,
+            data: result,
+            message: 'Menu retrieved successfully.',
+        });
+    } catch (error) {
+        res.status(400).json({ statusCode: 400, message: error.message });
+    }
+});
+
+// Get all rooms by business (hotel)
+const getProductByBusiness = catchAsync(async (req, res) => {
+    const { businessId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    try {
+        const result = await ItemService.getProductByBusiness(businessId, page, limit);
+        res.status(200).json({
+            statusCode: 200,
+            data: result,
+            message: 'Products retrieved successfully.',
+        });
+    } catch (error) {
+        res.status(400).json({ statusCode: 400, message: error.message });
+    }
+});
+
 // Update an item
 const updateItem = catchAsync(async (req, res) => {
     const { itemId } = req.params;
@@ -82,7 +136,6 @@ const deleteItem = catchAsync(async (req, res) => {
 });
 
 // Guest Users
-
 // Get all items (products, food, rooms) for guest users
 const getAllItems = catchAsync(async (req, res) => {
     try {
@@ -110,6 +163,9 @@ module.exports = {
     getItemById,
     getItemsByBusiness,
     getItemsByBusinessType,
+    getRoomsByBusiness,
+    getFoodByBusiness,
+    getProductByBusiness,
     updateItem,
     deleteItem,
     getAllItems,
