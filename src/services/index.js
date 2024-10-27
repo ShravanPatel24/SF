@@ -11,6 +11,7 @@ module.exports.BankService = require('./bank.service');
 module.exports.CartService = require('./cart.service');
 module.exports.OrderService = require('./order.service');
 module.exports.ItemService = require('./item.service');
+module.exports.ItemCategoryService = require('./itemCategory.service');
 module.exports.DineOutRequestService = require('./dineOut.service');
 module.exports.ContactUsService = require('./contactUs.service');
 module.exports.FAQService = require('./faq.service');

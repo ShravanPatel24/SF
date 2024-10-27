@@ -2,6 +2,8 @@ const { BusinessModel, UserModel, BusinessTypeModel, ItemModel, DineOutModel } =
 const CONSTANTS = require("../config/constant");
 const { s3Service } = require('../services');
 const moment = require('moment');
+const mongoose = require('mongoose');
+const ObjectId = mongoose.Types.ObjectId;
 
 const createBusinessForPartner = async (
     partnerId, businessName, businessType, businessDescription, countryCode, mobile, email, businessAddress, openingDays,
@@ -253,35 +255,41 @@ const deleteBusinessById = async (businessId) => {
     await BusinessModel.findByIdAndDelete(businessId);
 };
 
-const findBusinessesNearUser = async (latitude, longitude, radiusInKm, page = 1, limit = 10) => {
+const findBusinessesNearUser = async (latitude, longitude, radiusInKm, page = 1, limit = 10, businessTypeId) => {
     const radiusInMeters = radiusInKm * 1000; // Convert km to meters
+
+    const query = {};
+    if (businessTypeId) {
+        query.businessType = new ObjectId(businessTypeId);
+    }
+
     const businesses = await BusinessModel.aggregate([
         {
             $geoNear: {
                 near: {
                     type: "Point",
-                    coordinates: [longitude, latitude], // [longitude, latitude]
+                    coordinates: [parseFloat(longitude), parseFloat(latitude)], // [longitude, latitude]
                 },
                 distanceField: "distance", // This will add a field called `distance` to each document
                 maxDistance: radiusInMeters, // Maximum distance in meters
                 spherical: true, // For spherical coordinates
-            }
+                query: query, // Filter by businessTypeId if provided
+            },
         },
-        {
-            $skip: (page - 1) * limit // Skip the documents for pagination
-        },
-        {
-            $limit: limit // Limit the number of documents per page
-        }
+        { $skip: (page - 1) * limit }, // Skip the documents for pagination
+        { $limit: limit } // Limit the number of documents per page
     ]);
-    // Get total number of businesses matching the geospatial query
+
+    // Get total number of businesses matching the geospatial query and businessTypeId filter
     const totalDocs = await BusinessModel.countDocuments({
+        ...query,
         "businessAddress.location": {
             $geoWithin: {
-                $centerSphere: [[longitude, latitude], radiusInKm / 6378.1] // Radius in kilometers converted for spherical calculation
-            }
-        }
+                $centerSphere: [[parseFloat(longitude), parseFloat(latitude)], radiusInKm / 6378.1], // Radius in kilometers
+            },
+        },
     });
+
     const totalPages = Math.ceil(totalDocs / limit);
     return {
         docs: businesses,
@@ -297,6 +305,116 @@ const findBusinessesNearUser = async (latitude, longitude, radiusInKm, page = 1,
     };
 };
 
+const findNearbyHotelsWithRooms = async (latitude, longitude, radiusInKm, checkIn, checkOut, guests, roomQuantity, page = 1, limit = 10) => {
+    const radiusInMeters = radiusInKm * 1000;
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+
+    console.log(`Parameters - Latitude: ${latitude}, Longitude: ${longitude}, Radius: ${radiusInKm}`);
+    console.log(`Check-in: ${checkInDate}, Check-out: ${checkOutDate}, Guests: ${guests}, Room Quantity: ${roomQuantity}`);
+
+    const hotelBusinessType = await BusinessTypeModel.findOne({ name: "hotels" }).select('_id');
+    if (!hotelBusinessType) {
+        throw new Error("Hotel business type not found.");
+    }
+    console.log(`Hotel Business Type ID: ${hotelBusinessType._id}`);
+
+    const geoNearResults = await BusinessModel.aggregate([
+        {
+            $geoNear: {
+                near: { type: "Point", coordinates: [parseFloat(longitude), parseFloat(latitude)] },
+                distanceField: "distance",
+                maxDistance: radiusInMeters,
+                spherical: true,
+                query: { businessType: hotelBusinessType._id }
+            }
+        }
+    ]);
+
+    console.log("GeoNear Results:", JSON.stringify(geoNearResults, null, 2));
+
+    if (geoNearResults.length === 0) {
+        console.log("No hotels found in the specified radius.");
+        return [];
+    }
+
+    const hotels = await BusinessModel.aggregate([
+        {
+            $geoNear: {
+                near: { type: "Point", coordinates: [parseFloat(longitude), parseFloat(latitude)] },
+                distanceField: "distance",
+                maxDistance: radiusInMeters,
+                spherical: true,
+                query: { businessType: hotelBusinessType._id }
+            }
+        },
+        {
+            $lookup: {
+                from: "items", // The collection name for your items
+                localField: "_id",
+                foreignField: "business",
+                as: "rooms"
+            }
+        },
+        {
+            $addFields: {
+                availableRooms: {
+                    $filter: {
+                        input: "$rooms",
+                        as: "room",
+                        cond: {
+                            $and: [
+                                // { $eq: ["$$room.itemType", "room"] },
+                                // { $eq: ["$$room.available", true] },
+                                // { $gte: ["$$room.roomCapacity", guests] }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        {
+            $match: {
+                "availableRooms.0": { $exists: true },
+                $expr: { $gte: [{ $size: "$availableRooms" }, roomQuantity] }
+            }
+        },
+        {
+            $addFields: {
+                pricePerNight: { $min: "$availableRooms.roomPrice" },
+                taxPerNight: { $min: "$availableRooms.roomTax" },
+                image: { $arrayElemAt: ["$bannerImages", 0] },
+                location: {
+                    $concat: [
+                        { $ifNull: ["$businessAddress.street", ""] }, ", ",
+                        { $ifNull: ["$businessAddress.city", ""] }, ", ",
+                        { $ifNull: ["$businessAddress.state", ""] }, ", ",
+                        { $ifNull: ["$businessAddress.country", ""] }
+                    ]
+                }
+            }
+        },
+        { $project: { businessName: 1, pricePerNight: 1, taxPerNight: 1, image: 1, location: 1, availableRooms: 1 } },
+        { $skip: (page - 1) * limit },
+        { $limit: limit }
+    ]);    
+
+    console.log("Rooms after lookup:", JSON.stringify(hotels, null, 2));
+    console.log("Hotels after processing:", JSON.stringify(hotels, null, 2));
+
+    return {
+        docs: hotels,
+        totalDocs: hotels.length,
+        limit,
+        totalPages: Math.ceil(hotels.length / limit),
+        page,
+        pagingCounter: (page - 1) * limit + 1,
+        hasPrevPage: page > 1,
+        hasNextPage: page * limit < hotels.length,
+        prevPage: page > 1 ? page - 1 : null,
+        nextPage: page * limit < hotels.length ? page + 1 : null
+    };
+};
 
 // Get Partner Dashboard count
 const getDashboardCountsForPartner = async (partnerId) => {
@@ -306,144 +424,117 @@ const getDashboardCountsForPartner = async (partnerId) => {
         throw new Error(CONSTANTS.PARTNER_NOT_FOUND_MSG);
     }
 
-    // Counts for food items
-    const foodCounts = await ItemModel.aggregate([
-        { $match: { itemType: 'food', business: partner.businessId } },
-        {
-            $group: {
-                _id: null,
-                availableTable: {
-                    $sum: { $cond: [{ $eq: ['$available', true] }, 1, 0] }
-                },
-                bookingRequests: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] }
-                },
-                currentFoodOrder: {
-                    $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] }
-                },
-                confirmedFoodOrder: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] }
-                },
-                acceptedFoodOrder: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] }
-                },
-                rejectedFoodOrder: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] }
-                },
-                deliveredFoodOrder: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, 1, 0] }
-                },
-                cancelledFoodOrder: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Cancelled'] }, 1, 0] }
-                },
-                bookedTable: {
-                    $sum: { $cond: [{ $eq: ['$bookedTable', true] }, 1, 0] }
-                },
-                cancelledTableBooking: {
-                    $sum: { $cond: [{ $eq: ['$tableBookingStatus', 'Cancelled'] }, 1, 0] }
-                },
-                earnings: { $sum: '$earnings' }
-            }
-        }
-    ]);
+    // Initialize default values for a unified structure
+    const totalCounts = {
+        bookingRequests: 0,
+        currentOrder: 0,
+        confirmedOrder: 0,
+        acceptedOrder: 0,
+        rejectedOrder: 0,
+        deliveredOrder: 0,
+        cancelledOrder: 0,
+        availableTable: 0,
+        bookedTable: 0,
+        cancelledTableBooking: 0,
+        earnings: 0
+    };
 
-    // Counts for dine-out requests
+    // Function to merge counts from aggregation result into totalCounts
+    const mergeCounts = (result) => {
+        if (result && result[0]) {
+            totalCounts.bookingRequests += result[0].bookingRequests || 0;
+            totalCounts.currentOrder += result[0].currentOrder || 0;
+            totalCounts.confirmedOrder += result[0].confirmedOrder || 0;
+            totalCounts.acceptedOrder += result[0].acceptedOrder || 0;
+            totalCounts.rejectedOrder += result[0].rejectedOrder || 0;
+            totalCounts.deliveredOrder += result[0].deliveredOrder || 0;
+            totalCounts.cancelledOrder += result[0].cancelledOrder || 0;
+            totalCounts.availableTable += result[0].availableTable || 0;
+            totalCounts.bookedTable += result[0].bookedTable || 0;
+            totalCounts.cancelledTableBooking += result[0].cancelledTableBooking || 0;
+            totalCounts.earnings += result[0].earnings || 0;
+        }
+    };
+
+    // Sample aggregation pipeline to count dine-out requests
     const dineOutCounts = await DineOutModel.aggregate([
         { $match: { partner: partnerId } },
         {
             $group: {
                 _id: null,
-                bookingRequests: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] }
-                },
-                currentFoodOrder: {
-                    $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] }
-                },
-                confirmedFoodOrder: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] }
-                },
-                acceptedFoodOrder: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] }
-                },
-                rejectedFoodOrder: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] }
-                },
-                deliveredFoodOrder: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, 1, 0] }
-                },
-                cancelledFoodOrder: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Cancelled'] }, 1, 0] }
-                },
-                bookedTable: {
-                    $sum: { $cond: [{ $eq: ['$bookedTable', true] }, 1, 0] }
-                },
-                cancelledTableBooking: {
-                    $sum: { $cond: [{ $eq: ['$tableBookingStatus', 'Cancelled'] }, 1, 0] }
-                },
-                earnings: { $sum: '$earnings' } // Assuming you have an earnings field in your DineOut model
+                bookingRequests: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } },
+                currentOrder: { $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] } },
+                confirmedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] } },
+                acceptedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] } },
+                rejectedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] } },
+                deliveredOrder: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, 1, 0] } },
+                cancelledOrder: { $sum: { $cond: [{ $eq: ['$status', 'Cancelled'] }, 1, 0] } },
+                earnings: { $sum: '$earnings' }
             }
         }
     ]);
 
-    // Counts for room items
-    const roomCounts = await ItemModel.aggregate([
-        { $match: { itemType: 'room', business: partner.businessId } },
-
+    // Similar aggregation pipelines for food, room, and product items
+    const foodCounts = await ItemModel.aggregate([
+        { $match: { itemType: 'food', business: partner.businessId } },
         {
             $group: {
                 _id: null,
-                currentHotelBooking: {
-                    $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] }
-                },
-                confirmedHotelBooking: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] }
-                },
-                acceptedHotelBooking: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] }
-                },
-                rejectedHotelBooking: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] }
-                },
-                earnings: { $sum: '$earnings' } // Assuming you have an earnings field in your Room model
+                bookingRequests: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } },
+                currentOrder: { $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] } },
+                confirmedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] } },
+                acceptedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] } },
+                rejectedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] } },
+                deliveredOrder: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, 1, 0] } },
+                cancelledOrder: { $sum: { $cond: [{ $eq: ['$status', 'Cancelled'] }, 1, 0] } },
+                earnings: { $sum: '$earnings' }
             }
         }
     ]);
 
-    // Counts for product items
+    // Aggregation for room items
+    const roomCounts = await ItemModel.aggregate([
+        { $match: { itemType: 'room', business: partner.businessId } },
+        {
+            $group: {
+                _id: null,
+                bookingRequests: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } },
+                currentOrder: { $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] } },
+                confirmedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] } },
+                acceptedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] } },
+                rejectedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] } },
+                deliveredOrder: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, 1, 0] } },
+                cancelledOrder: { $sum: { $cond: [{ $eq: ['$status', 'Cancelled'] }, 1, 0] } },
+                earnings: { $sum: '$earnings' }
+            }
+        }
+    ]);
+
+    // Aggregation for product items
     const productCounts = await ItemModel.aggregate([
         { $match: { itemType: 'product', business: partner.businessId } },
         {
             $group: {
                 _id: null,
-                currentProduct: {
-                    $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] }
-                },
-                confirmedProduct: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] }
-                },
-                acceptedProduct: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] }
-                },
-                rejectedProduct: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] }
-                },
-                deliveredProduct: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, 1, 0] }
-                },
-                cancelledProduct: {
-                    $sum: { $cond: [{ $eq: ['$status', 'Cancelled'] }, 1, 0] }
-                },
-                earnings: { $sum: '$earnings' } // Assuming you have an earnings field in your Product model
+                bookingRequests: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } },
+                currentOrder: { $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] } },
+                confirmedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] } },
+                acceptedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] } },
+                rejectedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] } },
+                deliveredOrder: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, 1, 0] } },
+                cancelledOrder: { $sum: { $cond: [{ $eq: ['$status', 'Cancelled'] }, 1, 0] } },
+                earnings: { $sum: '$earnings' }
             }
         }
     ]);
 
-    return {
-        foodItem: foodCounts[0] || {},
-        dineOut: dineOutCounts[0] || {},
-        roomItem: roomCounts[0] || {},
-        productItem: productCounts[0] || {},
-    };
+    // Merge each aggregation result into totalCounts
+    mergeCounts(foodCounts);
+    mergeCounts(dineOutCounts);
+    mergeCounts(roomCounts);
+    mergeCounts(productCounts);
+
+    return totalCounts;
 };
 
 const calculateEarningsForPartner = async (partnerId) => {
@@ -513,6 +604,7 @@ module.exports = {
     uploadBusinessImages,
     deleteBusinessById,
     findBusinessesNearUser,
+    findNearbyHotelsWithRooms,
     getDashboardCountsForPartner,
     calculateEarningsForPartner,
     getAllBusinesses

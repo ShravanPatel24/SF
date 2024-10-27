@@ -484,9 +484,6 @@ components:
         productName:
           type: string
           example: "T-Shirt"
-        productCategory:
-          type: string
-          example: "Clothing"
         productDescription:
           type: string
           example: "Comfortable cotton t-shirt"
@@ -4520,6 +4517,17 @@ paths:
                   type: boolean
                   description: Availability status of the item
                   default: true
+
+                # Common fields for all item types
+                parentCategory:
+                  type: string
+                  description: The ID of the parent category for the item (Product and Food only)
+                  example: "605c72bc6f1e3b30d4e3c5d4"
+                subCategory:
+                  type: string
+                  description: The ID of the subcategory for the item (Product and Food only)
+                  example: "605c72bc6f1e3b30d4e3c5d5"
+
                 # Fields for food items (optional)
                 dishName:
                   type: string
@@ -4535,17 +4543,18 @@ paths:
                   example: 10.99
                 foodDeliveryCharge:
                   type: number
-                  description: Delivery Charge of the dish (food items only)
-                  example: 10.99
+                  description: Delivery charge of the dish (food items only)
+                  example: 2.99
+
                 # Fields for room items (optional)
                 roomName:
                   type: string
                   description: Name of the room (room items only)
                   example: "Deluxe Room"
-                roomType:
+                roomCategory:
                   type: string
-                  description: Type of the room (room items only)
-                  example: "Suite"
+                  description: The ID of the category for room items
+                  example: "605c72bc6f1e3b30d4e3c5d5"
                 roomDescription:
                   type: string
                   description: Description of the room (room items only)
@@ -4554,18 +4563,25 @@ paths:
                   type: number
                   description: Price of the room (room items only)
                   example: 150
+                roomCapacity:
+                  type: number
+                  description: Capacity of the room (as per guest)
+                  example: 2
                 roomTax:
                   type: number
                   description: Tax applicable for the room (room items only)
                   example: 20
                 checkIn:
                   type: string
-                  description: Check-in time (room items only)
-                  example: "2:00 PM"
+                  format: date-time
+                  description: Check-in date and time (ISO 8601 format) for room items only
+                  example: "2024-11-01T14:00:00Z"
                 checkOut:
                   type: string
-                  description: Check-out time (room items only)
-                  example: "11:00 AM"
+                  format: date-time
+                  description: Check-out date and time (ISO 8601 format) for room items only
+                  example: "2024-11-05T11:00:00Z"
+
                 # Amenities as a flattened array
                 amenities[0]:
                   type: string
@@ -4575,20 +4591,12 @@ paths:
                   type: string
                   description: Second amenity
                   example: "Air Conditioning"
-                amenities[2]:
-                  type: string
-                  description: Third amenity
-                  example: "Pool"
 
                 # Fields for product items (optional)
                 productName:
                   type: string
                   description: Name of the product (product items only)
                   example: "T-Shirt"
-                productCategory:
-                  type: string
-                  description: Category of the product (product items only)
-                  example: "Clothing"
                 productDescription:
                   type: string
                   description: Description of the product (product items only)
@@ -4599,7 +4607,7 @@ paths:
                   example: 25.99
                 productDeliveryCharge:
                   type: number
-                  description: Delivery Charge of the product (product items only)
+                  description: Delivery charge of the product (product items only)
                   example: 10.99
                 productFeatures[0]:
                   type: string
@@ -4609,10 +4617,6 @@ paths:
                   type: string
                   description: Second product feature (product items only)
                   example: "Lightweight"
-                productFeatures[2]:
-                  type: string
-                  description: Third product feature (product items only)
-                  example: "Machine washable"
                 variants[0][variantName]:
                   type: string
                   description: Name of the variant (e.g., Small, Medium, Large)
@@ -4737,7 +4741,18 @@ paths:
                   type: boolean
                   description: Availability status of the item
                   default: true
-                # Fields for food items
+
+                # Common fields for all item types
+                parentCategory:
+                  type: string
+                  description: The ID of the parent category for the item (Product and Food only)
+                  example: "605c72bc6f1e3b30d4e3c5d4"
+                subCategory:
+                  type: string
+                  description: The ID of the subcategory for the item (Product and Food only)
+                  example: "605c72bc6f1e3b30d4e3c5d5"
+
+                # Fields for food items (optional)
                 dishName:
                   type: string
                   description: Name of the dish (food items only)
@@ -4752,17 +4767,18 @@ paths:
                   example: 10.99
                 foodDeliveryCharge:
                   type: number
-                  description: Delivery Charge of the dish (food items only)
-                  example: 10.99
-                # Fields for room items
+                  description: Delivery charge of the dish (food items only)
+                  example: 2.99
+
+                # Fields for room items (optional)
                 roomName:
                   type: string
                   description: Name of the room (room items only)
                   example: "Deluxe Room"
-                roomType:
+                roomCategory:
                   type: string
-                  description: Type of the room (room items only)
-                  example: "Suite"
+                  description: The ID of the category for room items
+                  example: "605c72bc6f1e3b30d4e3c5d5"
                 roomDescription:
                   type: string
                   description: Description of the room (room items only)
@@ -4771,41 +4787,38 @@ paths:
                   type: number
                   description: Price of the room (room items only)
                   example: 150
+                roomCapacity:
+                  type: number
+                  description: Capacity of the room (as per guest)
+                  example: 2
                 roomTax:
                   type: number
                   description: Tax applicable for the room (room items only)
                   example: 20
                 checkIn:
                   type: string
-                  description: Check-in time (room items only)
-                  example: "2:00 PM"
+                  format: date-time
+                  description: Check-in date and time (ISO 8601 format) for room items only
+                  example: "2024-11-01T14:00:00Z"
                 checkOut:
                   type: string
-                  description: Check-out time (room items only)
-                  example: "11:00 AM"
-                # Amenities as a flattened array
-                amenities[0]:
-                  type: string
-                  description: First amenity
-                  example: "WiFi"
-                amenities[1]:
-                  type: string
-                  description: Second amenity
-                  example: "Air Conditioning"
-                amenities[2]:
-                  type: string
-                  description: Third amenity
-                  example: "Pool"
+                  format: date-time
+                  description: Check-out date and time (ISO 8601 format) for room items only
+                  example: "2024-11-05T11:00:00Z"
 
-                # Fields for product items
+                # Amenities as a flattened array
+                amenities:
+                  type: array
+                  description: List of amenities for the room
+                  items:
+                    type: string
+                  example: ["WiFi", "Air Conditioning", "Pool"]
+
+                # Fields for product items (optional)
                 productName:
                   type: string
                   description: Name of the product (product items only)
                   example: "T-Shirt"
-                productCategory:
-                  type: string
-                  description: Category of the product (product items only)
-                  example: "Clothing"
                 productDescription:
                   type: string
                   description: Description of the product (product items only)
@@ -4816,60 +4829,40 @@ paths:
                   example: 25.99
                 productDeliveryCharge:
                   type: number
-                  description: Delivery Charge of the product (product items only)
+                  description: Delivery charge of the product (product items only)
                   example: 10.99
-                productFeatures[0]:
-                  type: string
-                  description: First product feature (product items only)
-                  example: "Eco-friendly"
-                productFeatures[1]:
-                  type: string
-                  description: Second product feature (product items only)
-                  example: "Lightweight"
-                productFeatures[2]:
-                  type: string
-                  description: Third product feature (product items only)
-                  example: "Machine washable"
-                variants[0][variantName]:
-                  type: string
-                  description: Name of the variant (e.g., Small, Medium, Large)
-                  example: "Medium"
-                variants[0][size]:
-                  type: string
-                  description: Size of the variant
-                  example: "M"
-                variants[0][color]:
-                  type: string
-                  description: Color of the variant
-                  example: "Red"
-                variants[0][productPrice]:
-                  type: number
-                  description: Price of the variant
-                  example: 29.99
-                variants[0][nonReturnable]:
-                  type: boolean
-                  description: Indicates if the variant is non-returnable
-                  default: false
-                variants[1][variantName]:
-                  type: string
-                  description: Name of the second variant (e.g., Large)
-                  example: "Large"
-                variants[1][size]:
-                  type: string
-                  description: Size of the second variant
-                  example: "L"
-                variants[1][color]:
-                  type: string
-                  description: Color of the second variant
-                  example: "Blue"
-                variants[1][productPrice]:
-                  type: number
-                  description: Price of the second variant
-                  example: 35.99
-                variants[1][nonReturnable]:
-                  type: boolean
-                  description: Indicates if the second variant is non-returnable
-                  default: true
+                productFeatures:
+                  type: array
+                  description: List of features of the product (optional)
+                  items:
+                    type: string
+                  example: ["Eco-friendly", "Lightweight", "Machine washable"]
+                variants:
+                  type: array
+                  description: List of variants for the product (optional)
+                  items:
+                    type: object
+                    properties:
+                      variantName:
+                        type: string
+                        description: Name of the variant (e.g., Small, Medium, Large)
+                        example: "Medium"
+                      size:
+                        type: string
+                        description: Size of the variant
+                        example: "M"
+                      color:
+                        type: string
+                        description: Color of the variant
+                        example: "Red"
+                      productPrice:
+                        type: number
+                        description: Price of the variant
+                        example: 29.99
+                      nonReturnable:
+                        type: boolean
+                        description: Indicates if the variant is non-returnable
+                        default: false
 
                 # Image upload
                 images:
@@ -5029,31 +5022,6 @@ paths:
           schema:
             type: string
           description: The ID of the business type to retrieve items for
-      responses:
-        "200":
-          description: List of items retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Items"
-        "404":
-          description: Business Type not found
-      security:
-        - bearerAuth: []
-
-  /items/type/{itemType}:
-    get:
-      summary: Get items by item type (User)
-      tags:
-        - Partner Items
-      parameters:
-        - name: itemType
-          in: path
-          required: true
-          schema:
-            type: string
       responses:
         "200":
           description: List of items retrieved successfully
@@ -5601,7 +5569,7 @@ paths:
 
   /business/near:
     get:
-      summary: Get Near By Businesses
+      summary: Get Nearby Businesses
       tags:
         - Partner Business
       parameters:
@@ -5643,6 +5611,12 @@ paths:
             format: int32
             example: 10
           description: The number of results to return per page (default is 10)
+        - in: query
+          name: businessTypeId
+          required: false
+          schema:
+            type: string
+          description: The ObjectId of the business type (e.g., "670818c41fb33bc722b274a9" for "hotels")
       responses:
         "200":
           description: A list of nearby businesses
@@ -5684,6 +5658,120 @@ paths:
           description: Invalid latitude, longitude, or radius input
         "404":
           description: No businesses found nearby
+
+  /business/hotels/nearby:
+    get:
+      summary: Get Nearby Hotels
+      tags:
+        - Partner Business
+      parameters:
+        - in: query
+          name: latitude
+          required: true
+          schema:
+            type: number
+            format: float
+            example: 40.7128
+        - in: query
+          name: longitude
+          required: true
+          schema:
+            type: number
+            format: float
+            example: -74.0060
+        - in: query
+          name: radiusInKm
+          required: true
+          schema:
+            type: number
+            format: float
+            example: 10
+          description: The search radius in kilometers
+        - in: query
+          name: checkIn
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Check-in date and time for hotel bookings (ISO 8601 format)
+        - in: query
+          name: checkOut
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Check-out date and time for hotel bookings (ISO 8601 format)
+        - in: query
+          name: guests
+          required: false
+          schema:
+            type: integer
+            format: int32
+          description: Number of guests for hotel bookings
+        - in: query
+          name: roomQuantity
+          required: false
+          schema:
+            type: integer
+            format: int32
+          description: Number of rooms required for hotel bookings
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            format: int32
+            example: 1
+          description: The page number for pagination (default is 1)
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            format: int32
+            example: 10
+          description: The number of results to return per page (default is 10)
+      responses:
+        "200":
+          description: A list of nearby hotels
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      docs:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/PartnerBusiness"
+                      totalDocs:
+                        type: integer
+                        description: Total number of businesses found
+                      limit:
+                        type: integer
+                        description: Limit of businesses per page
+                      totalPages:
+                        type: integer
+                        description: Total number of pages
+                      page:
+                        type: integer
+                        description: Current page number
+                      hasPrevPage:
+                        type: boolean
+                      hasNextPage:
+                        type: boolean
+                      prevPage:
+                        type: integer
+                        nullable: true
+                      nextPage:
+                        type: integer
+                        nullable: true
+        "400":
+          description: Invalid latitude, longitude, or radius input
+        "404":
+          description: No hotels found nearby
 
   /business/dashboard/counts:
     get:

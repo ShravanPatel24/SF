@@ -169,5 +169,5 @@ module.exports = {
     updateItem,
     deleteItem,
     getAllItems,
-    searchItems,
+    searchItems
 };

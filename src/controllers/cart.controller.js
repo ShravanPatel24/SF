@@ -1,6 +1,5 @@
 const catchAsync = require('../utils/catchAsync');
 const { CartService } = require('../services');
-const { ItemModel } = require('../models');
 const CONSTANTS = require("../config/constant");
 const mongoose = require('mongoose');
 

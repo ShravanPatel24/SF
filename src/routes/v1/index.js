@@ -6,6 +6,7 @@ const PostRoute = require('./posts.route')
 const businessRoute = require('./business.routes');
 const bankRoute = require('./bank.route');
 const itemsRoute = require('./item.routes');
+const itemCategoryRoute = require('./itemCategory.route');
 const dineOutRoute = require('./dineOut.routes');
 const cartRoute = require('./cart.routes')
 const orderRoute = require('./order.route')
@@ -44,6 +45,7 @@ const defaultRoutes = [
   { path: '/business', route: businessRoute },
   { path: '/bank', route: bankRoute },
   { path: '/items', route: itemsRoute },
+  { path: '/item-category', route: itemCategoryRoute },
   { path: '/dine-out', route: dineOutRoute },
   { path: '/cart', route: cartRoute },
   { path: '/order', route: orderRoute },

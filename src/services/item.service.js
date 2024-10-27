@@ -5,11 +5,11 @@ const { s3Service } = require('../services');
 const createItem = async (itemData, files, partnerId) => {
     let imageUrls = [];
     if (files && files.images && files.images.length > 0) {
-        const uploadResults = await s3Service.uploadDocuments(files.images, 'product-images', '');
-        if (uploadResults && uploadResults.length > 0) {
-            imageUrls = uploadResults.map(upload => upload.key);
-        }
+        const uploadResults = await s3Service.uploadDocuments(files.images, 'item-images');
+        imageUrls = uploadResults.map(upload => upload.key);
     }
+
+    // Create the item object
     const item = {
         business: itemData.businessId,
         businessType: itemData.businessTypeId,
@@ -17,8 +17,10 @@ const createItem = async (itemData, files, partnerId) => {
         images: imageUrls,
         available: itemData.available || true,
         partner: partnerId,
-        category: itemData.category,
+        parentCategory: itemData.parentCategory,
+        subCategory: itemData.subCategory,
     };
+
     // Handle item-specific fields (food, room, product)
     if (itemData.itemType === 'food') {
         item.dishName = itemData.dishName;
@@ -29,11 +31,17 @@ const createItem = async (itemData, files, partnerId) => {
         item.roomName = itemData.roomName;
         item.roomDescription = itemData.roomDescription;
         item.roomPrice = itemData.roomPrice;
-        item.roomType = itemData.roomType;
+        item.roomCapacity = itemData.roomCapacity;
+        item.roomCategory = itemData.roomCategory;
         item.roomTax = itemData.roomTax;
-        item.checkIn = itemData.checkIn;
-        item.checkOut = itemData.checkOut;
         item.amenities = itemData.amenities;
+
+        if (itemData.checkIn) {
+            item.checkIn = new Date(itemData.checkIn);
+        }
+        if (itemData.checkOut) {
+            item.checkOut = new Date(itemData.checkOut);
+        }
     } else if (itemData.itemType === 'product') {
         item.productName = itemData.productName;
         item.productDescription = itemData.productDescription;
@@ -49,7 +57,11 @@ const createItem = async (itemData, files, partnerId) => {
 
 // Get item by item ID
 const getItemById = async (itemId) => {
-    const item = await ItemModel.findById(itemId);
+    const item = await ItemModel.findById(itemId)
+        .populate('roomCategory') // Populate roomCategory for room items
+        .populate('parentCategory') // Populate parentCategory
+        .populate('subCategory'); // Populate subCategory for food and product items
+
     return item;
 };
 
@@ -260,5 +272,5 @@ module.exports = {
     updateItemById,
     deleteItemById,
     getAllItems,
-    searchItems,
+    searchItems
 };

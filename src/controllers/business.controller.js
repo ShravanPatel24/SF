@@ -160,15 +160,20 @@ const deleteBusinessImages = catchAsync(async (req, res) => {
 });
 
 const getBusinessesNearUser = catchAsync(async (req, res) => {
-    const { latitude, longitude, radiusInKm } = req.query;
+    const { latitude, longitude, radiusInKm, businessTypeId } = req.query;
     const options = pick(req.query, ["page", "limit"]);
     const page = parseInt(options.page, 10) || 1;
     const limit = parseInt(options.limit, 10) || 10;
+
     if (!latitude || !longitude || !radiusInKm) {
-        return res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: "Latitude, longitude, and radius are required" });
+        return res.status(CONSTANTS.BAD_REQUEST).json({
+            statusCode: CONSTANTS.BAD_REQUEST,
+            message: "Latitude, longitude, and radius are required",
+        });
     }
+
     try {
-        const result = await BusinessService.findBusinessesNearUser(latitude, longitude, radiusInKm, page, limit);
+        const result = await BusinessService.findBusinessesNearUser(latitude, longitude, radiusInKm, page, limit, businessTypeId);
         res.status(CONSTANTS.SUCCESSFUL).json({
             statusCode: CONSTANTS.SUCCESSFUL,
             data: {
@@ -184,6 +189,44 @@ const getBusinessesNearUser = catchAsync(async (req, res) => {
                 nextPage: result.nextPage,
             },
             message: CONSTANTS.LIST,
+        });
+    } catch (error) {
+        res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: error.message });
+    }
+})
+
+const getHotelsNearUser = catchAsync(async (req, res) => {
+    const { latitude, longitude, radiusInKm, checkIn, checkOut, guests, roomQuantity } = req.query;
+    const options = pick(req.query, ["page", "limit"]);
+    const page = parseInt(options.page, 10) || 1;
+    const limit = parseInt(options.limit, 10) || 10;
+
+    if (!latitude || !longitude || !radiusInKm) {
+        return res.status(CONSTANTS.BAD_REQUEST).json({
+            statusCode: CONSTANTS.BAD_REQUEST,
+            message: "Latitude, longitude, and radius are required"
+        });
+    }
+
+    try {
+        const result = await BusinessService.findNearbyHotelsWithRooms(
+            latitude, longitude, radiusInKm, checkIn, checkOut, guests, parseInt(roomQuantity, 10), page, limit
+        );
+        res.status(CONSTANTS.SUCCESSFUL).json({
+            statusCode: CONSTANTS.SUCCESSFUL,
+            data: {
+                docs: result.docs,
+                totalDocs: result.totalDocs,
+                limit: result.limit,
+                totalPages: result.totalPages,
+                page: result.page,
+                pagingCounter: result.pagingCounter,
+                hasPrevPage: result.hasPrevPage,
+                hasNextPage: result.hasNextPage,
+                prevPage: result.prevPage,
+                nextPage: result.nextPage
+            },
+            message: CONSTANTS.LIST
         });
     } catch (error) {
         res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: error.message });
@@ -238,6 +281,7 @@ module.exports = {
     deleteBusinessImages,
     createBusinessForPartner,
     getBusinessesNearUser,
+    getHotelsNearUser,
     getDashboardCounts,
     getPartnerEarnings,
     getAllBusinesses

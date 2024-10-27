@@ -7,12 +7,14 @@ const { businessValidation } = require('../../validations');
 const { businessController } = require('../../controllers');
 
 const router = express.Router();
+router.get('/hotels/nearby', businessController.getHotelsNearUser);
 
 // Guest user route to get all businesses
 router.get('/guest', businessController.getAllBusinesses); // Allow guests to get all businesses
 
 // Route to get businesses near a user (for both guests and authenticated users)
 router.get('/near', validate(businessValidation.getBusinessesNearUser), businessController.getBusinessesNearUser);
+
 
 // Partner's business routes
 router.get('/partner/:partnerId', userAuth(), validate(businessValidation.getBusinessByPartnerId), businessController.getBusinessesForPartner);

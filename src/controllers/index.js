@@ -3,6 +3,7 @@ module.exports.businessTypeController = require('./businessType.controller');
 module.exports.businessController = require('./business.controller');
 module.exports.bankController = require('./bank.controller');
 module.exports.itemsController = require('./item.controller');
+module.exports.ItemCategoryController = require('./itemCategory.controller');
 module.exports.dineOutController = require('./dineOut.controller');
 module.exports.cartController = require('./cart.controller');
 module.exports.orderController = require('./order.controller');

@@ -188,6 +188,15 @@ const getBusinessesNearUser = {
             .messages({
                 'number.min': 'Limit must be at least 1',
             }),
+        businessTypeId: Joi.string()
+            .optional()
+            .messages({
+                'string.base': 'BusinessTypeId must be a valid string',
+            }),
+        roomQuantity: Joi.number().integer().optional(),
+        checkInDate: Joi.date().iso().optional(),
+        checkOutDate: Joi.date().iso().optional(),
+        guests: Joi.number().integer().optional(),
     }),
 };
 

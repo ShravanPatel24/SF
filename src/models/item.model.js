@@ -21,27 +21,51 @@ const itemSchema = new mongoose.Schema({
     business: { type: mongoose.Schema.Types.ObjectId, ref: 'Business' }, // Associated business
     businessType: { type: mongoose.Schema.Types.ObjectId, ref: 'businessType', required: true }, // Associated business type
     partner: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true }, // Reference to the partner (user type = 'partner')
-    // Fields for food menu
-    dishName: { type: String },
-    dishDescription: { type: String },
-    dishPrice: { type: Number }, // Default price for food
-    foodDeliveryCharge: { type: Number },
-    // Fields for rooms
-    roomName: { type: String },
-    roomType: { type: String },
-    roomDescription: { type: String },
-    roomPrice: { type: Number }, // Default price for rooms
+
+    // Category for items (refers to ItemCategory model)
+    parentCategory: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'ItemCategory',
+        required: function () {
+            return this.itemType !== 'room';
+        }
+    },
+    roomCategory: { // Specific for room items
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'ItemCategory',
+        required: function () {
+            return this.itemType === 'room';
+        }
+    },
+    subCategory: { // General subCategory field for food and product
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'ItemCategory',
+        required: function () {
+            return this.itemType !== 'room'; // Optional for room items
+        }
+    },
+    // Fields for food items (optional)
+    dishName: { type: String, required: function () { return this.itemType === 'food'; } },
+    dishDescription: { type: String, required: function () { return this.itemType === 'food'; } },
+    dishPrice: { type: Number, required: function () { return this.itemType === 'food'; } },
+    foodDeliveryCharge: { type: Number, required: function () { return this.itemType === 'food'; } },
+
+    // Fields for rooms (optional)
+    roomName: { type: String, required: function () { return this.itemType === 'room'; } },
+    roomDescription: { type: String, required: function () { return this.itemType === 'room'; } },
+    roomPrice: { type: Number, required: function () { return this.itemType === 'room'; } },
+    roomCapacity: { type: Number, required: function () { return this.itemType === 'room'; } },
     roomTax: { type: Number },
-    checkIn: { type: String },
-    checkOut: { type: String },
+    checkIn: { type: Date, required: function () { return this.itemType === 'room'; } },
+    checkOut: { type: Date, required: function () { return this.itemType === 'room'; } },
     amenities: [{ type: String }],
-    // Fields for products
-    productName: { type: String },
-    productCategory: { type: String },
-    productDescription: { type: String },
+
+    // Fields for products (optional)
+    productName: { type: String, required: function () { return this.itemType === 'product'; } },
+    productDescription: { type: String, required: function () { return this.itemType === 'product'; } },
     productDeliveryCharge: { type: Number },
     variants: [variantSchema], // Use the variant schema here for multiple prices and variants
-    productFeatures: [{ type: String }] 
+    productFeatures: [{ type: String }]
 }, {
     timestamps: true
 });
