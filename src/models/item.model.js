@@ -23,25 +23,25 @@ const itemSchema = new mongoose.Schema({
     partner: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true }, // Reference to the partner (user type = 'partner')
 
     // Category for items (refers to ItemCategory model)
-    parentCategory: {
+    parentCategory: { // This is optional for food
         type: mongoose.Schema.Types.ObjectId,
         ref: 'ItemCategory',
         required: function () {
-            return this.itemType !== 'room';
-        }
-    },
-    roomCategory: { // Specific for room items
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'ItemCategory',
-        required: function () {
-            return this.itemType === 'room';
+            return this.itemType !== 'room'; // Required for food and product, optional for room
         }
     },
     subCategory: { // General subCategory field for food and product
         type: mongoose.Schema.Types.ObjectId,
         ref: 'ItemCategory',
         required: function () {
-            return this.itemType !== 'room'; // Optional for room items
+            return this.itemType === 'product' || this.itemType === 'food'; // Required for product and food
+        }
+    },
+    roomCategory: { // Specific for room items
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'ItemCategory',
+        required: function () {
+            return this.itemType === 'room'; // Required for room items
         }
     },
     // Fields for food items (optional)

@@ -58,19 +58,35 @@ const createDineOutRequest = catchAsync(async (req, res) => {
 // Get a specific dine-out request by ID
 const getDineOutRequestById = catchAsync(async (req, res) => {
     const { requestId } = req.params;
-    if (req.user.type !== 'partner') {
-        return res.status(CONSTANTS.UNAUTHORIZED).json({ statusCode: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.PERMISSION_DENIED });
-    }
+
+    if (req.user.type !== 'partner') { return res.status(CONSTANTS.UNAUTHORIZED).json({ statusCode: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.PERMISSION_DENIED }) }
 
     const dineOutRequest = await DineOutRequestService.getDineOutRequestById(requestId);
-    if (!dineOutRequest) {
-        return res.status(CONSTANTS.NOT_FOUND).json({ statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.DINEOUT_NOT_FOUND });
-    }
 
+    if (!dineOutRequest) { return res.status(CONSTANTS.NOT_FOUND).json({ statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.DINEOUT_NOT_FOUND }) }
+    const responseData = {
+        requestNumber: dineOutRequest.requestNumber,
+        status: dineOutRequest.status,
+        mobile: dineOutRequest.user.phone,
+        user: {
+            name: dineOutRequest.user.name,
+            email: dineOutRequest.user.email,
+        },
+        partner: {
+            name: dineOutRequest.partner.name,
+        },
+        business: {
+            businessName: dineOutRequest.business.businessName,
+            businessAddress: dineOutRequest.business.businessAddress,
+            openingDays: dineOutRequest.business.openingDays,
+            openingTime: dineOutRequest.business.openingTime,
+            closingTime: dineOutRequest.business.closingTime,
+        },
+    };
     res.status(CONSTANTS.SUCCESSFUL).json({
         statusCode: CONSTANTS.SUCCESSFUL,
         message: CONSTANTS.DETAILS,
-        data: { ...dineOutRequest._doc, requestNumber: dineOutRequest.requestNumber, mobile: dineOutRequest.user.phone }
+        data: responseData,
     });
 });
 

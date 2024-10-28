@@ -1989,12 +1989,185 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  # Item Category (Admin)
+  /item-category/create:
+    post:
+      summary: Create a new category for items
+      tags:
+        - Item Category (Admin)
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                categoryName:
+                  type: string
+                  description: The name of the category to be created
+                categoryType:
+                  type: string
+                  enum:
+                    - food
+                    - room
+                    - product
+                  description: The type of category
+                parentCategory:
+                  type: string
+                  description: The ID of the parent category (optional)
+              required:
+                - categoryName
+                - categoryType
+      responses:
+        "201":
+          description: Category created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemCategory"
+        "400":
+          description: Invalid input
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Duplicate"
+
+  /item-category/type/{categoryType}:
+    get:
+      summary: Get categories by type
+      tags:
+        - Item Category (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: categoryType
+          in: path
+          required: true
+          description: The type of the category to retrieve
+          schema:
+            type: string
+            enum:
+              - food
+              - product
+              - room
+      responses:
+        "200":
+          description: Categories retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ItemCategory"
+        "404":
+          description: Categories not found
+
+  /item-category/subcategories/{parentCategoryId}:
+    get:
+      summary: Get subcategories by parent category
+      tags:
+        - Item Category (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: parentCategoryId
+          in: path
+          required: true
+          description: The ID of the parent category to retrieve subcategories
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Subcategories retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ItemCategory"
+        "404":
+          description: Subcategories not found
+
+  /item-category/update/{categoryId}:
+    patch:
+      summary: Update a category
+      tags:
+        - Item Category (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          description: The ID of the category to update
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                categoryName:
+                  type: string
+                  description: The updated name of the category
+                  example: "Main Course"
+                categoryType:
+                  type: string
+                  description: The updated type of the category (e.g., food, product, room)
+                  example: "food"
+                parentCategory:
+                  type: string
+                  description: The updated ID of the parent category (if applicable)
+                  example: "605c72bc6f1e3b30d4e3c5d4"
+                status:
+                  type: number
+                  description: 0 is Inactive, 1 is Active
+                  example: 0
+                isDelete:
+                  type: number
+                  example: 0
+      responses:
+        "200":
+          description: Category updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemCategory"
+        "400":
+          description: Invalid input
+        "404":
+          description: Category not found
+
+  /item-category/delete/{categoryId}:
+    delete:
+      summary: Delete a category
+      tags:
+        - Item Category (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          description: The ID of the category to delete
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Category deleted successfully
+        "404":
+          description: Category not found
+
   # Business Type
   /business-type:
     get:
       summary: Get list of business types
       tags:
-        - Business Type
+        - Business Type (Admin)
       security:
         - bearerAuth: [] # Bearer token required for this route
       parameters:
@@ -2050,7 +2223,7 @@ paths:
     post:
       summary: Add a new business type
       tags:
-        - Business Type
+        - Business Type (Admin)
       security:
         - bearerAuth: [] # Bearer token required for this route
       requestBody:
@@ -2077,7 +2250,7 @@ paths:
     get:
       summary: Get details of a specific business type
       tags:
-        - Business Type
+        - Business Type (Admin)
       parameters:
         - name: id
           in: path
@@ -2102,7 +2275,7 @@ paths:
     patch:
       summary: Update a business type
       tags:
-        - Business Type
+        - Business Type (Admin)
       parameters:
         - name: id
           in: path
@@ -2135,7 +2308,7 @@ paths:
     delete:
       summary: Delete a business type
       tags:
-        - Business Type
+        - Business Type (Admin)
       parameters:
         - name: id
           in: path
@@ -2157,7 +2330,7 @@ paths:
     get:
       summary: Get list of business types for users (Basic Auth)
       tags:
-        - Business Type
+        - Business Type (Admin)
       security:
         - basicAuth: [] # Basic authentication for user route
       responses:
@@ -4485,6 +4658,35 @@ paths:
           description: DineOut request not found
 
   #Items
+  /items/type/{categoryType}:
+    get:
+      summary: Get categories by type
+      tags:
+        - Partner Items
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: categoryType
+          in: path
+          required: true
+          description: The type of the category to retrieve
+          schema:
+            type: string
+            enum:
+              - food
+              - product
+              - room
+      responses:
+        "200":
+          description: Categories retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ItemCategory"
+        "404":
+          description: Categories not found
   /items/create:
     post:
       summary: Create a new item (Food, Room, or Product)
@@ -4745,14 +4947,18 @@ paths:
                 # Common fields for all item types
                 parentCategory:
                   type: string
-                  description: The ID of the parent category for the item (Product and Food only)
+                  description: The ID of the parent category for the item (Product only)
                   example: "605c72bc6f1e3b30d4e3c5d4"
                 subCategory:
                   type: string
-                  description: The ID of the subcategory for the item (Product and Food only)
+                  description: The ID of the subcategory for the item (Product only)
                   example: "605c72bc6f1e3b30d4e3c5d5"
 
                 # Fields for food items (optional)
+                foodCategory:
+                  type: string
+                  description: The ID of the category for food items
+                  example: "605c72bc6f1e3b30d4e3c5d5"
                 dishName:
                   type: string
                   description: Name of the dish (food items only)

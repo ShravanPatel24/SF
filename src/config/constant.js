@@ -177,6 +177,15 @@ module.exports = {
     IMAGE_REQUIRED: "Images are required for this post type.",
     VIDEO_REQUIRED: "Video is required for this post type.",
 
+    // ITEM CATEGORY
+    CATEGORY_CREATED: "Category created successfully.",
+    CATEGORY_UPDATED: "Category updated successfully.",
+    CATEGORY_DELETED: "Category deleted successfully.",
+    CATEGORY_NOT_FOUND: "Category not found.",
+    INVALID_PARENT_ID: "No subcategories found for this parent category.",
+    INVALID_CATEGORY_ID: "Invalid category ID.",
+    INVALID_CATEGORY_TYPE: "Invalid categoryType. Allowed values are 'food', 'room', 'product'.",
+
     // ITEMS
     ITEM_CREATED: 'Item created successfully.',
     ITEM_UPDATED: 'Item updated successfully.',

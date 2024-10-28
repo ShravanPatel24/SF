@@ -60,8 +60,7 @@ const getItemById = async (itemId) => {
     const item = await ItemModel.findById(itemId)
         .populate('roomCategory') // Populate roomCategory for room items
         .populate('parentCategory') // Populate parentCategory
-        .populate('subCategory'); // Populate subCategory for food and product items
-
+        .populate('subCategory') // Populate subCategory for food and product items
     return item;
 };
 

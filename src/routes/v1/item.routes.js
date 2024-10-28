@@ -5,12 +5,15 @@ const upload = multer({ storage: multer.memoryStorage() });
 const { userAuth } = require('../../middlewares');
 const validate = require('../../middlewares/validate');
 const { itemsValidation } = require('../../validations');
-const { itemsController } = require('../../controllers');
+const { itemsController, ItemCategoryController } = require('../../controllers');
 
 // Routes for guest users
 router.get('/guest/', itemsController.getAllItems); // Guest user - Get all items (products, food, rooms)
 router.get('/guest/search', itemsController.searchItems); // Guest user - Search items
 router.get('/guest/:itemId', itemsController.getItemById); // Guest user - Get item by ID
+
+// Route to get categories by type (product, food, room)
+router.get('/type/:categoryType', userAuth(), ItemCategoryController.getCategoriesByType);
 
 // Route to get all rooms under a specific hotel (business)
 router.get('/rooms/business/:businessId', userAuth(), validate(itemsValidation.getRoomsByBusinessId), itemsController.getRoomsByBusiness);

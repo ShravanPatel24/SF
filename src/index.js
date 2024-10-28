@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 const app = require('./app');
 const config = require('./config/config');
 const logger = require('./config/logger');
-const insertDefaultCategories = require('./utils/defaultCategories');
 
 let server;
 console.log('config.env===>>', config.env, config.mongoose)
@@ -16,7 +15,6 @@ if (config.env == "production") {
     port = config.port;
 }
 mongoose.connect(db_url).then(() => {
-    // insertDefaultCategories();
     logger.info('Connected to MongoDB');
     server = app.listen(port, () => {
         logger.info(`Server listening on port ${port}`);

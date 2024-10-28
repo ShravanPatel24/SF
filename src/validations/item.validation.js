@@ -9,10 +9,9 @@ const createItem = {
         available: Joi.boolean().optional(),
         images: Joi.array().items(Joi.string()).optional(),
 
-        // Common fields for all item types (optional for room type)
-        parentCategory: Joi.string().custom(objectId).when('itemType', { is: 'room', then: Joi.forbidden() }), // Forbidden for room
-        subCategory: Joi.string().custom(objectId).when('itemType', { is: 'room', then: Joi.forbidden() }), // Forbidden for room
-
+        // Common fields for all item types (optional for room type) 
+        parentCategory: Joi.string().custom(objectId).optional(),
+        subCategory: Joi.string().custom(objectId).optional(),
         // Specific fields for food items
         dishName: Joi.string().when('itemType', { is: 'food', then: Joi.required() }),
         dishDescription: Joi.string().when('itemType', { is: 'food', then: Joi.required() }),
@@ -34,7 +33,6 @@ const createItem = {
 
         // Specific fields for product items
         productName: Joi.string().when('itemType', { is: 'product', then: Joi.required() }),
-        productCategory: Joi.string().when('itemType', { is: 'product', then: Joi.optional() }),
         productDescription: Joi.string().when('itemType', { is: 'product', then: Joi.required() }),
         productPrice: Joi.number().when('itemType', { is: 'product', then: Joi.required() }),
         productDeliveryCharge: Joi.number().when('itemType', { is: 'product', then: Joi.required() }),
@@ -109,9 +107,9 @@ const updateItem = {
             images: Joi.array().items(Joi.string()).optional(),
 
             // Common category fields (forbidden for room)
-            parentCategory: Joi.string().custom(objectId).when('itemType', { is: 'room', then: Joi.forbidden() }),
-            subCategory: Joi.string().custom(objectId).when('itemType', { is: 'room', then: Joi.forbidden() }),
-
+            parentCategory: Joi.string().custom(objectId).optional(),
+            subCategory: Joi.string().custom(objectId).optional(),
+            
             // Fields specific to food
             dishName: Joi.string().optional(),
             dishDescription: Joi.string().optional(),
