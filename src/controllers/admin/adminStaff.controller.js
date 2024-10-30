@@ -3,6 +3,7 @@ const catchAsync = require('../../utils/catchAsync');
 const { adminStaffService, adminAuthService, s3Service } = require('../../services');
 const CONSTANTS = require('../../config/constant');
 const { AdminStaffModel } = require('../../models');
+const bcrypt = require('bcryptjs');
 
 const createAdminStaffUser = catchAsync(async (req, res) => {
     try {
@@ -74,27 +75,53 @@ const getAdminStaffUsers = catchAsync(async (req, res) => {
 
 const getAdminStaffUser = catchAsync(async (req, res) => {
     const staff = await adminStaffService.getAdminStaffUserById(req.params.staffId);
-    if (!staff) { return res.status(404).send({ data: {}, statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.ADMIN_NOT_FOUND }) }
-    return res.status(200).send({ data: staff, statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.ADMIN_STAFF_DETAILS });
+    if (!staff) {
+        return res.status(404).send({
+            data: {},
+            statusCode: CONSTANTS.NOT_FOUND,
+            message: CONSTANTS.ADMIN_NOT_FOUND
+        });
+    }
+    return res.status(200).send({
+        data: staff,
+        statusCode: CONSTANTS.SUCCESSFUL,
+        message: CONSTANTS.ADMIN_STAFF_DETAILS
+    });
 });
 
 const updateAdminStaffUser = catchAsync(async (req, res) => {
     const staff = await adminStaffService.updateAdminStaffUserById(req.params.staffId, req.body);
-    return res.status(200).send({ data: staff, statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.ADMIN_STAFF_UPDATE });
+    return res.status(200).send({
+        data: staff,
+        statusCode: CONSTANTS.SUCCESSFUL,
+        message: CONSTANTS.ADMIN_STAFF_UPDATE
+    });
 });
 
 const deleteAdminStaffUser = catchAsync(async (req, res) => {
     const details = await adminStaffService.deleteAdminStaffUserById(req.params.staffId);
     if (!details) {
-        return res.status(404).send({ data: {}, statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.ADMIN_NOT_FOUND });
+        return res.status(404).send({
+            data: {},
+            statusCode: CONSTANTS.NOT_FOUND,
+            message: CONSTANTS.ADMIN_NOT_FOUND
+        });
     }
-    return res.status(200).send({ data: details, statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.ADMIN_STAFF_STATUS_DELETE });
+    return res.status(200).send({
+        data: details,
+        statusCode: CONSTANTS.SUCCESSFUL,
+        message: CONSTANTS.ADMIN_STAFF_STATUS_DELETE
+    });
 });
 
 const getAdminStaffUsersWithoutPagination = catchAsync(async (req, res) => {
     const options = pick(req.query, ['searchBy', 'companyId']);
     const result = await adminStaffService.queryUsersWithoutPagination(options);
-    return res.status(200).send({ data: result, statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.ADMIN_STAFF_LIST });
+    return res.status(200).send({
+        data: result,
+        statusCode: CONSTANTS.SUCCESSFUL,
+        message: CONSTANTS.ADMIN_STAFF_LIST
+    });
 });
 
 const updateProfile = catchAsync(async (req, res) => {
@@ -110,26 +137,72 @@ const updateProfile = catchAsync(async (req, res) => {
     } else {
         result = await adminStaffService.updateAdminStaffUserById(req.user._id, req.body);
     }
-    return res.status(200).send({ data: result, statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.ADMIN_STAFF_UPDATE });
+    return res.status(200).send({
+        data: result,
+        statusCode: CONSTANTS.SUCCESSFUL,
+        message: CONSTANTS.ADMIN_STAFF_UPDATE
+    });
 });
-
 
 const getStaffWithRole = catchAsync(async (req, res) => {
     const staff = await adminStaffService.getStaffWithRole(req.params.staffId);
-    res.status(200).send({ data: staff, code: 200, message: 'Staff details retrieved successfully' });
+    res.status(200).send({
+        data: staff,
+        statusCode: CONSTANTS.SUCCESSFUL,
+        message: 'Staff details retrieved successfully'
+    });
 });
 
 const getUsers = catchAsync(async (req, res) => {
-    // Fetch users from the database, potentially with pagination and filtering
-    const users = await AdminStaffModel.find(); // Example, adjust based on your actual model
-    res.status(200).send({ data: users, code: 200, message: 'User list retrieved successfully' });
+    const users = await AdminStaffModel.find();
+    res.status(200).send({
+        data: users,
+        statusCode: CONSTANTS.SUCCESSFUL,
+        message: 'User list retrieved successfully'
+    });
 });
 
 const adminResetStaffPassword = catchAsync(async (req, res) => {
     const { emailOrPhone } = req.body;
-    if (!emailOrPhone) { return res.status(400).send({ data: {}, code: CONSTANTS.BAD_REQUEST, message: "Email or phone is required." }) }
+    if (!emailOrPhone) {
+        return res.status(400).send({
+            data: {},
+            statusCode: CONSTANTS.BAD_REQUEST,
+            message: "Email or phone is required."
+        });
+    }
     const result = await adminStaffService.adminResetPasswordForStaff(emailOrPhone);
     return res.status(result.code).send(result);
+});
+
+const changeStaffPassword = catchAsync(async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+        return res.status(CONSTANTS.BAD_REQUEST).send({
+            statusCode: CONSTANTS.BAD_REQUEST,
+            message: "Current password and new password are required."
+        });
+    }
+
+    // Retrieve the staff member's details
+    const staffDetails = await adminStaffService.getAdminStaffUserById(req.user._id);
+
+    // Verify current password
+    if (!staffDetails || !(await staffDetails.isPasswordMatch(currentPassword))) {
+        return res.status(CONSTANTS.UNAUTHORIZED).send({
+            statusCode: CONSTANTS.UNAUTHORIZED,
+            message: CONSTANTS.OLD_PASSWORD_MSG
+        });
+    }   
+
+    // Update password using the newly created function
+    const result = await adminStaffService.updateStaffPasswordById(req.user._id, newPassword);
+
+    return res.status(result.statusCode).send({
+        statusCode: result.statusCode,
+        message: result.message
+    });
 });
 
 module.exports = {
@@ -142,5 +215,6 @@ module.exports = {
     updateProfile,
     getStaffWithRole,
     getUsers,
-    adminResetStaffPassword
+    adminResetStaffPassword,
+    changeStaffPassword
 };

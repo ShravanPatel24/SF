@@ -12,6 +12,7 @@ module.exports.orderValidation = require('./order.validation');
 module.exports.postsValidation = require('./posts.validation');
 module.exports.itemsValidation = require('./item.validation');
 module.exports.dineOutValidation = require('./dineOut.validation');
+module.exports.TemplateValidation = require('./template.validation');
 // module.exports.sportsValidation = require('./sports.validation');
 // module.exports.matchesValidation = require('./matches.validation');
 // module.exports.newsValidation = require('./news.validation');

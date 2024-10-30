@@ -68,6 +68,9 @@ adminSchema.statics.isEmailTaken = async function (email, excludeAdminId) {
  */
 adminSchema.methods.isPasswordMatch = async function (password) {
     const admin = this;
+    if (!admin.password || !password) {
+        return false; // return false if either password is undefined
+    }
     return bcrypt.compare(password.toString(), admin.password);
 };
 

@@ -55,31 +55,34 @@ const resetPassword = catchAsync(async (req, res) => {
 });
 
 const changePassword = catchAsync(async (req, res) => {
-  let result;
   const { currentPassword, newPassword } = req.body;
 
-  // Check user type and retrieve details
-  if (req.user && req.user.type !== 'superadmin') {
-    const userDetails = await adminStaffService.getAdminStaffUserById(req.user._id);
-    if (!userDetails || !(await userDetails.isPasswordMatch(currentPassword))) {
-      return res.send({ data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.OLD_PASSWORD_MSG });
-    } else {
-      // Update password for staff
-      result = await adminStaffService.updateAdminStaffUserById(req.user._id, { password: newPassword });
-    }
-  } else {
-    const adminDetails = await adminAuthService.getAdminById(req.user._id);
-    if (!adminDetails || !(await adminDetails.isPasswordMatch(currentPassword))) {
-      return res.send({ data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.OLD_PASSWORD_MSG });
-    } else {
-      // Update password for superadmin
-      result = await adminAuthService.updateAdminById(req.user._id, { password: newPassword });
-    }
+  if (!currentPassword || !newPassword) {
+    return res.status(CONSTANT.BAD_REQUEST).send({
+      data: {},
+      statusCode: CONSTANT.BAD_REQUEST,
+      message: "Current password and new password are required."
+    });
   }
 
-  if (result) {
-    return res.send({ data: result, code: CONSTANT.SUCCESSFUL, message: CONSTANT.CHANGE_PASSWORD });
+  // Check the user's current password
+  const adminDetails = await adminAuthService.getAdminById(req.user._id);
+  if (!adminDetails || !(await adminDetails.isPasswordMatch(currentPassword))) {
+    return res.status(CONSTANT.UNAUTHORIZED).send({
+      data: {},
+      statusCode: CONSTANT.UNAUTHORIZED,
+      message: CONSTANT.OLD_PASSWORD_MSG
+    });
   }
+
+  // Update the password using the new function
+  const result = await adminAuthService.updatePasswordById(req.user._id, newPassword);
+
+  return res.status(result.code).send({
+    data: result.data,
+    statusCode: result.code,
+    message: result.message
+  });
 });
 
 const getLoggedIndUserDetails = catchAsync(async (req, res) => {

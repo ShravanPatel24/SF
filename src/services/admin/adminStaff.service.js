@@ -77,11 +77,31 @@ const getAdminStaffUserById = async (id) => {
 };
 
 const updateAdminStaffUserById = async (id, updateData) => {
-    console.log("Updated hashed password:", updateData.password); 
+    console.log("Updated hashed password:", updateData.password);
     if (updateData.password) {
         updateData.password = await bcrypt.hash(updateData.password, 10);
     }
     return AdminStaffModel.findByIdAndUpdate(id, updateData, { new: true });
+};
+
+const updateStaffPasswordById = async (staffId, newPassword) => {
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update only the password field for the specified staff member
+    const updatedStaff = await AdminStaffModel.findOneAndUpdate(
+        { _id: staffId },
+        { password: hashedPassword },
+        { new: true, runValidators: false } // Skip validators for password update
+    );
+
+    // Check if the staff member was found and updated
+    if (!updatedStaff) {
+        return { data: {}, statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.STAFF_NOT_FOUND };
+    }
+
+    // Return successful response
+    return { data: updatedStaff, statusCode: CONSTANTS.SUCCESSFUL, message: "Password changed successfully." };
 };
 
 const deleteAdminStaffUserById = async (id) => {
@@ -143,6 +163,7 @@ module.exports = {
     queryAdminStaffUsers,
     getAdminStaffUserById,
     updateAdminStaffUserById,
+    updateStaffPasswordById,
     deleteAdminStaffUserById,
     queryUsersWithoutPagination,
     getStaffWithRole,

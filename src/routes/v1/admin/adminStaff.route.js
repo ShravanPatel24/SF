@@ -29,7 +29,7 @@ router.patch('/:staffId', adminAuth(), validate(adminStaffValidation.updateStaff
 router.delete('/:staffId', adminAuth(), adminStaffController.deleteAdminStaffUser);
 router.get('/list/all', adminAuth(), adminStaffController.getAdminStaffUsersWithoutPagination);
 router.put('/profile/update', adminAuth(), adminStaffController.updateProfile);
-router.post('/password/change', adminAuth(), adminAuthController.changePassword);
+router.post('/password/change', adminAuth(), adminStaffController.changeStaffPassword);
 
 router.post('/reset-password-staff', adminAuth('manageUsers'), adminStaffController.adminResetStaffPassword);
 

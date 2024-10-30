@@ -8,6 +8,7 @@ const s3Service = require('../s3.service');
 const crypto = require("crypto");
 const mailFunctions = require("../../helpers/mailFunctions");
 const adminStaffService = require('./adminStaff.service');
+const bcrypt = require('bcryptjs');
 
 /**
  * Get user by id
@@ -51,6 +52,27 @@ const updateAdminById = async (adminId, updateBody, files) => {
 };
 
 /**
+ * Update password by admin ID
+ * @param {ObjectId} adminId
+ * @param {string} newPassword
+ * @returns {Promise<Admin>}
+ */
+const updatePasswordById = async (adminId, newPassword) => {
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  const updatedAdmin = await AdminModel.findOneAndUpdate(
+    { _id: adminId },
+    { password: hashedPassword },
+    { new: true, runValidators: false }
+  );
+
+  if (!updatedAdmin) {
+    return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.COMPANY_USER_NOT_FOUND };
+  }
+
+  return { data: updatedAdmin, code: CONSTANT.SUCCESSFUL, message: "Password changed successfully." };
+};
+
+/**
  * Get user by email
  * @param {string} email
  * @returns {Promise<User>}
@@ -85,8 +107,6 @@ const loginUserWithEmailOrPhone = async (emailOrPhone, password, req) => {
     } else {
       details.type = 'superadmin';
     }
-    console.log("Stored hashed password:", details.password);
-    console.log("Password provided for login:", password);
   } else {
     const isPhone = /^\d{10,}$/.test(emailOrPhone);
     if (isPhone) {
@@ -290,6 +310,7 @@ module.exports = {
   getAdminByEmail,
   getAdminById,
   updateAdminById,
+  updatePasswordById,
   validateUserWithEmail,
   loginUserWithEmailOrPhone,
   logout,

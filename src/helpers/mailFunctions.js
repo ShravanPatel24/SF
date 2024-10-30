@@ -247,6 +247,39 @@ const sendPasswordResetEmailByAdmin = async (email, name, newPassword) => {
 //     });
 // };
 
+/**
+ * Send an email using a template.
+ * @param {string} to - Recipient email address.
+ * @param {string} templateFor - Template purpose (e.g., 'reset-password', 'welcome-email').
+ * @param {Object} dynamicData - Data to replace placeholders in the template (e.g., { userName: 'John' }).
+ */
+async function sendTemplatedEmail(to, templateFor, dynamicData) {
+    const template = await TEMPLATE.findOne({ templateFor, status: 1, isDelete: 1 });
+    if (!template) throw new Error("Template not found or is inactive.");
+
+    // Replace placeholders with dynamic data
+    let emailBody = template.templateDisc;
+    for (const key in dynamicData) {
+        const regex = new RegExp(`{${key}}`, "g");
+        emailBody = emailBody.replace(regex, dynamicData[key]);
+    }
+
+    const mailOptions = {
+        to,
+        from: `${template.fromName} <${template.fromEmail}>`,
+        subject: template.subject,
+        html: emailBody,
+    };
+
+    if (template.attachments && template.attachments.length > 0) {
+        mailOptions.attachments = template.attachments.map((filePath) => ({
+            path: filePath,
+        }));
+    }
+
+    await sgMail.send(mailOptions);
+}
+
 module.exports = {
     sendEmail,
     sendOtpOnMail: sendOtpOnMail,
@@ -257,5 +290,6 @@ module.exports = {
     sendWelcomeEmail: sendWelcomeEmail,
     sendLoginNotificationEmail: sendLoginNotificationEmail,
     sendActivationEmail: sendActivationEmail,
-    sendPasswordResetEmailByAdmin: sendPasswordResetEmailByAdmin
+    sendPasswordResetEmailByAdmin: sendPasswordResetEmailByAdmin,
+    sendTemplatedEmail: sendTemplatedEmail
 };

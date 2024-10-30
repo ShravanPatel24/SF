@@ -148,6 +148,48 @@ components:
                   enum: ["add", "edit", "delete", "view"]
                   example: "view"
 
+    Template:
+      type: object
+      properties:
+        templateName:
+          type: string
+          example: "Account Activation"
+        subject:
+          type: string
+          example: "Activate Your Account"
+        fromName:
+          type: string
+          example: "Ocean Support"
+        fromEmail:
+          type: string
+          example: "support@ocean.com"
+        templateFor:
+          type: string
+          example: "account-activation"
+        templateType:
+          type: integer
+          example: 0
+        templateDisc:
+          type: string
+          example: "<p>Hello {userName},</p><p>Click the link below to activate your account:</p><p>{activationLink}</p>"
+        status:
+          type: integer
+          example: 1
+        isDelete:
+          type: integer
+          example: 1
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-10-30T10:10:10.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-10-30T10:10:10.000Z"
+        id:
+          type: string
+          example: "template_id_generated"
+
     ChangePasswordRequest:
       type: object
       properties:
@@ -1011,7 +1053,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ChangePasswordRequest"
+              type: object
+              properties:
+                currentPassword:
+                  type: string
+                  description: currennt password of the admin
+                newPassword:
+                  type: string
+                  example: new password of the admin
       responses:
         "200":
           description: Password changed successfully
@@ -2184,7 +2233,7 @@ paths:
             enum:
               - food
               - room
-              - product      
+              - product
       responses:
         "200":
           description: Categories retrieved successfully with filters, pagination, and sorting
@@ -2314,6 +2363,261 @@ paths:
           description: Category deleted successfully
         "404":
           description: Category not found
+
+  # Templates
+  /templates:
+    post:
+      summary: Create a new template
+      tags:
+        - Templates
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Template data to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                templateName:
+                  type: string
+                  example: "Account Activation"
+                subject:
+                  type: string
+                  example: "Activate Your Account"
+                fromName:
+                  type: string
+                  example: "Ocean Support"
+                fromEmail:
+                  type: string
+                  example: "support@ocean.com"
+                templateFor:
+                  type: string
+                  example: "account-activation"
+                templateType:
+                  type: integer
+                  enum: [0, 1]
+                  example: 0
+                templateDisc:
+                  type: string
+                  example: "<p>Hello {userName},</p><p>Click the link below to activate your account:</p><p>{activationLink}</p>"
+      responses:
+        200:
+          description: Template created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "Template created successfully"
+                  data:
+                    type: object
+                    $ref: "#/components/schemas/Template"
+    get:
+      summary: Retrieve all templates
+      tags:
+        - Templates
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+          example: createdAt:desc
+          description: Field to sort by (e.g., createdAt)
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          example: 10
+          description: Maximum number of results per page
+        - in: query
+          name: page
+          schema:
+            type: integer
+          example: 1
+          description: Page number
+        - in: query
+          name: search
+          schema:
+            type: string
+          example: "Account"
+          description: Search term to filter templates
+      responses:
+        200:
+          description: List of templates retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "Templates retrieved successfully"
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Template"
+
+  /templates/{templateId}:
+    get:
+      summary: Get a single template by ID
+      tags:
+        - Templates
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "62d78c729035d82a40d92fb4"
+      responses:
+        200:
+          description: Template details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "Template details retrieved successfully"
+                  data:
+                    $ref: "#/components/schemas/Template"
+    patch:
+      summary: Update a template
+      tags:
+        - Templates
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Fields to update in the template
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                templateName:
+                  type: string
+                subject:
+                  type: string
+                fromName:
+                  type: string
+                fromEmail:
+                  type: string
+                templateDisc:
+                  type: string
+                status:
+                  type: integer
+                  enum: [0, 1]
+                isDelete:
+                  type: integer
+                  enum: [0, 1]
+      responses:
+        200:
+          description: Template updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "Template updated successfully"
+                  data:
+                    $ref: "#/components/schemas/Template"
+    delete:
+      summary: Delete a template
+      tags:
+        - Templates
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Template deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "Template deleted successfully"
+
+  /templates/send-email:
+    post:
+      summary: Send an email using a template
+      tags:
+        - Templates
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Email data and template information
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                to:
+                  type: string
+                  example: "user@example.com"
+                templateFor:
+                  type: string
+                  example: "account-activation"
+                data:
+                  type: object
+                  example:
+                    userName: "John Doe"
+                    activationLink: "https://example.com/activate?token=abc123"
+      responses:
+        200:
+          description: Email sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "Email sent successfully"
 
   # Business Type
   /business-type:

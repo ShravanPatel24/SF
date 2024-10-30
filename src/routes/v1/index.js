@@ -10,6 +10,7 @@ const itemCategoryRoute = require('./itemCategory.route');
 const dineOutRoute = require('./dineOut.routes');
 const cartRoute = require('./cart.routes')
 const orderRoute = require('./order.route')
+const templateRoute = require('./template.route')
 
 const AdminAuthRoute = require("./admin/auth.route");
 const AdminStaffRoute = require("./admin/adminStaff.route");
@@ -50,6 +51,7 @@ const defaultRoutes = [
   { path: '/cart', route: cartRoute },
   { path: '/order', route: orderRoute },
   { path: '/posts', route: PostRoute },
+  { path: '/templates', route: templateRoute },
 ];
 
 const devRoutes = [
