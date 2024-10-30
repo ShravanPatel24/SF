@@ -14,7 +14,7 @@ const createOrder = async (userId, cartId, paymentMethod, orderNote) => {
     });
 
     if (!cart || cart.items.length === 0) {
-        return res.status(400).json({ statusCode: 400, message: CONSTANTS.CART_EMPTY });
+        throw new Error(CONSTANTS.CART_EMPTY);
     }
 
     // Extract the partnerId from the first item in the cart
@@ -58,22 +58,23 @@ const createOrder = async (userId, cartId, paymentMethod, orderNote) => {
         orderNote: orderNote,
         orderId: customOrderId,
         orderNumber: orderNumber,
-        status: paymentMethod === 'online' ? 'pending_payment' : 'ordered'
+        orderStatus: 'pending'  // Set order status to 'pending' for both cash and online payments
     });
 
     await order.save();
 
-    // Handle online payment and other logic if needed
+    // Handle online payment only
     if (paymentMethod === 'online') {
         const paymentResult = await processOnlinePayment(order);
 
         if (!paymentResult.success) {
-            console.log("Payment failed, marking the order as failed.");
-            order.paymentFailed = true;
-            return order;
+            console.log("Payment failed, marking the order as payment_failed.");
+            order.orderStatus = 'payment_failed';  // Mark as payment failed
+            await order.save();
+            throw new Error(CONSTANTS.PAYMENT_FAILED);  // Optional: throw an error if you want to handle it further up the call stack
         }
         console.log("Payment successful, updating order status to paid.");
-        order.status = 'paid';
+        order.orderStatus = 'paid';  // Update order status to paid
         await order.save();
     }
 
@@ -88,6 +89,7 @@ const createOrder = async (userId, cartId, paymentMethod, orderNote) => {
     return order;
 };
 
+
 // Mock online payment processing (this should be replaced with real payment logic)
 const processOnlinePayment = async (order) => {
     // Simulate an online payment (replace with actual payment gateway integration)
@@ -97,6 +99,7 @@ const processOnlinePayment = async (order) => {
         }, 2000);  // Simulate a 2-second delay for the payment process
     });
 };
+
 
 const updateOrderStatus = async (orderId, orderStatus) => {
     const order = await OrderModel.findById(orderId);
@@ -119,7 +122,8 @@ const getOrdersByUser = async (userId) => {
 const getOrderById = async (orderId) => {
     const order = await OrderModel.findById(orderId)
         .populate('user', '_id name email phone')
-        .populate('items.item');
+        .populate('items.item')
+        .populate('orderStatus');
     return order;
 };
 

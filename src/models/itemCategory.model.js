@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const mongoosePaginate = require("mongoose-paginate-v2");
 
 const itemCategorySchema = new mongoose.Schema({
     categoryName: { type: String, required: true },
@@ -25,6 +26,7 @@ const itemCategorySchema = new mongoose.Schema({
     timestamps: true
 });
 
+itemCategorySchema.plugin(mongoosePaginate);
 const ItemCategoryModel = mongoose.model("ItemCategory", itemCategorySchema);
 
 module.exports = ItemCategoryModel;

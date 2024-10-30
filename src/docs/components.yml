@@ -1157,7 +1157,7 @@ paths:
 
   /admin/user/reset-password:
     post:
-      summary: Reset password of user and password by admin
+      summary: Reset password of user by admin
       tags:
         - Admin User
       security:
@@ -1843,6 +1843,76 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /admin/staff/reset-password:
+    post:
+      summary: Reset password of staff by admin
+      tags:
+        - Admin Staff
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailOrPhone:
+                  type: string
+                  description: email/phone of the user
+                type:
+                  type: string
+                  example: staff
+              required:
+                - emailOrPhone
+                - type
+      responses:
+        "200":
+          description: Password reset successfully
+        "400":
+          description: Invalid token or new password
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /admin/staff/password/change:
+    post:
+      summary: Staff Change Password
+      tags:
+        - Admin Staff
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                currentPassword:
+                  type: string
+                  description: currennt password of the staff
+                newPassword:
+                  type: string
+                  example: new password of the staff
+      responses:
+        "200":
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                example:
+                  message: "Password changed successfully"
+        "400":
+          $ref: "#/components/responses/PasswordMismatch"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/InvalidCurrentPassword"
+
   # Admin Staff Role
   /admin/roles/create:
     post:
@@ -2063,6 +2133,89 @@ paths:
                   $ref: "#/components/schemas/ItemCategory"
         "404":
           description: Categories not found
+
+  /item-category/categories:
+    get:
+      summary: Get all categories with filters, pagination, and sorting
+      tags:
+        - Item Category (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Limit number of results per page
+          schema:
+            type: integer
+            default: 10
+        - name: sortBy
+          in: query
+          description: Sort order for categories (asc or desc)
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            default: asc
+        - name: search
+          in: query
+          description: Search categories by name or specific field
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by status (1 for active, 0 for inactive)
+          schema:
+            type: string
+            enum:
+              - "1"
+              - "0"
+        - name: categoryType
+          in: query
+          description: Filter categories by type (e.g., food, room, product)
+          schema:
+            type: string
+            enum:
+              - food
+              - room
+              - product      
+      responses:
+        "200":
+          description: Categories retrieved successfully with filters, pagination, and sorting
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ItemCategory"
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 100
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 10
+        "400":
+          description: Invalid input for filtering categories
+        "404":
+          description: No categories found matching the filters
 
   /item-category/subcategories/{parentCategoryId}:
     get:

@@ -85,6 +85,8 @@ const loginUserWithEmailOrPhone = async (emailOrPhone, password, req) => {
     } else {
       details.type = 'superadmin';
     }
+    console.log("Stored hashed password:", details.password);
+    console.log("Password provided for login:", password);
   } else {
     const isPhone = /^\d{10,}$/.test(emailOrPhone);
     if (isPhone) {

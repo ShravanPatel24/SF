@@ -1,4 +1,10 @@
 const { AdminStaffModel } = require('../../models');
+const mailFunctions = require("../../helpers/mailFunctions");
+const CONSTANTS = require("../../config/constant");
+const validator = require("validator")
+const bcrypt = require('bcryptjs');
+var generator = require('generate-password');
+
 const mongoose = require('mongoose');
 
 const getAdminStaffByEmail = async (email) => {
@@ -71,6 +77,10 @@ const getAdminStaffUserById = async (id) => {
 };
 
 const updateAdminStaffUserById = async (id, updateData) => {
+    console.log("Updated hashed password:", updateData.password); 
+    if (updateData.password) {
+        updateData.password = await bcrypt.hash(updateData.password, 10);
+    }
     return AdminStaffModel.findByIdAndUpdate(id, updateData, { new: true });
 };
 
@@ -92,6 +102,40 @@ const getStaffWithRole = async (staffId) => {
     return staff;
 };
 
+const adminResetPasswordForStaff = async (emailOrPhone) => {
+    try {
+        let staff;
+        if (validator.isEmail(emailOrPhone)) {
+            staff = await getAdminStaffByEmail(emailOrPhone.toLowerCase());
+        } else if (validator.isMobilePhone(emailOrPhone)) {
+            staff = await getAdminStaffByPhone(emailOrPhone);
+        } else {
+            return { data: {}, code: CONSTANTS.BAD_REQUEST, message: "Must provide a valid email or phone number." };
+        }
+
+        if (!staff) {
+            return { data: {}, code: CONSTANTS.NOT_FOUND, message: "Staff not found." };
+        }
+
+        const newPassword = generator.generate({ length: 10, numbers: true });
+
+        // Update the staff password with hashing
+        await updateAdminStaffUserById(staff._id, { password: newPassword });
+
+        const staffName = staff.name || 'Staff';
+        await mailFunctions.sendPasswordResetEmailByAdmin(staff.email, staffName, newPassword);
+
+        return {
+            data: {},
+            code: CONSTANTS.SUCCESSFUL,
+            message: `Password reset successful. An email with the new password has been sent to ${staff.email}.`
+        };
+    } catch (error) {
+        console.error("Error in adminResetPasswordForStaff:", error);
+        return { data: {}, code: CONSTANTS.INTERNAL_SERVER_ERROR, message: "An error occurred during the password reset process." };
+    }
+};
+
 module.exports = {
     getAdminStaffByEmail,
     getAdminStaffByPhone,
@@ -101,5 +145,6 @@ module.exports = {
     updateAdminStaffUserById,
     deleteAdminStaffUserById,
     queryUsersWithoutPagination,
-    getStaffWithRole
+    getStaffWithRole,
+    adminResetPasswordForStaff,
 };

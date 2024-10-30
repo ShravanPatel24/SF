@@ -54,28 +54,29 @@ const resetPassword = catchAsync(async (req, res) => {
   }
 });
 
-
 const changePassword = catchAsync(async (req, res) => {
-  var result;
-  console.log('req.user===', req.user)
-  if (req.user && req.user.type != 'superadmin') {
-    var userDetails = await adminStaffService.getAdminStaffUserById(req.user._id);
-    if (!userDetails || !(await userDetails.isPasswordMatch(req.body.currentPassword))) {
-      // console.log('check if---', userDetails)
-      return res.send({ data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.OLD_PASSWORD_MSG })
+  let result;
+  const { currentPassword, newPassword } = req.body;
+
+  // Check user type and retrieve details
+  if (req.user && req.user.type !== 'superadmin') {
+    const userDetails = await adminStaffService.getAdminStaffUserById(req.user._id);
+    if (!userDetails || !(await userDetails.isPasswordMatch(currentPassword))) {
+      return res.send({ data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.OLD_PASSWORD_MSG });
     } else {
-      result = await adminStaffService.updateAdminStaffUserById(req.user._id, req.body);
+      // Update password for staff
+      result = await adminStaffService.updateAdminStaffUserById(req.user._id, { password: newPassword });
     }
   } else {
-    var adminDetails = await adminAuthService.getAdminById(req.user._id);
-    console.log("🚀 ~ file: adminAuth.controller.js:62 ~ changePassword ~ adminDetails:", adminDetails)
-    if (!adminDetails || !(await adminDetails.isPasswordMatch(req.body.currentPassword))) {
-      return res.send({ data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.OLD_PASSWORD_MSG })
+    const adminDetails = await adminAuthService.getAdminById(req.user._id);
+    if (!adminDetails || !(await adminDetails.isPasswordMatch(currentPassword))) {
+      return res.send({ data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.OLD_PASSWORD_MSG });
     } else {
-      console.log('check else---', req.user._id)
-      result = await adminAuthService.updateAdminById(req.user._id, req.body);
+      // Update password for superadmin
+      result = await adminAuthService.updateAdminById(req.user._id, { password: newPassword });
     }
   }
+
   if (result) {
     return res.send({ data: result, code: CONSTANT.SUCCESSFUL, message: CONSTANT.CHANGE_PASSWORD });
   }

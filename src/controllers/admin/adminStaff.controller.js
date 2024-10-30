@@ -113,23 +113,6 @@ const updateProfile = catchAsync(async (req, res) => {
     return res.status(200).send({ data: result, statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.ADMIN_STAFF_UPDATE });
 });
 
-const changePassword = catchAsync(async (req, res) => {
-    let result;
-    if (req.user && req.user.company) {
-        const userDetails = await adminStaffService.getAdminStaffUserById(req.user._id);
-        if (!userDetails || !(await userDetails.isPasswordMatch(req.body.oldPassword))) {
-            return res.status(401).send({ data: {}, statusCode: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.OLD_PASSWORD_MSG });
-        }
-        result = await adminStaffService.updateAdminStaffUserById(req.user._id, req.body);
-    } else {
-        const companyDetails = await adminAuthService.getCompanyById(req.user._id);
-        if (!companyDetails || !(await companyDetails.isPasswordMatch(req.body.oldPassword))) {
-            return res.status(401).send({ data: {}, statusCode: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.OLD_PASSWORD_MSG });
-        }
-        result = await adminAuthService.updateCompanyById(req.user._id, req.body);
-    }
-    return res.status(200).send({ data: result, statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.CHANGE_PASSWORD });
-});
 
 const getStaffWithRole = catchAsync(async (req, res) => {
     const staff = await adminStaffService.getStaffWithRole(req.params.staffId);
@@ -142,6 +125,13 @@ const getUsers = catchAsync(async (req, res) => {
     res.status(200).send({ data: users, code: 200, message: 'User list retrieved successfully' });
 });
 
+const adminResetStaffPassword = catchAsync(async (req, res) => {
+    const { emailOrPhone } = req.body;
+    if (!emailOrPhone) { return res.status(400).send({ data: {}, code: CONSTANTS.BAD_REQUEST, message: "Email or phone is required." }) }
+    const result = await adminStaffService.adminResetPasswordForStaff(emailOrPhone);
+    return res.status(result.code).send(result);
+});
+
 module.exports = {
     createAdminStaffUser,
     getAdminStaffUsers,
@@ -150,7 +140,7 @@ module.exports = {
     deleteAdminStaffUser,
     getAdminStaffUsersWithoutPagination,
     updateProfile,
-    changePassword,
     getStaffWithRole,
-    getUsers
+    getUsers,
+    adminResetStaffPassword
 };

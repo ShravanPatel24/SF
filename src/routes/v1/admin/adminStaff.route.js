@@ -1,5 +1,5 @@
 const express = require('express');
-const { adminStaffController } = require('../../../controllers');
+const { adminStaffController, adminAuthController } = require('../../../controllers');
 const { adminAuth } = require('../../../middlewares');
 const validate = require('../../../middlewares/validate');
 const { adminStaffValidation } = require('../../../validations');
@@ -29,6 +29,8 @@ router.patch('/:staffId', adminAuth(), validate(adminStaffValidation.updateStaff
 router.delete('/:staffId', adminAuth(), adminStaffController.deleteAdminStaffUser);
 router.get('/list/all', adminAuth(), adminStaffController.getAdminStaffUsersWithoutPagination);
 router.put('/profile/update', adminAuth(), adminStaffController.updateProfile);
-router.post('/password/change', adminAuth(), adminStaffController.changePassword);
+router.post('/password/change', adminAuth(), adminAuthController.changePassword);
+
+router.post('/reset-password-staff', adminAuth('manageUsers'), adminStaffController.adminResetStaffPassword);
 
 module.exports = router;

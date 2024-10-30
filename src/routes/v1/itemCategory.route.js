@@ -4,6 +4,9 @@ const { adminAuth } = require('../../middlewares');
 
 const router = express.Router();
 
+// Route to get categories with status filters
+router.get('/categories', adminAuth(), ItemCategoryController.getAllCategories);
+
 // Route to create a category
 router.post('/create', adminAuth('create'), ItemCategoryController.createCategory);
 

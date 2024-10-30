@@ -62,7 +62,7 @@ const getOrderById = catchAsync(async (req, res) => {
         _id: order._id,
         orderId: order.orderId,
         orderNumber: order.orderNumber,
-        status: order.status,
+        orderStatus: order.orderStatus,
         paymentMethod: order.paymentMethod,
         deliveryAddress: order.deliveryAddress,
         totalPrice: order.totalPrice,

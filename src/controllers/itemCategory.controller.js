@@ -50,6 +50,36 @@ const getCategoriesByType = catchAsync(async (req, res) => {
     }
 });
 
+// Get all categories with filters, pagination, and sorting
+const getAllCategories = catchAsync(async (req, res) => {
+    const { page, limit, sortBy, search, status, categoryType } = req.query;
+    const categories = await ItemCategoryService.getAllCategories({
+        page,
+        limit,
+        sortBy,
+        search,
+        status,
+        categoryType,
+    });
+
+    res.status(200).json({
+        statusCode: 200,
+        data: {
+            docs: categories.docs,
+            totalDocs: categories.totalDocs,
+            limit: categories.limit,
+            totalPages: categories.totalPages,
+            page: categories.page,
+            pagingCounter: categories.pagingCounter,
+            hasPrevPage: categories.hasPrevPage,
+            hasNextPage: categories.hasNextPage,
+            prevPage: categories.prevPage,
+            nextPage: categories.nextPage,
+        },
+        message: CONSTANTS.LIST
+    });
+});
+
 // Get subcategories by parent category
 const getSubcategoriesByParent = catchAsync(async (req, res) => {
     const { parentCategoryId } = req.params;
@@ -103,6 +133,7 @@ const deleteCategory = catchAsync(async (req, res) => {
 module.exports = {
     createCategory,
     getCategoriesByType,
+    getAllCategories,
     getSubcategoriesByParent,
     updateCategory,
     deleteCategory

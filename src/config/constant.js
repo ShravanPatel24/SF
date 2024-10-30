@@ -221,6 +221,7 @@ module.exports = {
     INVALID_DATE_ORDER: "Check-in date must be before the check-out date.",
     CHECKIN_CHECKOUT_GUEST_REQUIRED: "Check-in date, check-out date, and guest count are required for room bookings.",
     INVALID_DATES: 'Invalid check-in or check-out dates.',
+    DELIVERY_ADDRESS_REQUIRED: 'Delivery Address is required.',
 
     // ORDER
     PAYMENT_SUCCESS_ONLINE_HOTEL_MSG: "Payment successful. Your hotel reservation has been successfully made.",
