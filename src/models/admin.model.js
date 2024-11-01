@@ -23,8 +23,10 @@ const adminSchema = mongoose.Schema({
     },
     role: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'AdminRoles', // Reference to your roles model
-        required: true
+        ref: 'AdminRoles',
+        required: function () {
+            return this.type !== 'superadmin'; // Only require 'role' if the type is not 'superadmin'
+        }
     },
     profilePhoto: String,
     logo: String,

@@ -233,4 +233,12 @@ module.exports = {
     CANCEL_AFTER_DELIVERED_ERROR: 'Cannot cancel an order that has already been delivered.',
     ORDER_CANCELLED: 'Order Cancelled Succesfully.',
     UPDATE_STATUS_AFTER_DELIVERD_ERROR: 'Cannot update status of an order that has already been delivered or cancelled.',
+
+    // TEMPLATES
+    TEMPLATE_CREATE: "Template created successfully.",
+    TEMPLATE_NOT_FOUND: "Template not found.",
+    TEMPLATE_UPDATE: "Template updated successfully.",
+    TEMPLATE_STATUS_DELETE: "Template deleted successfully.",
+    TEMPLATE_LIST: "Template list retrieved suucessfully.",
+    TEMPLATE_DETAILS: "Template details.",
 };

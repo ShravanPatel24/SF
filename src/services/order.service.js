@@ -7,47 +7,31 @@ const createOrder = async (userId, cartId, paymentMethod, orderNote) => {
     const customOrderId = Math.floor(Date.now() / 1000).toString();
     const orderNumber = `#${customOrderId}`;
 
-    // Fetch the cart and ensure that the 'partner' field in each item is populated
+    // Fetch the cart
     const cart = await CartModel.findById(cartId).populate({
         path: 'items.item',
-        populate: { path: 'partner', select: '_id name' }  // Ensure partner is populated
+        populate: { path: 'partner', select: '_id name' }
     });
 
     if (!cart || cart.items.length === 0) {
         throw new Error(CONSTANTS.CART_EMPTY);
     }
 
-    // Extract the partnerId from the first item in the cart
     const firstItem = cart.items[0].item;
-    const partnerId = firstItem.partner._id;  // Extract the partner ID
+    const partnerId = firstItem.partner._id;
 
-    // Calculate the price for each item and prepare the order details
-    cart.items.forEach(item => {
-        const product = item.item;
+    // Initialize the transaction history
+    const transactionHistory = [{
+        type: "Order Placed",
+        date: new Date(),
+        amount: cart.totalPrice,
+        status: "Completed"
+    }];
 
-        if (product.itemType === 'room') {
-            const checkIn = new Date(item.checkIn);
-            const checkOut = new Date(item.checkOut);
-            const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
-            if (nights <= 0) {
-                throw new Error(CONSTANTS.INVALID_DATES);
-            }
-            item.price = product.roomPrice * nights;
-        } else if (product.itemType === 'product') {
-            const variant = product.variants.find(v => v.size === item.selectedSize && v.color === item.selectedColor);
-            if (!variant) {
-                throw new Error(CONSTANTS.VARIANT_NOT_FOUND);
-            }
-            item.price = variant.productPrice * item.quantity;
-        } else if (product.itemType === 'food') {
-            item.price = product.dishPrice * item.quantity;
-        }
-    });
-
-    // Create the order with the user, partner, and other details
+    // Create the order
     const order = new OrderModel({
         user: userId,
-        partner: partnerId,  // Set the partner ID here
+        partner: partnerId,
         items: cart.items,
         deliveryAddress: cart.deliveryAddress,
         totalPrice: cart.totalPrice,
@@ -58,37 +42,35 @@ const createOrder = async (userId, cartId, paymentMethod, orderNote) => {
         orderNote: orderNote,
         orderId: customOrderId,
         orderNumber: orderNumber,
-        orderStatus: 'pending'  // Set order status to 'pending' for both cash and online payments
+        orderStatus: 'pending',
+        transactionHistory: transactionHistory
     });
 
     await order.save();
 
-    // Handle online payment only
     if (paymentMethod === 'online') {
         const paymentResult = await processOnlinePayment(order);
-
         if (!paymentResult.success) {
-            console.log("Payment failed, marking the order as payment_failed.");
-            order.orderStatus = 'payment_failed';  // Mark as payment failed
+            order.orderStatus = 'payment_failed';
             await order.save();
-            throw new Error(CONSTANTS.PAYMENT_FAILED);  // Optional: throw an error if you want to handle it further up the call stack
+            throw new Error(CONSTANTS.PAYMENT_FAILED);
         }
-        console.log("Payment successful, updating order status to paid.");
-        order.orderStatus = 'paid';  // Update order status to paid
+        order.orderStatus = 'paid';
+        order.transactionHistory.push({
+            type: "Payment Completed",
+            date: new Date(),
+            amount: order.totalPrice,
+            status: "Completed"
+        });
         await order.save();
     }
 
-    // Clear the cart after the order is placed
     cart.items = [];
     cart.totalPrice = 0;
-    cart.subtotal = 0;
-    cart.tax = 0;
-    cart.deliveryCharge = 0;
     await cart.save();
 
     return order;
 };
-
 
 // Mock online payment processing (this should be replaced with real payment logic)
 const processOnlinePayment = async (order) => {
@@ -103,9 +85,21 @@ const processOnlinePayment = async (order) => {
 
 const updateOrderStatus = async (orderId, orderStatus) => {
     const order = await OrderModel.findById(orderId);
-    if (!order) { throw { statusCode: 404, message: CONSTANTS.ORDER_NOT_FOUND } }
-    if (order.orderStatus === 'delivered' || order.orderStatus === 'cancelled') { throw { statusCode: 400, message: CONSTANTS.UPDATE_STATUS_AFTER_DELIVERD_ERROR } }
+    if (!order) throw { statusCode: 404, message: CONSTANTS.ORDER_NOT_FOUND };
+
+    if (order.orderStatus === 'delivered' || order.orderStatus === 'cancelled') {
+        throw { statusCode: 400, message: CONSTANTS.UPDATE_STATUS_AFTER_DELIVERD_ERROR };
+    }
+
+    // Update order status and add to transaction history
     order.orderStatus = orderStatus;
+    order.transactionHistory.push({
+        type: `Order ${orderStatus.charAt(0).toUpperCase() + orderStatus.slice(1)}`,  // Capitalize status
+        date: new Date(),
+        amount: order.totalPrice,
+        status: "Completed"
+    });
+
     await order.save();
     return order;
 };
@@ -305,6 +299,164 @@ const getOrdersByPartnerId = async (partnerId, search = '', itemType = '', sortB
     return { orders: filteredOrders, totalOrders };
 };
 
+const getTransactionHistoryByOrderId = async (orderId) => {
+    const order = await OrderModel.findById(orderId)
+        .populate('user', 'name email phone')
+        .populate('partner', 'name email')
+        .populate({
+            path: 'items.item',
+            populate: {
+                path: 'business businessType',
+                select: 'businessName name'
+            }
+        })
+        .select('transactionHistory refundStatus totalPrice subtotal tax deliveryCharge orderStatus paymentMethod deliveryAddress orderNote createdAt updatedAt items');
+
+    if (!order) {
+        throw new Error(CONSTANTS.ORDER_NOT_FOUND);
+    }
+
+    // Filter transaction history for refund details only if item type is 'product'
+    const filteredTransactionHistory = order.transactionHistory.map(transaction => {
+        if (transaction.type === "Refund Requested") {
+            // Check if refund request is for a product item
+            const isProductItem = order.items.some(item => item.item.itemType === 'product');
+            if (isProductItem) {
+                return {
+                    type: transaction.type,
+                    date: transaction.date,
+                    amount: transaction.amount,
+                    status: transaction.status,
+                    refundDetails: transaction.refundDetails || {}
+                };
+            }
+            // Exclude refund details for non-product items
+            return null;
+        }
+        return transaction;
+    }).filter(Boolean);
+
+    return {
+        orderId: order.orderId,
+        orderNumber: order.orderNumber,
+        user: order.user,
+        partner: order.partner,
+        items: order.items.map(item => ({
+            itemId: item.item._id,
+            itemType: item.item.itemType,
+            name: item.item.productName || item.item.dishName || item.item.roomName,
+            description: item.item.productDescription || item.item.dishDescription || item.item.roomDescription,
+            price: item.price,
+            quantity: item.quantity,
+            selectedSize: item.selectedSize || null,
+            selectedColor: item.selectedColor || null
+        })),
+        totalPrice: order.totalPrice,
+        subtotal: order.subtotal,
+        tax: order.tax,
+        deliveryCharge: order.deliveryCharge,
+        orderStatus: order.orderStatus,
+        paymentMethod: order.paymentMethod,
+        refundStatus: order.refundStatus,
+        deliveryAddress: order.deliveryAddress,
+        orderNote: order.orderNote,
+        transactionHistory: filteredTransactionHistory,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt
+    };
+};
+
+const getAllTransactionHistory = async ({ page, limit }) => {
+    const options = {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        select: 'orderId transactionHistory refundStatus totalPrice user partner',
+        sort: { createdAt: -1 }
+    };
+
+    const orderSummaries = await OrderModel.paginate({}, options);
+
+    return orderSummaries;
+};
+
+const requestRefundForItems = async (orderId, itemIds, reason, processedBy) => {
+    const order = await OrderModel.findById(orderId).populate('items.item');
+    if (!order) throw new Error(CONSTANTS.ORDER_NOT_FOUND);
+    // Calculate the total refund amount based on specified items
+    const exactRefundAmount = order.items
+        .filter(item => itemIds.includes(item.item._id.toString()) && item.item.itemType === 'product')
+        .reduce((total, item) => {
+            let price;
+
+            // For 'product' type, find the matching variant price based on selected options
+            if (item.item.itemType === 'product') {
+                const variant = item.item.variants.find(v =>
+                    v.size === item.selectedSize && v.color === item.selectedColor
+                );
+                if (variant) {
+                    price = variant.productPrice;
+                } else {
+                    throw new Error("Variant not found for selected options during refund calculation.");
+                }
+            } else {
+                // For other item types like 'food' or 'room'
+                price = item.item.dishPrice || item.item.roomPrice;
+            }
+
+            if (!price) throw new Error("Price not found for item during refund calculation.");
+            return total + (price * item.quantity);
+        }, 0);
+
+    if (isNaN(exactRefundAmount) || exactRefundAmount <= 0) {
+        throw new Error("Invalid refund amount calculated.");
+    }
+
+    order.refundStatus = 'pending';
+    order.transactionHistory.push({
+        type: "Refund Requested",
+        date: new Date(),
+        amount: exactRefundAmount,
+        status: "pending",
+        refundDetails: {
+            reason: reason,
+            processedBy: processedBy,
+            items: itemIds
+        }
+    });
+
+    await order.save();
+    return order;
+};
+
+const processRefundDecision = async (orderId, decision, partnerId) => {
+    const order = await OrderModel.findOne({ _id: orderId, partner: partnerId });
+    if (!order) throw new Error("Order not found or unauthorized access");
+
+    // Find the last refund request entry in transaction history
+    const lastTransaction = order.transactionHistory
+        .filter(th => th.type.startsWith("Refund"))
+        .pop();
+
+    if (!lastTransaction || lastTransaction.status !== "pending") {
+        throw new Error("Refund request is either not pending or already processed.");
+    }
+
+    // Update refund status based on decision
+    const isAccepted = decision === 'accept';
+    order.refundStatus = isAccepted ? 'approved' : 'rejected';
+
+    // Add a new transaction history entry
+    order.transactionHistory.push({
+        type: `Refund ${isAccepted ? 'Approved' : 'Rejected'}`,
+        date: new Date(),
+        amount: lastTransaction.amount,
+        status: isAccepted ? 'Completed' : 'Rejected',
+    });
+
+    await order.save();
+    return order;
+};
+
 module.exports = {
     createOrder,
     processOnlinePayment,
@@ -317,5 +469,9 @@ module.exports = {
     trackOrder,
     queryOrder,
     getOrdersByUserIdAdmin,
-    getOrdersByPartnerId
+    getOrdersByPartnerId,
+    getTransactionHistoryByOrderId,
+    getAllTransactionHistory,
+    requestRefundForItems,
+    processRefundDecision
 };

@@ -418,123 +418,133 @@ const findNearbyHotelsWithRooms = async (latitude, longitude, radiusInKm, checkI
 
 // Get Partner Dashboard count
 const getDashboardCountsForPartner = async (partnerId) => {
-    // Check if the partner exists
     const partner = await UserModel.findById(partnerId);
     if (!partner || partner.type !== "partner") {
         throw new Error(CONSTANTS.PARTNER_NOT_FOUND_MSG);
     }
 
-    // Initialize default values for a unified structure
-    const totalCounts = {
-        bookingRequests: 0,
-        currentOrder: 0,
-        confirmedOrder: 0,
-        acceptedOrder: 0,
-        rejectedOrder: 0,
-        deliveredOrder: 0,
-        cancelledOrder: 0,
-        availableTable: 0,
-        bookedTable: 0,
-        cancelledTableBooking: 0,
-        earnings: 0
-    };
-
-    // Function to merge counts from aggregation result into totalCounts
-    const mergeCounts = (result) => {
-        if (result && result[0]) {
-            totalCounts.bookingRequests += result[0].bookingRequests || 0;
-            totalCounts.currentOrder += result[0].currentOrder || 0;
-            totalCounts.confirmedOrder += result[0].confirmedOrder || 0;
-            totalCounts.acceptedOrder += result[0].acceptedOrder || 0;
-            totalCounts.rejectedOrder += result[0].rejectedOrder || 0;
-            totalCounts.deliveredOrder += result[0].deliveredOrder || 0;
-            totalCounts.cancelledOrder += result[0].cancelledOrder || 0;
-            totalCounts.availableTable += result[0].availableTable || 0;
-            totalCounts.bookedTable += result[0].bookedTable || 0;
-            totalCounts.cancelledTableBooking += result[0].cancelledTableBooking || 0;
-            totalCounts.earnings += result[0].earnings || 0;
+    // Initialize response structure
+    const counts = {
+        restaurants: {
+            availableTables: 0,
+            bookingRequests: 0,
+            currentFoodOrders: 0,
+            confirmedFoodOrders: 0,
+            acceptedFoodOrders: 0,
+            rejectedFoodOrders: 0,
+            deliveredFoodOrders: 0,
+            cancelledFoodOrders: 0,
+            earnings: 0
+        },
+        products: {
+            currentProductOrders: 0,
+            confirmedProductOrders: 0,
+            acceptedProductOrders: 0,
+            rejectedProductOrders: 0,
+            deliveredProductOrders: 0,
+            cancelledProductOrders: 0,
+            earnings: 0
+        },
+        hotels: {
+            currentBookings: 0,
+            confirmedBookings: 0,
+            acceptedBookings: 0,
+            rejectedBookings: 0,
+            earnings: 0
+        },
+        dineOut: {
+            pendingRequests: 0,
+            confirmedRequests: 0,
+            acceptedRequests: 0,
+            rejectedRequests: 0,
+            completedRequests: 0,
+            cancelledRequests: 0
         }
     };
 
-    // Sample aggregation pipeline to count dine-out requests
-    const dineOutCounts = await DineOutModel.aggregate([
+    // 1. Retrieve Restaurant Counts
+    const restaurantCounts = await DineOutModel.aggregate([
         { $match: { partner: partnerId } },
         {
             $group: {
                 _id: null,
                 bookingRequests: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } },
-                currentOrder: { $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] } },
-                confirmedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] } },
-                acceptedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] } },
-                rejectedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] } },
-                deliveredOrder: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, 1, 0] } },
-                cancelledOrder: { $sum: { $cond: [{ $eq: ['$status', 'Cancelled'] }, 1, 0] } },
+                currentFoodOrders: { $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] } },
+                confirmedFoodOrders: { $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] } },
+                acceptedFoodOrders: { $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] } },
+                rejectedFoodOrders: { $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] } },
+                deliveredFoodOrders: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, 1, 0] } },
+                cancelledFoodOrders: { $sum: { $cond: [{ $eq: ['$status', 'Cancelled'] }, 1, 0] } },
                 earnings: { $sum: '$earnings' }
             }
-        }
+        },
+        { $project: { _id: 0 } } // Exclude _id from the output
     ]);
+    if (restaurantCounts[0]) {
+        Object.assign(counts.restaurants, restaurantCounts[0]);
+    }
 
-    // Similar aggregation pipelines for food, room, and product items
-    const foodCounts = await ItemModel.aggregate([
-        { $match: { itemType: 'food', business: partner.businessId } },
-        {
-            $group: {
-                _id: null,
-                bookingRequests: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } },
-                currentOrder: { $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] } },
-                confirmedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] } },
-                acceptedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] } },
-                rejectedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] } },
-                deliveredOrder: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, 1, 0] } },
-                cancelledOrder: { $sum: { $cond: [{ $eq: ['$status', 'Cancelled'] }, 1, 0] } },
-                earnings: { $sum: '$earnings' }
-            }
-        }
-    ]);
-
-    // Aggregation for room items
-    const roomCounts = await ItemModel.aggregate([
-        { $match: { itemType: 'room', business: partner.businessId } },
-        {
-            $group: {
-                _id: null,
-                bookingRequests: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } },
-                currentOrder: { $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] } },
-                confirmedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] } },
-                acceptedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] } },
-                rejectedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] } },
-                deliveredOrder: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, 1, 0] } },
-                cancelledOrder: { $sum: { $cond: [{ $eq: ['$status', 'Cancelled'] }, 1, 0] } },
-                earnings: { $sum: '$earnings' }
-            }
-        }
-    ]);
-
-    // Aggregation for product items
+    // 2. Retrieve Product Counts
     const productCounts = await ItemModel.aggregate([
         { $match: { itemType: 'product', business: partner.businessId } },
         {
             $group: {
                 _id: null,
-                bookingRequests: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } },
-                currentOrder: { $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] } },
-                confirmedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] } },
-                acceptedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] } },
-                rejectedOrder: { $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] } },
-                deliveredOrder: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, 1, 0] } },
-                cancelledOrder: { $sum: { $cond: [{ $eq: ['$status', 'Cancelled'] }, 1, 0] } },
+                currentProductOrders: { $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] } },
+                confirmedProductOrders: { $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] } },
+                acceptedProductOrders: { $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] } },
+                rejectedProductOrders: { $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] } },
+                deliveredProductOrders: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, 1, 0] } },
+                cancelledProductOrders: { $sum: { $cond: [{ $eq: ['$status', 'Cancelled'] }, 1, 0] } },
                 earnings: { $sum: '$earnings' }
             }
-        }
+        },
+        { $project: { _id: 0 } } // Exclude _id from the output
     ]);
+    if (productCounts[0]) {
+        Object.assign(counts.products, productCounts[0]);
+    }
 
-    // Merge each aggregation result into totalCounts
-    mergeCounts(foodCounts);
-    mergeCounts(dineOutCounts);
-    mergeCounts(roomCounts);
-    mergeCounts(productCounts);
+    // 3. Retrieve Hotel Counts
+    const hotelCounts = await ItemModel.aggregate([
+        { $match: { itemType: 'room', business: partner.businessId } },
+        {
+            $group: {
+                _id: null,
+                currentBookings: { $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] } },
+                confirmedBookings: { $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] } },
+                acceptedBookings: { $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] } },
+                rejectedBookings: { $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] } },
+                earnings: { $sum: '$earnings' }
+            }
+        },
+        { $project: { _id: 0 } } // Exclude _id from the output
+    ]);
+    if (hotelCounts[0]) {
+        Object.assign(counts.hotels, hotelCounts[0]);
+    }
 
-    return totalCounts;
+    // 4. Retrieve Dine-Out Counts
+    const dineOutCounts = await DineOutModel.aggregate([
+        { $match: { partner: partnerId } },
+        {
+            $group: {
+                _id: null,
+                pendingRequests: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } },
+                confirmedRequests: { $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] } },
+                acceptedRequests: { $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] } },
+                rejectedRequests: { $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] } },
+                completedRequests: { $sum: { $cond: [{ $eq: ['$status', 'Completed'] }, 1, 0] } },
+                cancelledRequests: { $sum: { $cond: [{ $eq: ['$status', 'Cancelled'] }, 1, 0] } }
+            }
+        },
+        { $project: { _id: 0 } } // Exclude _id from the output
+    ]);
+    if (dineOutCounts[0]) {
+        Object.assign(counts.dineOut, dineOutCounts[0]);
+    }
+
+    return counts;
 };
 
 const calculateEarningsForPartner = async (partnerId) => {

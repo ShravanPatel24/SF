@@ -11,7 +11,7 @@ const orderSchema = new mongoose.Schema({
         quantity: { type: Number, required: true },
         selectedSize: { type: String },
         selectedColor: { type: String }
-    }],  // Store the items purchased in the order
+    }],
     deliveryAddress: {
         name: { type: String, required: true },
         street: { type: String, required: true },
@@ -26,21 +26,39 @@ const orderSchema = new mongoose.Schema({
     tax: { type: Number, required: true },
     deliveryCharge: { type: Number, required: true },
     orderNote: { type: String },
-    orderId: { type: String, unique: true, required: true },  // Custom orderId
-    orderNumber: { type: String, unique: true, required: true }, // Custom orderNumber
+    orderId: { type: String, unique: true, required: true },
+    orderNumber: { type: String, unique: true, required: true },
     orderStatus: {
         type: String,
         enum: ['pending', 'accepted', 'rejected', 'ordered', 'processing', 'pending_payment', 'paid', 'payment_failed', 'delivered', 'cancelled'],
-        default: 'ordered'  // Set default status as 'ordered'
+        default: 'ordered'
     },
     paymentMethod: {
         type: String,
         enum: ['credit_card', 'paypal', 'cash', 'online', 'bank_transfer'],
         required: true
     },
+    refundStatus: {
+        type: String,
+        enum: ['none', 'pending', 'approved', 'rejected'],
+        default: 'none'
+    },
+    transactionHistory: [
+        {
+            type: { type: String, required: true }, // 'Order Placed', 'Refund Requested', etc.
+            date: { type: Date, default: Date.now },
+            amount: { type: Number, required: true },
+            status: { type: String, required: true }, // 'Completed', 'Pending', etc.
+            refundDetails: {
+                amount: Number,
+                reason: String,
+                processedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'user' } // Partner ID who processed the refund
+            }
+        }
+    ]
 }, { timestamps: true });
 
-// add plugin that converts mongoose to json
+// Add plugins that convert mongoose to json, and handle pagination
 orderSchema.plugin(toJSON);
 orderSchema.plugin(mongoosePaginate);
 orderSchema.plugin(aggregatePaginate);

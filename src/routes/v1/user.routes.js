@@ -1,11 +1,10 @@
 const express = require('express');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
-// const upload = require('../../utils/upload');
 const { basicAuth, userAuth } = require('../../middlewares');
 const validate = require('../../middlewares/validate');
 const { userValidation } = require('../../validations');
-const { userController } = require('../../controllers');
+const { userController, orderController } = require('../../controllers');
 
 const router = express.Router();
 
@@ -55,5 +54,6 @@ router.get('/:userId/following', userAuth(), userController.getFollowing);
 router.get('/follow-requests', userAuth(), userController.getFollowRequests);
 router.post('/follow-requests/:requestId/approve', userAuth('approveFollowRequest'), userController.approveFollowRequest);
 router.post('/follow-requests/:requestId/reject', userAuth('rejectFollowRequest'), userController.rejectFollowRequest);
+
 
 module.exports = router;

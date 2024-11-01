@@ -1,6 +1,6 @@
 const express = require('express');
 const multer = require('multer');
-const { adminAuth } = require('../../../middlewares');
+const { adminAuth, userAuth } = require('../../../middlewares');
 const validate = require('../../../middlewares/validate');
 const { userValidation, businessValidation } = require('../../../validations');
 const { userController, adminAuthController, orderController, businessController, dineOutController } = require('../../../controllers'); // Import orderController for admin orders
@@ -12,6 +12,8 @@ router.get('/orders/id/:orderId', adminAuth('manageOrders'), orderController.get
 router.get('/orders/:userId', adminAuth('manageOrders'), orderController.getOrdersByUserIdAdmin);
 router.get('/orders/partner/:partnerId', adminAuth('manageOrders'), orderController.getOrdersByPartnerId);
 router.get('/orders', adminAuth('manageOrders'), orderController.getAllOrdersAdmin);
+router.get('/orders/transaction-history/:orderId', adminAuth('manageOrders'), orderController.getTransactionHistoryByOrderId);
+router.get('/orders/transaction-history', adminAuth('manageOrders'), orderController.getAllTransactionHistory);
 router.get('/business/:businessId', adminAuth('manageBusiness'), businessController.getBusinessById);
 router.patch('/update-business/:businessId', adminAuth('updateById'), validate(businessValidation.update), businessController.updateBusiness);
 router.get('/dineout-requests', adminAuth('manageDineOutRequests'), dineOutController.getAllDineOutRequests);

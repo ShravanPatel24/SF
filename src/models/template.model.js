@@ -12,6 +12,7 @@ const templateSchema = mongoose.Schema(
         templateFor: { type: String, required: true }, // Identifies template use-case, e.g., 'new-application', 'reset-password'
         templateType: { type: Number, default: 0 }, // 0 for email, 1 for SMS
         templateDisc: { type: String, required: true }, // Email body template, containing placeholders like {userName}
+        orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'order', required: false },
         status: { type: Number, default: 1 }, // 1 for Active, 0 for Inactive
         isDelete: { type: Number, default: 1 }, // Soft delete: 1 for active, 0 for deleted
         attachments: [{ type: String }], // Optional: Array of attachment file paths or URLs

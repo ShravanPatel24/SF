@@ -1,7 +1,7 @@
 const pick = require('../utils/pick');
 const catchAsync = require('../utils/catchAsync');
 const { TemplateService } = require('../services');
-const CONSTANT = require('../config/constant');
+const CONSTANTS = require('../config/constant');
 
 const createTemplate = catchAsync(async (req, res) => {
     req.body.adminId = req.user._id;
@@ -9,19 +9,19 @@ const createTemplate = catchAsync(async (req, res) => {
     res.status(201).send({
         statusCode: 201,
         data: result.data,
-        message: CONSTANT.TEMPLATE_CREATE
+        message: CONSTANTS.TEMPLATE_CREATE
     });
 });
 
 const getTemplates = catchAsync(async (req, res) => {
-    const options = pick(req.query, ['sortBy', 'limit', 'page', 'search', 'loanApplicationId', 'templateType']);
+    const options = pick(req.query, ['sortBy', 'limit', 'page', 'search', 'loanApplicationId', 'templateType', 'status']);
     options['adminId'] = req.user._id;
 
     const result = await TemplateService.queryTemplate(options);
     res.status(200).send({
         statusCode: 200,
         data: result,
-        message: CONSTANT.TEMPLATE_LIST
+        message: CONSTANTS.TEMPLATE_LIST
     });
 });
 
@@ -31,13 +31,13 @@ const getTemplate = catchAsync(async (req, res) => {
         return res.status(404).send({
             statusCode: 404,
             data: {},
-            message: CONSTANT.TEMPLATE_NOT_FOUND
+            message: CONSTANTS.TEMPLATE_NOT_FOUND
         });
     }
     res.status(200).send({
         statusCode: 200,
         data: result.data,
-        message: CONSTANT.TEMPLATE_DETAILS
+        message: CONSTANTS.TEMPLATE_DETAILS
     });
 });
 
@@ -60,7 +60,7 @@ const getTemplatesWithoutPagination = catchAsync(async (req, res) => {
     res.status(200).send({
         statusCode: 200,
         data: result,
-        message: CONSTANT.TEMPLATE_LIST
+        message: CONSTANTS.TEMPLATE_LIST
     });
 });
 

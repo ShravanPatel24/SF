@@ -531,11 +531,11 @@ const handleImageUploads = async (user, files) => {
  * @returns {Promise<user>}
  */
 const deleteUserById = async (userId) => {
-  const user = await getUserById(userId);
-  if (!user) { return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.USER_NOT_FOUND, } }
+  const user = await UserModel.findById(userId);
+  if (!user) { return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.USER_NOT_FOUND } }
   user.isDelete = 0;
   await user.save();
-  var message = user.status == 1 ? CONSTANTS.USER_STATUS_ACTIVE : CONSTANTS.USER_STATUS_INACTIVE;
+  const message = CONSTANTS.DELETED;
   return { data: user, code: CONSTANTS.SUCCESSFUL, message: message };
 };
 

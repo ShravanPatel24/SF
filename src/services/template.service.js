@@ -1,5 +1,5 @@
 const { TemplateModel } = require('../models');
-const CONSTANT = require('../config/constant');
+const CONSTANTS = require('../config/constant');
 /**
  * Create a ENote
  * @param {Object} requestBody
@@ -7,7 +7,7 @@ const CONSTANT = require('../config/constant');
  */
 const createTemplate = async (requestBody) => {
     const data = await TemplateModel.create(requestBody);
-    return { data, statusCode: 201, message: CONSTANT.TEMPLATE_CREATE };
+    return { data, statusCode: 201, message: CONSTANTS.TEMPLATE_CREATE };
 };
 
 /**
@@ -22,19 +22,31 @@ const createTemplate = async (requestBody) => {
 const queryTemplate = async (options) => {
     const condition = { $and: [{ isDelete: 1 }] };
 
+    // Search by templateName or subject fields if search is provided
     if (options.search && options.search !== 'undefined') {
         condition.$and.push({
-            $or: [{ title: { $regex: `.*${options.search}.*`, $options: 'si' } }]
+            $or: [
+                { templateName: { $regex: `.*${options.search}.*`, $options: 'i' } },
+                { subject: { $regex: `.*${options.search}.*`, $options: 'i' } }
+            ]
         });
     }
+
+    // Filter by templateType if provided
     if (options.templateType && options.templateType !== 'undefined') {
         condition.$and.push({ templateType: options.templateType });
     }
 
+    // Filter by status if provided (0 for inactive, 1 for active)
+    if (options.status !== null && typeof options.status !== 'undefined') {
+        condition.$and.push({ status: options.status });
+    }
+
     options.sort = { createdAt: -1 };
 
+    // Perform the query with pagination
     const data = await TemplateModel.paginate(condition, options);
-    return { data, statusCode: 200 };
+    return data;
 };
 
 /**
@@ -45,7 +57,7 @@ const queryTemplate = async (options) => {
 const getTemplateById = async (id) => {
     const data = await TemplateModel.findById(id);
     if (!data) {
-        return { data: {}, statusCode: 404, message: CONSTANT.TEMPLATE_NOT_FOUND };
+        return { data: {}, statusCode: 404, message: CONSTANTS.TEMPLATE_NOT_FOUND };
     }
     return { data, statusCode: 200 };
 };
@@ -59,11 +71,11 @@ const getTemplateById = async (id) => {
 const updateTemplateById = async (templateId, updateBody) => {
     const template = await TemplateModel.findById(templateId);
     if (!template) {
-        return { data: {}, statusCode: 404, message: CONSTANT.TEMPLATE_NOT_FOUND };
+        return { data: {}, statusCode: 404, message: CONSTANTS.TEMPLATE_NOT_FOUND };
     }
     Object.assign(template, updateBody);
     await template.save();
-    return { data: template, statusCode: 200, message: CONSTANT.TEMPLATE_UPDATE };
+    return { data: template, statusCode: 200, message: CONSTANTS.TEMPLATE_UPDATE };
 };
 
 /**
@@ -74,11 +86,11 @@ const updateTemplateById = async (templateId, updateBody) => {
 const deleteTemplateById = async (templateId) => {
     const template = await TemplateModel.findById(templateId);
     if (!template) {
-        return { data: {}, statusCode: 404, message: CONSTANT.TEMPLATE_NOT_FOUND };
+        return { data: {}, statusCode: 404, message: CONSTANTS.TEMPLATE_NOT_FOUND };
     }
     template.isDelete = 0;
     await template.save();
-    return { data: {}, statusCode: 200, message: CONSTANT.TEMPLATE_STATUS_DELETE };
+    return { data: {}, statusCode: 200, message: CONSTANTS.TEMPLATE_STATUS_DELETE };
 };
 
 /**

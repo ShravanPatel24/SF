@@ -31,4 +31,8 @@ router.get('/partner/food-requests', userAuth(), orderController.getPartnerFoodR
 // Route for partner to accept/reject food order
 router.patch('/partner/food-requests/:orderId', userAuth(), validate(orderValidation.updatePartnerOrderStatusValidation), orderController.updatePartnerOrderStatus);
 
+// Refund request for product
+router.post('/user/request-refund/:orderId', userAuth(), orderController.requestRefund);
+router.patch('/partner/refund-request/:orderId/respond', userAuth(), orderController.respondToRefundRequest);
+
 module.exports = router;

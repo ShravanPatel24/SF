@@ -1,6 +1,6 @@
 const Joi = require('joi');
 const { objectId } = require('./custom.validation');
- 
+
 const createTemplate = {
     body: Joi.object().keys({
         templateName: Joi.string().required(),
@@ -10,27 +10,28 @@ const createTemplate = {
         fromEmail: Joi.string(),
         templateFor: Joi.string().allow('').allow(null),
         templateType: Joi.number().integer(),
+        orderId: Joi.string().custom(objectId).allow(null),
     }),
 };
- 
+
 const getTemplates = {
     query: Joi.object().keys({
-        // name: Joi.string(),
         sortBy: Joi.string(),
         search: Joi.string().allow('').allow(null),
         templateType: Joi.string().allow('').allow(null),
         limit: Joi.number().integer(),
         page: Joi.number().integer(),
+        status: Joi.number().integer().allow(null).empty(''),
     }),
 };
- 
+
 const getTemplate = {
     params: Joi.object().keys({
         templateId: Joi.string().custom(objectId),
         // jobId: Joi.string().custom(objectId),
     }),
 };
- 
+
 const updateTemplate = {
     params: Joi.object().keys({
         templateId: Joi.required().custom(objectId),
@@ -51,13 +52,13 @@ const updateTemplate = {
         })
         .min(1),
 };
- 
+
 const deleteTemplate = {
     params: Joi.object().keys({
         templateId: Joi.string().custom(objectId),
     }),
 };
- 
+
 module.exports = {
     createTemplate,
     getTemplates,

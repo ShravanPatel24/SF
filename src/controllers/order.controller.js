@@ -345,6 +345,78 @@ const getOrdersByPartnerId = catchAsync(async (req, res) => {
     });
 });
 
+const getTransactionHistoryByOrderId = catchAsync(async (req, res) => {
+    const { orderId } = req.params;
+
+    try {
+        const orderData = await OrderService.getTransactionHistoryByOrderId(orderId);
+
+        res.status(200).json({
+            statusCode: 200,
+            message: 'Transaction and refund history fetched successfully',
+            data: orderData
+        });
+    } catch (error) {
+        res.status(error.statusCode || 500).json({
+            statusCode: error.statusCode || 500,
+            message: error.message || 'Internal server error'
+        });
+    }
+});
+
+const getAllTransactionHistory = catchAsync(async (req, res) => {
+    const { page = 1, limit = 10 } = req.query;
+
+    try {
+        const orderSummaries = await OrderService.getAllTransactionHistory({ page, limit });
+
+        res.status(200).json({
+            statusCode: 200,
+            message: 'All transaction and refund summaries fetched successfully',
+            data: orderSummaries
+        });
+    } catch (error) {
+        res.status(error.statusCode || 500).json({
+            statusCode: error.statusCode || 500,
+            message: error.message || 'Internal server error'
+        });
+    }
+});
+
+const requestRefund = catchAsync(async (req, res) => {
+    const { orderId } = req.params;
+    const { itemIds, reason } = req.body;
+    const processedBy = req.user._id;
+
+    try {
+        const order = await OrderService.requestRefundForItems(orderId, itemIds, reason, processedBy);
+        res.status(200).json({
+            statusCode: 200,
+            message: "Refund requested successfully",
+            data: order
+        });
+    } catch (error) {
+        res.status(error.statusCode || 500).json({
+            statusCode: error.statusCode || 500,
+            message: error.message || 'An error occurred while requesting a refund.'
+        });
+    }
+});
+
+const respondToRefundRequest = catchAsync(async (req, res) => {
+    const { orderId } = req.params;
+    const { decision } = req.body; // 'accept' or 'reject'
+    const partnerId = req.user._id; // Assuming partner ID is taken from the auth token
+
+    const result = await OrderService.processRefundDecision(orderId, decision, partnerId);
+
+    res.status(200).json({
+        statusCode: 200,
+        message: `Refund ${decision}ed successfully`,
+        data: result,
+    });
+});
+
 module.exports = {
     createOrder,
     updateOrderStatus,
@@ -356,5 +428,9 @@ module.exports = {
     trackOrder,
     getAllOrdersAdmin,
     getOrdersByUserIdAdmin,
-    getOrdersByPartnerId
+    getOrdersByPartnerId,
+    getTransactionHistoryByOrderId,
+    getAllTransactionHistory,
+    requestRefund,
+    respondToRefundRequest
 };
