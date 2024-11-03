@@ -142,6 +142,21 @@ const updatePartnerOrderStatus = catchAsync(async (req, res) => {
     }
 });
 
+// Update delivery partner 
+const updateDeliveryPartner = catchAsync(async (req, res) => {
+    const { orderId } = req.params;
+    const { name, phone } = req.body;
+
+    const order = await OrderService.updateDeliveryPartner(orderId, { name, phone });
+    if (!order) return res.status(404).json({ statusCode: 404, message: 'Order not found' });
+
+    return res.status(200).json({
+        statusCode: 200,
+        message: 'Delivery partner information updated successfully',
+        data: order
+    });
+});
+
 // Cancel an order
 const cancelOrder = catchAsync(async (req, res) => {
     const { orderId } = req.params;
@@ -385,11 +400,11 @@ const getAllTransactionHistory = catchAsync(async (req, res) => {
 
 const requestRefund = catchAsync(async (req, res) => {
     const { orderId } = req.params;
-    const { itemIds, reason } = req.body;
+    const { itemIds, reason, bankDetails } = req.body;
     const processedBy = req.user._id;
 
     try {
-        const order = await OrderService.requestRefundForItems(orderId, itemIds, reason, processedBy);
+        const order = await OrderService.requestRefundForItems(orderId, itemIds, reason, processedBy, bankDetails);
         res.status(200).json({
             statusCode: 200,
             message: "Refund requested successfully",
@@ -417,6 +432,46 @@ const respondToRefundRequest = catchAsync(async (req, res) => {
     });
 });
 
+const initiateReturnOrExchange = catchAsync(async (req, res) => {
+    const { orderId } = req.params;
+    const { itemIds, reason, action } = req.body; // action can be 'exchange' or 'refund'
+    const processedBy = req.user._id;
+
+    try {
+        const order = await OrderService.initiateReturnOrExchange(orderId, itemIds, reason, action, processedBy);
+        res.status(200).json({
+            statusCode: 200,
+            message: `${action.charAt(0).toUpperCase() + action.slice(1)} requested successfully`,
+            data: order
+        });
+    } catch (error) {
+        res.status(error.statusCode || 500).json({
+            statusCode: error.statusCode || 500,
+            message: error.message || 'An error occurred while initiating the return or exchange.'
+        });
+    }
+});
+
+const processReturnDecision = catchAsync(async (req, res) => {
+    const { orderId } = req.params;
+    const { decision } = req.body; // 'accept' or 'reject'
+    const partnerId = req.user._id;
+
+    try {
+        const result = await OrderService.processReturnDecision(orderId, decision, partnerId);
+        res.status(200).json({
+            statusCode: 200,
+            message: `Return ${decision}ed successfully`,
+            data: result
+        });
+    } catch (error) {
+        res.status(error.statusCode || 500).json({
+            statusCode: error.statusCode || 500,
+            message: error.message || 'An error occurred while processing the return decision.'
+        });
+    }
+});
+
 module.exports = {
     createOrder,
     updateOrderStatus,
@@ -424,6 +479,7 @@ module.exports = {
     getOrderById,
     getPartnerFoodRequests,
     updatePartnerOrderStatus,
+    updateDeliveryPartner,
     cancelOrder,
     trackOrder,
     getAllOrdersAdmin,
@@ -432,5 +488,7 @@ module.exports = {
     getTransactionHistoryByOrderId,
     getAllTransactionHistory,
     requestRefund,
-    respondToRefundRequest
+    respondToRefundRequest,
+    initiateReturnOrExchange,
+    processReturnDecision,
 };

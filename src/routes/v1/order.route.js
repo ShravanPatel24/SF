@@ -5,34 +5,49 @@ const validate = require('../../middlewares/validate');
 const { orderValidation } = require('../../validations');
 const { orderController } = require('../../controllers');
 
-// Route to create an order
+// --- Order Management Routes ---
+
+// Create a new order
 router.post('/create', userAuth(), validate(orderValidation.createOrderValidation), orderController.createOrder);
 
-// Route to get all orders for the current user
+// Get all orders for the current user
 router.get('/', userAuth(), orderController.getUserOrders);
 
-// Route to get order details by order ID
+// Get order details by order ID
 router.get('/:orderId', userAuth(), validate(orderValidation.trackOrderValidation), orderController.getOrderById);
 
-// Route to cancel an order
+// Cancel an order
 router.post('/cancel/:orderId', userAuth(), validate(orderValidation.cancelOrderValidation), orderController.cancelOrder);
 
-// Route to track an order
+// Track an order
 router.get('/track/:orderId', userAuth(), validate(orderValidation.trackOrderValidation), orderController.trackOrder);
 
-// -------- Partner-Specific Routes -------- //
+// --- Partner-Specific Routes ---
 
-// Route to update order status
+// Update order status
 router.patch('/status/:orderId', userAuth(), validate(orderValidation.updateOrderStatusValidation), orderController.updateOrderStatus);
 
-// Route for partner to get pending food requests
+// Add/update delivery partner details
+router.post('/:orderId/delivery-partner', userAuth('updateOrder'), orderController.updateDeliveryPartner);
+
+// Get pending food requests for partner
 router.get('/partner/food-requests', userAuth(), orderController.getPartnerFoodRequests);
 
-// Route for partner to accept/reject food order
+// Accept/reject food order by partner
 router.patch('/partner/food-requests/:orderId', userAuth(), validate(orderValidation.updatePartnerOrderStatusValidation), orderController.updatePartnerOrderStatus);
 
-// Refund request for product
+// --- Refund and Return/Exchange Routes ---
+
+// Request a refund for specific items
 router.post('/user/request-refund/:orderId', userAuth(), orderController.requestRefund);
+
+// Process refund decision (accept/reject) by partner
 router.patch('/partner/refund-request/:orderId/respond', userAuth(), orderController.respondToRefundRequest);
+
+// Initiate return or exchange request by user
+router.post('/user/:orderId/return-or-exchange', userAuth(), orderController.initiateReturnOrExchange);
+
+// Process return/exchange decision (accept/reject) by partner
+router.patch('/partner/:orderId/return-or-exchange/decision', userAuth(), orderController.processReturnDecision);
 
 module.exports = router;

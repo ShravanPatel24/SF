@@ -28,9 +28,13 @@ const orderSchema = new mongoose.Schema({
     orderNote: { type: String },
     orderId: { type: String, unique: true, required: true },
     orderNumber: { type: String, unique: true, required: true },
+    deliveryPartner: {
+        name: { type: String },
+        phone: { type: String },
+    },
     orderStatus: {
         type: String,
-        enum: ['pending', 'accepted', 'rejected', 'ordered', 'processing', 'pending_payment', 'paid', 'payment_failed', 'delivered', 'cancelled'],
+        enum: ['pending', 'accepted', 'rejected', 'ordered', 'processing', 'out_for_delivery', 'pending_payment', 'paid', 'payment_failed', 'delivered', 'cancelled'],
         default: 'ordered'
     },
     paymentMethod: {
@@ -43,19 +47,26 @@ const orderSchema = new mongoose.Schema({
         enum: ['none', 'pending', 'approved', 'rejected'],
         default: 'none'
     },
-    transactionHistory: [
-        {
-            type: { type: String, required: true }, // 'Order Placed', 'Refund Requested', etc.
-            date: { type: Date, default: Date.now },
-            amount: { type: Number, required: true },
-            status: { type: String, required: true }, // 'Completed', 'Pending', etc.
-            refundDetails: {
-                amount: Number,
-                reason: String,
-                processedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'user' } // Partner ID who processed the refund
+    transactionHistory: [{
+        type: { type: String, required: true }, // "Order Placed", "Refund Requested", etc.
+        date: { type: Date, required: true },
+        amount: { type: Number, required: true },
+        status: { type: String, required: true }, // "Pending", "Approved", "Rejected"
+        refundDetails: {
+            reason: { type: String },
+            bankDetails: {
+                country: { type: String },
+                bankName: { type: String },
+                accountName: { type: String },
+                accountNumber: { type: String },
+                ifscCode: { type: String }
             }
+        },
+        exchangeDetails: {
+            reason: { type: String },
+            newProductId: { type: mongoose.Schema.Types.ObjectId }
         }
-    ]
+    }]
 }, { timestamps: true });
 
 // Add plugins that convert mongoose to json, and handle pagination

@@ -4504,6 +4504,59 @@ paths:
         "500":
           description: Internal server error
 
+  /order/{orderId}/delivery-partner:
+    post:
+      tags:
+        - Order
+      security:
+        - bearerAuth: []
+      summary: Update Delivery Partner Information (Partner)
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          description: The ID of the order
+          schema:
+            type: string
+            example: 670ad27c5e1dd4288ee6cfc0
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "John Doe"
+                phone:
+                  type: string
+                  example: 9938338383
+      responses:
+        "200":
+          description: Refund requested successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Refund requested successfully
+                  data:
+                    $ref: "#/components/schemas/Order"
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Order not found
+        "500":
+          description: Internal server error
+
   /order/partner/food-requests/{orderId}:
     patch:
       tags:
@@ -4585,6 +4638,24 @@ paths:
                   type: string
                   description: Reason for requesting the refund
                   example: "Customer changed their mind"
+                action:
+                  type: string
+                  enum: ["refund", "exchange"]
+                  description: "Action to perform, either 'exchange' or 'refund'"
+                bankDetails:
+                  type: object
+                  properties:
+                    country:
+                      type: string
+                    bankName:
+                      type: string
+                    accountName:
+                      type: string
+                    accountNumber:
+                      type: string
+                    ifscCode:
+                      type: string
+                  description: "Bank details for refund processing (if applicable)"
       responses:
         "200":
           description: Refund requested successfully
@@ -4662,6 +4733,106 @@ paths:
           description: Order not found or unauthorized access
         "500":
           description: Internal server error
+
+  /order/user/{orderId}/return-or-exchange:
+    post:
+      summary: "Initiate Return or Exchange"
+      description: "Allows users to initiate a return or exchange request for specific items in an order."
+      tags:
+        - Order
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: "ID of the order to initiate return or exchange for"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                itemIds:
+                  type: array
+                  items:
+                    type: string
+                  description: "IDs of items for return or exchange"
+                reason:
+                  type: string
+                  description: "Reason for the return or exchange request"
+                action:
+                  type: string
+                  enum: ["exchange", "refund"]
+                  description: "Action to perform, either 'exchange' or 'refund'"
+      responses:
+        "200":
+          description: "Return or exchange request initiated successfully"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    description: "Details of the return/exchange request"
+        "400":
+          description: "Invalid request data or parameters"
+        "500":
+          description: "Internal server error"
+
+  /order/partner/{orderId}/return-or-exchange/decision:
+    patch:
+      summary: "Process Return or Exchange Decision"
+      description: "Allows partners to accept or reject a return or exchange request."
+      tags:
+        - Order
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: "ID of the order to process return or exchange decision for"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                decision:
+                  type: string
+                  enum: ["accept", "reject"]
+                  description: "Decision to either 'accept' or 'reject' the return/exchange request"
+      responses:
+        "200":
+          description: "Return or exchange request decision processed successfully"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    description: "Details of the processed decision"
+        "400":
+          description: "Invalid request data or parameters"
+        "500":
+          description: "Internal server error"
 
   # Partner
   /partner/auth/register:

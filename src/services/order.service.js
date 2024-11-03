@@ -156,6 +156,18 @@ const updatePartnerOrderStatus = async (orderId, partnerId, partnerResponse) => 
     return order;
 };
 
+// Update delivery partner 
+const updateDeliveryPartner = async (orderId, deliveryPartner) => {
+    const order = await OrderModel.findById(orderId);
+    if (!order) throw new Error('Order not found');
+
+    order.deliveryPartner = deliveryPartner;
+    order.orderStatus = 'out_for_delivery'; // Change status to 'Out for Delivery'
+    await order.save();
+
+    return order;
+};
+
 // Cancel an order
 const cancelOrder = async (orderId, reason) => {
     const order = await OrderModel.findById(orderId);
@@ -168,7 +180,32 @@ const cancelOrder = async (orderId, reason) => {
 
 // Track order status
 const trackOrder = async (orderId) => {
-    const order = await OrderModel.findById(orderId);
+    const order = await OrderModel.findById(orderId)
+        .populate({
+            path: 'items.item',
+            select: 'itemType dishName productName, productDescription images',
+        })
+        .populate('user', 'name email')
+        .populate('partner', 'name businessName');
+
+    order.items = order.items.map(item => {
+        const itemData = item.item;
+        let itemName = '';
+        if (itemData.itemType === 'food') {
+            itemName = itemData.dishName;
+        } else if (itemData.itemType === 'product') {
+            itemName = itemData.productName && itemData.productDescription;
+        }
+
+        return {
+            ...item.toObject(),
+            item: {
+                ...itemData.toObject(),
+                itemName,
+            },
+        };
+    });
+
     return order;
 };
 
@@ -379,16 +416,14 @@ const getAllTransactionHistory = async ({ page, limit }) => {
     return orderSummaries;
 };
 
-const requestRefundForItems = async (orderId, itemIds, reason, processedBy) => {
+const requestRefundForItems = async (orderId, itemIds, reason, processedBy, bankDetails) => {
     const order = await OrderModel.findById(orderId).populate('items.item');
     if (!order) throw new Error(CONSTANTS.ORDER_NOT_FOUND);
-    // Calculate the total refund amount based on specified items
+
     const exactRefundAmount = order.items
         .filter(item => itemIds.includes(item.item._id.toString()) && item.item.itemType === 'product')
         .reduce((total, item) => {
             let price;
-
-            // For 'product' type, find the matching variant price based on selected options
             if (item.item.itemType === 'product') {
                 const variant = item.item.variants.find(v =>
                     v.size === item.selectedSize && v.color === item.selectedColor
@@ -399,10 +434,8 @@ const requestRefundForItems = async (orderId, itemIds, reason, processedBy) => {
                     throw new Error("Variant not found for selected options during refund calculation.");
                 }
             } else {
-                // For other item types like 'food' or 'room'
                 price = item.item.dishPrice || item.item.roomPrice;
             }
-
             if (!price) throw new Error("Price not found for item during refund calculation.");
             return total + (price * item.quantity);
         }, 0);
@@ -420,6 +453,69 @@ const requestRefundForItems = async (orderId, itemIds, reason, processedBy) => {
         refundDetails: {
             reason: reason,
             processedBy: processedBy,
+            items: itemIds,
+            bankDetails
+        }
+    });
+
+    await order.save();
+    return order;
+};
+
+const processRefundDecision = async (orderId, decision, partnerId, bankDetails = {}) => {
+    const order = await OrderModel.findOne({ _id: orderId, partner: partnerId });
+    if (!order) throw new Error("Order not found or unauthorized access");
+
+    // Flatten transactionHistory array if needed
+    const flatTransactionHistory = order.transactionHistory.flat();
+
+    const lastTransaction = flatTransactionHistory
+        .filter(th => th && th.type && th.type === "Refund Requested")
+        .pop();
+
+    if (!lastTransaction || lastTransaction.status !== "pending") {
+        throw new Error("Refund request is either not pending or already processed.");
+    }
+
+    const isAccepted = decision === 'accept';
+    order.refundStatus = isAccepted ? 'approved' : 'rejected';
+
+    // Add a new transaction history entry for the refund decision
+    order.transactionHistory.push({
+        type: `Refund ${isAccepted ? 'Approved' : 'Rejected'}`,
+        date: new Date(),
+        amount: lastTransaction.amount,
+        status: isAccepted ? 'Completed' : 'Rejected',
+        refundDetails: isAccepted ? {
+            bankDetails: lastTransaction.refundDetails.bankDetails,
+            reason: lastTransaction.refundDetails.reason
+        } : {}
+    });
+
+    await order.save();
+    return order;
+};
+
+// New Functions for Return/Exchange Functionality
+
+const initiateReturnOrExchange = async (orderId, itemIds, reason, action, processedBy) => {
+    const order = await OrderModel.findById(orderId).populate('items.item');
+    if (!order) throw new Error(CONSTANTS.ORDER_NOT_FOUND);
+
+    // Ensure transactionHistory is initialized as an array
+    if (!Array.isArray(order.transactionHistory)) {
+        order.transactionHistory = [];
+    }
+
+    order.transactionHistory.push({
+        type: action === 'exchange' ? 'Exchange Requested' : 'Return Requested',
+        date: new Date(),
+        amount: order.totalPrice,
+        status: "pending",
+        returnDetails: {
+            reason: reason,
+            processedBy: processedBy,
+            action: action,
             items: itemIds
         }
     });
@@ -428,26 +524,23 @@ const requestRefundForItems = async (orderId, itemIds, reason, processedBy) => {
     return order;
 };
 
-const processRefundDecision = async (orderId, decision, partnerId) => {
+const processReturnDecision = async (orderId, decision, partnerId) => {
     const order = await OrderModel.findOne({ _id: orderId, partner: partnerId });
     if (!order) throw new Error("Order not found or unauthorized access");
 
-    // Find the last refund request entry in transaction history
     const lastTransaction = order.transactionHistory
-        .filter(th => th.type.startsWith("Refund"))
+        .filter(th => th.type.startsWith("Return") || th.type.startsWith("Exchange"))
         .pop();
 
     if (!lastTransaction || lastTransaction.status !== "pending") {
-        throw new Error("Refund request is either not pending or already processed.");
+        throw new Error("Return/Exchange request is either not pending or already processed.");
     }
 
-    // Update refund status based on decision
     const isAccepted = decision === 'accept';
-    order.refundStatus = isAccepted ? 'approved' : 'rejected';
+    order.returnStatus = isAccepted ? 'approved' : 'rejected';
 
-    // Add a new transaction history entry
     order.transactionHistory.push({
-        type: `Refund ${isAccepted ? 'Approved' : 'Rejected'}`,
+        type: `${lastTransaction.type.split(' ')[0]} ${isAccepted ? 'Approved' : 'Rejected'}`,
         date: new Date(),
         amount: lastTransaction.amount,
         status: isAccepted ? 'Completed' : 'Rejected',
@@ -465,6 +558,7 @@ module.exports = {
     getOrderById,
     getPendingFoodOrders,
     updatePartnerOrderStatus,
+    updateDeliveryPartner,
     cancelOrder,
     trackOrder,
     queryOrder,
@@ -473,5 +567,7 @@ module.exports = {
     getTransactionHistoryByOrderId,
     getAllTransactionHistory,
     requestRefundForItems,
-    processRefundDecision
+    processRefundDecision,
+    initiateReturnOrExchange,
+    processReturnDecision,
 };
