@@ -4775,7 +4775,46 @@ paths:
                     type: string
                     example: Refund requested successfully
                   data:
-                    $ref: "#/components/schemas/Order"
+                    type: object
+                    properties:
+                      orderId:
+                        type: string
+                        example: "1730792577"
+                      refundDetails:
+                        type: object
+                        properties:
+                          reason:
+                            type: string
+                            example: "Customer changed their mind"
+                          status:
+                            type: string
+                            enum: ["pending", "approved", "rejected"]
+                            example: "pending"
+                          requestedDate:
+                            type: string
+                            format: date-time
+                            example: "2024-11-05T07:42:57.305Z"
+                          amount:
+                            type: number
+                            example: 59.99
+                          bankDetails:
+                            type: object
+                            properties:
+                              country:
+                                type: string
+                                example: "India"
+                              bankName:
+                                type: string
+                                example: "State Bank of India"
+                              accountName:
+                                type: string
+                                example: "John Doe"
+                              accountNumber:
+                                type: string
+                                example: "1234567890"
+                              ifscCode:
+                                type: string
+                                example: "SBIN0000001"
         "400":
           description: Bad request
         "401":
@@ -4828,7 +4867,50 @@ paths:
                     type: string
                     example: Refund accepted successfully
                   data:
-                    $ref: "#/components/schemas/Order"
+                    type: object
+                    properties:
+                      orderId:
+                        type: string
+                        example: "1730792577"
+                      refundDetails:
+                        type: object
+                        properties:
+                          reason:
+                            type: string
+                            example: "Customer changed their mind"
+                          status:
+                            type: string
+                            enum: ["pending", "approved", "rejected"]
+                            example: "approved"
+                          requestedDate:
+                            type: string
+                            format: date-time
+                            example: "2024-11-05T07:42:57.305Z"
+                          approvedDate:
+                            type: string
+                            format: date-time
+                            example: "2024-11-06T07:42:57.305Z"
+                          amount:
+                            type: number
+                            example: 59.99
+                          bankDetails:
+                            type: object
+                            properties:
+                              country:
+                                type: string
+                                example: "India"
+                              bankName:
+                                type: string
+                                example: "State Bank of India"
+                              accountName:
+                                type: string
+                                example: "John Doe"
+                              accountNumber:
+                                type: string
+                                example: "1234567890"
+                              ifscCode:
+                                type: string
+                                example: "SBIN0000001"
         "400":
           description: Bad request
         "401":
@@ -6258,7 +6340,7 @@ paths:
 
   /items/foods/business/{businessId}:
     get:
-      summary: Get food menu list by business ID (User)
+      summary: Get food menu list by business ID
       tags:
         - Partner Items
       parameters:

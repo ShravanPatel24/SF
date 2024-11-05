@@ -444,31 +444,29 @@ const getTransactionHistoryByOrderId = async (orderId) => {
                 select: 'businessName name'
             }
         })
-        .select('transactionHistory refundStatus totalPrice subtotal tax deliveryCharge orderStatus paymentMethod deliveryAddress orderNote createdAt updatedAt items');
+        .select('transactionHistory refundDetails totalPrice subtotal tax deliveryCharge orderStatus paymentMethod deliveryAddress orderNote createdAt updatedAt items');
 
     if (!order) {
         throw new Error(CONSTANTS.ORDER_NOT_FOUND);
     }
 
-    // Filter transaction history for refund details only if item type is 'product'
-    const filteredTransactionHistory = order.transactionHistory.map(transaction => {
-        if (transaction.type === "Refund Requested") {
-            // Check if refund request is for a product item
-            const isProductItem = order.items.some(item => item.item.itemType === 'product');
-            if (isProductItem) {
-                return {
-                    type: transaction.type,
-                    date: transaction.date,
-                    amount: transaction.amount,
-                    status: transaction.status,
-                    refundDetails: transaction.refundDetails || {}
-                };
-            }
-            // Exclude refund details for non-product items
-            return null;
-        }
-        return transaction;
-    }).filter(Boolean);
+    // Map transaction history and exclude refund details from it
+    const filteredTransactionHistory = order.transactionHistory.map(transaction => ({
+        type: transaction.type,
+        date: transaction.date,
+        amount: transaction.amount,
+        status: transaction.status,
+    }));
+
+    // Extract refund details as a separate field
+    const refundDetails = order.refundDetails && order.refundDetails.status !== 'none' ? {
+        reason: order.refundDetails.reason,
+        status: order.refundDetails.status,
+        requestedDate: order.refundDetails.requestedDate,
+        approvedDate: order.refundDetails.approvedDate,
+        amount: order.refundDetails.amount,
+        bankDetails: order.refundDetails.bankDetails
+    } : null;
 
     return {
         orderId: order.orderId,
@@ -480,7 +478,6 @@ const getTransactionHistoryByOrderId = async (orderId) => {
             itemType: item.item.itemType,
             name: item.item.productName || item.item.dishName || item.item.roomName,
             description: item.item.productDescription || item.item.dishDescription || item.item.roomDescription,
-            price: item.price,
             quantity: item.quantity,
             selectedSize: item.selectedSize || null,
             selectedColor: item.selectedColor || null
@@ -491,10 +488,10 @@ const getTransactionHistoryByOrderId = async (orderId) => {
         deliveryCharge: order.deliveryCharge,
         orderStatus: order.orderStatus,
         paymentMethod: order.paymentMethod,
-        refundStatus: order.refundStatus,
         deliveryAddress: order.deliveryAddress,
         orderNote: order.orderNote,
         transactionHistory: filteredTransactionHistory,
+        refundDetails,  // Separate refund details
         createdAt: order.createdAt,
         updatedAt: order.updatedAt
     };
@@ -512,18 +509,40 @@ const getAllTransactionHistory = async ({ page = 1, limit = 10, itemType, status
         query['orderStatus'] = status;
     }
 
-    // Search filter for user or partner name
+    // Search filter for user or partner name, and orderId
     if (search) {
         query['$or'] = [
             { 'user.name': { $regex: search, $options: 'i' } },
             { 'partner.name': { $regex: search, $options: 'i' } },
-            { 'orderId': { $regex: search, $options: 'i' } }  // Add other fields like orderId here
+            { 'orderId': { $regex: search, $options: 'i' } }
         ];
-    }    
+    }
 
     // Aggregation pipeline
     const aggregateQuery = [
         { $match: query },
+
+        // $lookup to populate user details
+        {
+            $lookup: {
+                from: 'users',
+                localField: 'user',
+                foreignField: '_id',
+                as: 'userDetails'
+            }
+        },
+        { $unwind: '$userDetails' }, // Unwind to access user fields directly
+
+        // $lookup to populate partner details
+        {
+            $lookup: {
+                from: 'users',
+                localField: 'partner',
+                foreignField: '_id',
+                as: 'partnerDetails'
+            }
+        },
+        { $unwind: '$partnerDetails' }, // Unwind to access partner fields directly
 
         // $lookup with itemType filtering in the pipeline
         {
@@ -550,11 +569,14 @@ const getAllTransactionHistory = async ({ page = 1, limit = 10, itemType, status
         {
             $project: {
                 orderId: 1,
+                'userDetails.name': 1,
+                'userDetails._id': 1,  // Include user ID
+                'partnerDetails.name': 1,
+                'partnerDetails._id': 1,  // Include partner ID
+                paymentMethod: 1,
                 transactionHistory: 1,
                 refundStatus: 1,
                 totalPrice: 1,
-                user: 1,
-                partner: 1,
                 items: {
                     $filter: {
                         input: "$items",
@@ -610,18 +632,28 @@ const requestRefundForItems = async (orderId, itemIds, reason, processedBy, bank
         throw new Error("Invalid refund amount calculated.");
     }
 
+    // Update the refund status and details at the root level
     order.refundStatus = 'pending';
+    order.refundDetails = {
+        reason: reason,
+        status: 'pending',
+        requestedDate: new Date(),
+        amount: exactRefundAmount,
+        bankDetails: {
+            country: bankDetails.country,
+            bankName: bankDetails.bankName,
+            accountName: bankDetails.accountName,
+            accountNumber: bankDetails.accountNumber,
+            ifscCode: bankDetails.ifscCode
+        }
+    };
+
+    // Add a record in the transaction history as well
     order.transactionHistory.push({
         type: "Refund Requested",
         date: new Date(),
         amount: exactRefundAmount,
-        status: "pending",
-        refundDetails: {
-            reason: reason,
-            processedBy: processedBy,
-            items: itemIds,
-            bankDetails
-        }
+        status: "pending"
     });
 
     await order.save();
@@ -632,11 +664,8 @@ const processRefundDecision = async (orderId, decision, partnerId, bankDetails =
     const order = await OrderModel.findOne({ _id: orderId, partner: partnerId });
     if (!order) throw new Error("Order not found or unauthorized access");
 
-    // Flatten transactionHistory array if needed
-    const flatTransactionHistory = order.transactionHistory.flat();
-
-    const lastTransaction = flatTransactionHistory
-        .filter(th => th && th.type && th.type === "Refund Requested")
+    const lastTransaction = order.transactionHistory
+        .filter(th => th && th.type === "Refund Requested")
         .pop();
 
     if (!lastTransaction || lastTransaction.status !== "pending") {
@@ -652,9 +681,9 @@ const processRefundDecision = async (orderId, decision, partnerId, bankDetails =
         date: new Date(),
         amount: lastTransaction.amount,
         status: isAccepted ? 'Completed' : 'Rejected',
-        refundDetails: isAccepted ? {
-            bankDetails: lastTransaction.refundDetails.bankDetails,
-            reason: lastTransaction.refundDetails.reason
+        refundDetails: isAccepted && lastTransaction.refundDetails ? {
+            bankDetails: lastTransaction.refundDetails.bankDetails || {}, // Check if bankDetails exists
+            reason: lastTransaction.refundDetails.reason || ""
         } : {}
     });
 

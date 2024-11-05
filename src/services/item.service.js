@@ -150,24 +150,61 @@ const getRoomsByBusiness = async (businessId, page = 1, limit = 10) => {
 // Get all rooms by business ID
 const getFoodByBusiness = async (businessId, page = 1, limit = 10) => {
     const skip = (page - 1) * limit;
+
     // Check if the businessId is valid
     const business = await BusinessModel.findById(businessId);
     if (!business) {
         throw new Error('Invalid business ID');
     }
-    const rooms = await ItemModel.find({
+
+    // Fetch food items with populated parent and subcategories, business, and businessType
+    const foods = await ItemModel.find({
         business: businessId,
         itemType: 'food'
     })
-        .skip(skip)
-        .limit(limit)
-        .exec();
+    .populate('parentCategory', 'categoryName') // Populate the parent category name
+    .populate('subCategory', 'categoryName') // Populate the subcategory name
+    .populate('business', 'businessName') // Populate the business name
+    .populate('businessType', 'name') // Populate the business type name
+    .skip(skip)
+    .limit(limit)
+    .exec();
+
     const totalDocs = await ItemModel.countDocuments({
         business: businessId,
         itemType: 'food'
     });
+
+    // Structure the response to include categorized items
+    const categorizedItems = foods.reduce((acc, item) => {
+        const parentCat = item.parentCategory ? item.parentCategory.categoryName : 'Uncategorized';
+        const subCat = item.subCategory ? item.subCategory.categoryName : 'Uncategorized';
+
+        // Initialize categories in the accumulator
+        if (!acc[parentCat]) {
+            acc[parentCat] = {};
+        }
+
+        // Initialize subcategories
+        if (!acc[parentCat][subCat]) {
+            acc[parentCat][subCat] = [];
+        }
+
+        // Push item details into the right category and subcategory
+        acc[parentCat][subCat].push({
+            _id: item._id,
+            dishName: item.dishName,
+            dishPrice: item.dishPrice,
+            images: item.images,
+            businessName: item.business ? item.business.businessName : 'Unknown', // Add business name
+            businessTypeName: item.businessType ? item.businessType.name : 'Unknown' // Add business type name
+        });
+
+        return acc;
+    }, {});
+
     return {
-        docs: rooms,
+        docs: categorizedItems,
         totalDocs,
         limit,
         totalPages: Math.ceil(totalDocs / limit),

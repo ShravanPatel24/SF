@@ -47,25 +47,35 @@ const orderSchema = new mongoose.Schema({
         enum: ['none', 'pending', 'approved', 'rejected'],
         default: 'none'
     },
+    // Separate transaction history
     transactionHistory: [{
-        type: { type: String, required: true }, // "Order Placed", "Refund Requested", etc.
+        type: { type: String, required: true }, // e.g., "Order Placed", "Payment Completed"
         date: { type: Date, required: true },
         amount: { type: Number, required: true },
-        status: { type: String, required: true }, // "Pending", "Approved", "Rejected"
-        refundDetails: {
-            reason: { type: String },
-            bankDetails: {
-                country: { type: String },
-                bankName: { type: String },
-                accountName: { type: String },
-                accountNumber: { type: String },
-                ifscCode: { type: String }
-            }
-        },
-        exchangeDetails: {
-            reason: { type: String },
-            newProductId: { type: mongoose.Schema.Types.ObjectId }
+        status: { type: String, required: true } // e.g., "Pending", "Completed"
+    }],
+    // Separate refund details
+    refundDetails: {
+        reason: { type: String },
+        status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+        requestedDate: { type: Date },
+        approvedDate: { type: Date },
+        amount: { type: Number },
+        bankDetails: {
+            country: { type: String },
+            bankName: { type: String },
+            accountName: { type: String },
+            accountNumber: { type: String },
+            ifscCode: { type: String }
         }
+    },
+    // Separate exchange details
+    exchangeDetails: [{
+        reason: { type: String },
+        status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+        requestedDate: { type: Date },
+        approvedDate: { type: Date },
+        newProductId: { type: mongoose.Schema.Types.ObjectId, ref: 'Item' }
     }]
 }, { timestamps: true });
 
