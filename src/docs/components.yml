@@ -3917,6 +3917,110 @@ paths:
         "500":
           description: Internal Server Error
 
+  /address:
+    post:
+      summary: Add a new address
+      tags:
+        - User Address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                countryCode:
+                  type: string
+                phone:
+                  type: string
+                address:
+                  type: string
+                landmark:
+                  type: string
+                city:
+                  type: string
+                state:
+                  type: string
+                postalCode:
+                  type: string
+                isDefault:
+                  type: boolean
+      responses:
+        "201":
+          description: AddresUser s added successfully
+      security:
+        - bearerAuth: []
+
+    get:
+      summary: Get all addresses for the current user
+      tags:
+        - User Address
+      responses:
+        "200":
+          description: Success
+      security:
+        - bearerAuth: []
+
+  /address/{addressId}:
+    patch:
+      summary: Update an address
+      tags:
+        - User Address
+      parameters:
+        - name: addressId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                countryCode:
+                  type: string
+                phone:
+                  type: string
+                address:
+                  type: string
+                landmark:
+                  type: string
+                city:
+                  type: string
+                state:
+                  type: string
+                postalCode:
+                  type: string
+                isDefault:
+                  type: boolean
+      responses:
+        "200":
+          description: Address updated successfully
+      security:
+        - bearerAuth: []
+
+    delete:
+      summary: Delete an address
+      tags:
+        - User Address
+      parameters:
+        - name: addressId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Address deleted successfully
+      security:
+        - bearerAuth: []
+
   # Dine-Out-User
   /dine-out/request/create:
     post:
@@ -4605,7 +4709,7 @@ paths:
         "500":
           description: Internal server error
 
-  /order/user/request-request/{orderId}:
+  /order/user/request-refund/{orderId}:
     post:
       tags:
         - Order
@@ -4833,6 +4937,158 @@ paths:
           description: "Invalid request data or parameters"
         "500":
           description: "Internal server error"
+
+  /order/history/{category}:
+    get:
+      tags:
+        - Order
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: category
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [products, hotel, restaurant, dineout]
+            example: products
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            example: completed
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            example: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            example: 10
+      summary: Get orders history by category for the user
+      responses:
+        "200":
+          description: Orders history retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      docs:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Order"
+                      totalDocs:
+                        type: integer
+                        example: 20
+                      limit:
+                        type: integer
+                        example: 10
+                      totalPages:
+                        type: integer
+                        example: 2
+                      page:
+                        type: integer
+                        example: 1
+                      pagingCounter:
+                        type: integer
+                        example: 1
+                      hasPrevPage:
+                        type: boolean
+                        example: false
+                      hasNextPage:
+                        type: boolean
+                        example: true
+                      prevPage:
+                        type: integer
+                        example: null
+                      nextPage:
+                        type: integer
+                        example: 2
+                  message:
+                    type: string
+                    example: "Products history retrieved successfully."
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Orders not found
+        "500":
+          description: Internal server error
+
+  /order/history/all:
+    get:
+      tags:
+        - Order
+      security:
+        - bearerAuth: []
+      summary: Get all orders history for the user
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            example: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            example: 10
+      responses:
+        "200":
+          description: All orders history retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      restaurants:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Order"
+                      hotels:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Order"
+                      products:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Order"
+                      dineout:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/DineOutRequest"
+                  message:
+                    type: string
+                    example: "All history retrieved successfully."
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Orders not found
+        "500":
+          description: Internal server error
 
   # Partner
   /partner/auth/register:
@@ -6859,6 +7115,250 @@ paths:
           description: Business not found
         "401":
           $ref: "#/components/responses/Unauthorized"
+
+  /business/dashboard/orders:
+    get:
+      tags:
+        - Partner Business
+      summary: Retrieve orders based on type for partner's dashboard
+      description: >
+        Fetch a list of orders for a partner's dashboard, filtered by type. This endpoint supports fetching lists of different order categories such as food orders, hotel bookings, product orders, tables, and dine-out requests.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: type
+          required: true
+          schema:
+            type: string
+            enum:
+              # Restaurant-specific types
+              - availableTables
+              - bookingRequests
+              - currentFoodOrders
+              - confirmedFoodOrders
+              - acceptedFoodOrders
+              - rejectedFoodOrders
+              - deliveredFoodOrders
+              - cancelledFoodOrders
+              - bookedTables
+              - cancelledTables
+
+              # Hotel-specific types
+              - currentHotelBookings
+              - confirmedHotelBookings
+              - acceptedHotelBookings
+              - rejectedHotelBookings
+
+              # Product-specific types
+              - currentProductOrders
+              - confirmedProductOrders
+              - acceptedProductOrders
+              - rejectedProductOrders
+              - deliveredProductOrders
+              - cancelledProductOrders
+
+              # Dine-out specific types
+              - pendingDineOutRequests
+              - confirmedDineOutRequests
+              - acceptedDineOutRequests
+              - rejectedDineOutRequests
+
+          description: Type of order list to retrieve. Examples include available tables, current hotel bookings, and accepted product orders.
+      responses:
+        "200":
+          description: Successfully retrieved the list of orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: List for confirmedProductOrders fetched successfully.
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: "6725297dcff9a0a162c7dcbf"
+                        user:
+                          type: string
+                          example: "6708c7f129ca8a1d5d8268b8"
+                        partner:
+                          type: string
+                          example: "6708ce9f27762037c2bd656a"
+                        items:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              item:
+                                type: object
+                                properties:
+                                  _id:
+                                    type: string
+                                    example: "671e0e0e4845c39926c3143a"
+                                  name:
+                                    type: string
+                                    example: "Red T-Shirt"
+                                  price:
+                                    type: number
+                                    format: float
+                                    example: 29.99
+                                  itemType:
+                                    type: string
+                                    enum: [product, food, room]
+                                    example: "product"
+                              quantity:
+                                type: integer
+                                example: 2
+                              selectedSize:
+                                type: string
+                                example: "M"
+                              selectedColor:
+                                type: string
+                                example: "Red"
+                        deliveryAddress:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                              example: "Shravan Patel"
+                            street:
+                              type: string
+                              example: "Station Road, Mahaveer Bhawan"
+                            city:
+                              type: string
+                              example: "Swaroopganj"
+                            state:
+                              type: string
+                              example: "Rajasthan"
+                            country:
+                              type: string
+                              example: "India"
+                            postalCode:
+                              type: string
+                              example: "307023"
+                            phone:
+                              type: string
+                              example: "7742026070"
+                        totalPrice:
+                          type: number
+                          format: float
+                          example: 73.969
+                        subtotal:
+                          type: number
+                          format: float
+                          example: 59.98
+                        tax:
+                          type: number
+                          format: float
+                          example: 2.999
+                        deliveryCharge:
+                          type: number
+                          format: float
+                          example: 10.99
+                        orderStatus:
+                          type: string
+                          enum:
+                            [
+                              pending,
+                              accepted,
+                              rejected,
+                              ordered,
+                              processing,
+                              out_for_delivery,
+                              pending_payment,
+                              paid,
+                              payment_failed,
+                              delivered,
+                              cancelled,
+                            ]
+                          example: "accepted"
+                        paymentMethod:
+                          type: string
+                          enum:
+                            [credit_card, paypal, cash, online, bank_transfer]
+                          example: "cash"
+                        refundStatus:
+                          type: string
+                          enum: [none, pending, approved, rejected]
+                          example: "approved"
+                        transactionHistory:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              type:
+                                type: string
+                                example: "Order Placed"
+                              date:
+                                type: string
+                                format: date-time
+                                example: "2024-11-01T19:18:21.485Z"
+                              amount:
+                                type: number
+                                format: float
+                                example: 73.969
+                              status:
+                                type: string
+                                example: "Completed"
+                              refundDetails:
+                                type: object
+                                properties:
+                                  reason:
+                                    type: string
+                                    example: "Product defect"
+                                  bankDetails:
+                                    type: object
+                                    properties:
+                                      country:
+                                        type: string
+                                        example: "India"
+                                      bankName:
+                                        type: string
+                                        example: "State Bank of India"
+                                      accountName:
+                                        type: string
+                                        example: "John Doe"
+                                      accountNumber:
+                                        type: string
+                                        example: "1234567890"
+                                      ifscCode:
+                                        type: string
+                                        example: "SBIN0000001"
+        "400":
+          description: Bad request due to missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: Invalid type for order list retrieval.
+        "401":
+          description: Unauthorized access
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  message:
+                    type: string
+                    example: Unauthorized access.
 
   # Post
   /posts:

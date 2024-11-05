@@ -16,3 +16,4 @@ module.exports.DineOutRequestService = require('./dineOut.service');
 module.exports.ContactUsService = require('./contactUs.service');
 module.exports.FAQService = require('./faq.service');
 module.exports.TemplateService = require('./template.service');
+module.exports.AddressService = require('./address.service');

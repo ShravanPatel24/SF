@@ -1,4 +1,4 @@
-const { OrderModel, CartModel } = require('../models');
+const { OrderModel, CartModel, DineOutModel } = require('../models');
 const CONSTANTS = require('../config/constant');
 const mongoose = require('mongoose');
 
@@ -336,6 +336,103 @@ const getOrdersByPartnerId = async (partnerId, search = '', itemType = '', sortB
     return { orders: filteredOrders, totalOrders };
 };
 
+const getHistoryByCategory = async (userId, category, status, page = 1, limit = 10) => {
+    const validCategories = ['restaurants', 'hotels', 'products', 'dineout'];
+    let query = { user: userId };
+    if (status) query.orderStatus = status;
+
+    if (!validCategories.includes(category)) {
+        throw new Error(`Invalid category specified. Valid categories are: ${validCategories.join(', ')}`);
+    }
+
+    let results;
+    switch (category) {
+        case 'restaurants': {
+            results = await OrderModel.paginate(query, {
+                populate: {
+                    path: 'items.item',
+                    match: { itemType: 'food' },
+                    select: 'dishName dishDescription dishPrice'
+                },
+                page,
+                limit,
+                lean: true
+            });
+            results.docs = results.docs.filter(order => order.items.some(item => item.item));
+            break;
+        }
+        case 'hotels': {
+            results = await OrderModel.paginate(query, {
+                populate: {
+                    path: 'items.item',
+                    match: { itemType: 'room' },
+                    select: 'roomName roomDescription roomPrice roomCapacity checkIn checkOut'
+                },
+                page,
+                limit,
+                lean: true
+            });
+            results.docs = results.docs.filter(order => order.items.some(item => item.item));
+            break;
+        }
+        case 'products': {
+            results = await OrderModel.paginate(query, {
+                populate: {
+                    path: 'items.item',
+                    match: { itemType: 'product' },
+                    select: 'productName productDescription productFeatures variants'
+                },
+                page,
+                limit,
+                lean: true
+            });
+            results.docs = results.docs.filter(order => order.items.some(item => item.item));
+            break;
+        }
+        case 'dineout': {
+            results = await DineOutRequest.paginate(query, {
+                page,
+                limit,
+                lean: true
+            });
+            break;
+        }
+        default:
+            throw new Error("Invalid category specified.");
+    }
+
+    return {
+        statusCode: 200,
+        data: results,
+        message: `${category.charAt(0).toUpperCase() + category.slice(1)} history retrieved successfully.`
+    };
+};
+
+const getAllHistory = async (userId) => {
+    // Fetch orders with items separated by type (food, room, product)
+    const orders = await OrderModel.find({ user: userId })
+        .populate({
+            path: 'items.item',
+            select: 'itemType dishName productName roomName',
+        });
+
+    // Filter items within orders by type for structured response
+    const foodOrders = orders.filter(order =>
+        order.items.some(item => item.item?.itemType === 'food')
+    );
+    const roomBookings = orders.filter(order =>
+        order.items.some(item => item.item?.itemType === 'room')
+    );
+    const productOrders = orders.filter(order =>
+        order.items.some(item => item.item?.itemType === 'product')
+    );
+
+    // Fetch dine-out reservations
+    const dineOutReservations = await DineOutModel.find({ user: userId });
+
+    return { foodOrders, roomBookings, productOrders, dineOutReservations };
+};
+
 const getTransactionHistoryByOrderId = async (orderId) => {
     const order = await OrderModel.findById(orderId)
         .populate('user', 'name email phone')
@@ -403,17 +500,86 @@ const getTransactionHistoryByOrderId = async (orderId) => {
     };
 };
 
-const getAllTransactionHistory = async ({ page, limit }) => {
-    const options = {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        select: 'orderId transactionHistory refundStatus totalPrice user partner',
-        sort: { createdAt: -1 }
+const getAllTransactionHistory = async ({ page = 1, limit = 10, itemType, status, search, sortBy, sortOrder }) => {
+    // Parse page and limit to integers
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+
+    const query = {};
+
+    // Apply order status filter if provided
+    if (status) {
+        query['orderStatus'] = status;
+    }
+
+    // Search filter for user or partner name
+    if (search) {
+        query['$or'] = [
+            { 'user.name': { $regex: search, $options: 'i' } },
+            { 'partner.name': { $regex: search, $options: 'i' } },
+            { 'orderId': { $regex: search, $options: 'i' } }  // Add other fields like orderId here
+        ];
+    }    
+
+    // Aggregation pipeline
+    const aggregateQuery = [
+        { $match: query },
+
+        // $lookup with itemType filtering in the pipeline
+        {
+            $lookup: {
+                from: 'items',
+                let: { itemIds: '$items.item' },
+                pipeline: [
+                    { $match: { $expr: { $in: ['$_id', '$$itemIds'] } } },
+                    ...(itemType ? [{ $match: { itemType: itemType } }] : [])
+                ],
+                as: 'filteredItems'
+            }
+        },
+
+        // Ensure orders have at least one item of the specified type
+        { $match: { filteredItems: { $ne: [] } } },
+
+        // Sort and paginate results
+        { $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } },
+        { $skip: (pageNumber - 1) * limitNumber },
+        { $limit: limitNumber },
+
+        // Project only relevant fields
+        {
+            $project: {
+                orderId: 1,
+                transactionHistory: 1,
+                refundStatus: 1,
+                totalPrice: 1,
+                user: 1,
+                partner: 1,
+                items: {
+                    $filter: {
+                        input: "$items",
+                        as: "item",
+                        cond: { $eq: ["$$item.item.itemType", itemType] }
+                    }
+                }
+            }
+        }
+    ];
+
+    // Execute the aggregation
+    const orderSummaries = await OrderModel.aggregate(aggregateQuery);
+
+    // Check if no results found for the specified itemType
+    if (orderSummaries.length === 0 && itemType) {
+        throw new Error(`No transactions found for the selected item type: ${itemType}`);
+    }
+
+    return {
+        data: orderSummaries,
+        totalOrders: orderSummaries.length,
+        currentPage: pageNumber,
+        totalPages: Math.ceil(orderSummaries.length / limitNumber)
     };
-
-    const orderSummaries = await OrderModel.paginate({}, options);
-
-    return orderSummaries;
 };
 
 const requestRefundForItems = async (orderId, itemIds, reason, processedBy, bankDetails) => {
@@ -564,6 +730,8 @@ module.exports = {
     queryOrder,
     getOrdersByUserIdAdmin,
     getOrdersByPartnerId,
+    getHistoryByCategory,
+    getAllHistory,
     getTransactionHistoryByOrderId,
     getAllTransactionHistory,
     requestRefundForItems,

@@ -76,7 +76,8 @@ const businessSchema = new mongoose.Schema(
         }],
         tableManagement: [{
             tableNumber: { type: String },
-            seatingCapacity: { type: Number }
+            seatingCapacity: { type: Number },
+            status: { type: String, enum: ["available", "booked", "cancelled"], default: "available" }
         }],
     },
     {

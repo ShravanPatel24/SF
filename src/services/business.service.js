@@ -1,4 +1,4 @@
-const { BusinessModel, UserModel, BusinessTypeModel, ItemModel, DineOutModel } = require("../models");
+const { BusinessModel, UserModel, BusinessTypeModel, ItemModel, DineOutModel, OrderModel } = require("../models");
 const CONSTANTS = require("../config/constant");
 const { s3Service } = require('../services');
 const moment = require('moment');
@@ -313,7 +313,7 @@ const findNearbyHotelsWithRooms = async (latitude, longitude, radiusInKm, checkI
     console.log(`Parameters - Latitude: ${latitude}, Longitude: ${longitude}, Radius: ${radiusInKm}`);
     console.log(`Check-in: ${checkInDate}, Check-out: ${checkOutDate}, Guests: ${guests}, Room Quantity: ${roomQuantity}`);
 
-    const hotelBusinessType = await BusinessTypeModel.findOne({ name: "hotels" }).select('_id');
+    const hotelBusinessType = await BusinessTypeModel.findOne({ name: "Hotels" }).select('_id');
     if (!hotelBusinessType) {
         throw new Error("Hotel business type not found.");
     }
@@ -397,7 +397,7 @@ const findNearbyHotelsWithRooms = async (latitude, longitude, radiusInKm, checkI
         { $project: { businessName: 1, pricePerNight: 1, taxPerNight: 1, image: 1, location: 1, availableRooms: 1 } },
         { $skip: (page - 1) * limit },
         { $limit: limit }
-    ]);    
+    ]);
 
     console.log("Rooms after lookup:", JSON.stringify(hotels, null, 2));
     console.log("Hotels after processing:", JSON.stringify(hotels, null, 2));
@@ -547,6 +547,164 @@ const getDashboardCountsForPartner = async (partnerId) => {
     return counts;
 };
 
+const getOrderListByType = async (partnerId, type) => {
+    let query = { partner: partnerId };
+
+    switch (type) {
+        // Restaurant (Food Orders)
+        case "currentFoodOrders":
+            query.orderStatus = "processing";
+            return OrderModel.find(query).populate({
+                path: "items.item",
+                match: { itemType: "food" }
+            }).exec();
+
+        case "confirmedFoodOrders":
+            query.orderStatus = "accepted";
+            return OrderModel.find(query).populate({
+                path: "items.item",
+                match: { itemType: "food" }
+            }).exec();
+
+        case "acceptedFoodOrders":
+            query.orderStatus = "accepted";
+            return OrderModel.find(query).populate({
+                path: "items.item",
+                match: { itemType: "food" }
+            }).exec();
+
+        case "rejectedFoodOrders":
+            query.orderStatus = "rejected";
+            return OrderModel.find(query).populate({
+                path: "items.item",
+                match: { itemType: "food" }
+            }).exec();
+
+        case "deliveredFoodOrders":
+            query.orderStatus = "delivered";
+            return OrderModel.find(query).populate({
+                path: "items.item",
+                match: { itemType: "food" }
+            }).exec();
+
+        case "cancelledFoodOrders":
+            query.orderStatus = "cancelled";
+            return OrderModel.find(query).populate({
+                path: "items.item",
+                match: { itemType: "food" }
+            }).exec();
+
+        // Dine Out
+        case "availableTables":
+            return BusinessModel.findOne({ partner: partnerId, dineInStatus: true })
+                .select("tableManagement")
+                .then(business => {
+                    if (business && business.tableManagement) {
+                        return business.tableManagement.filter(table => table.status === "available");
+                    }
+                    return [];
+                });
+
+        case "bookedTables":
+            return BusinessModel.findOne({ partner: partnerId, dineInStatus: true })
+                .select("tableManagement")
+                .then(business => {
+                    if (business && business.tableManagement) {
+                        return business.tableManagement.filter(table => table.status === "booked");
+                    }
+                    return [];
+                });
+
+        case "cancelledTables":
+            return BusinessModel.findOne({ partner: partnerId, dineInStatus: true })
+                .select("tableManagement")
+                .then(business => {
+                    if (business && business.tableManagement) {
+                        return business.tableManagement.filter(table => table.status === "cancelled");
+                    }
+                    return [];
+                });
+
+        case "bookingRequests":
+            return DineOutModel.find({ partner: partnerId, status: "Pending" }).populate("user", "name").exec();
+
+        // Hotels (Room Bookings)
+        case "currentHotelBookings":
+            query.orderStatus = "processing";
+            return OrderModel.find(query).populate({
+                path: "items.item",
+                match: { itemType: "room" }
+            }).exec();
+
+        case "confirmedHotelBookings":
+            query.orderStatus = "accepted";
+            return OrderModel.find(query).populate({
+                path: "items.item",
+                match: { itemType: "room" }
+            }).exec();
+
+        case "acceptedHotelBookings":
+            query.orderStatus = "accepted";
+            return OrderModel.find(query).populate({
+                path: "items.item",
+                match: { itemType: "room" }
+            }).exec();
+
+        case "rejectedHotelBookings":
+            query.orderStatus = "rejected";
+            return OrderModel.find(query).populate({
+                path: "items.item",
+                match: { itemType: "room" }
+            }).exec();
+
+        // Products (Product Orders)
+        case "currentProductOrders":
+            query.orderStatus = "processing";
+            return OrderModel.find(query).populate({
+                path: "items.item",
+                match: { itemType: "product" }
+            }).exec();
+
+        case "confirmedProductOrders":
+            query.orderStatus = "accepted";
+            return OrderModel.find(query).populate({
+                path: "items.item",
+                match: { itemType: "product" }
+            }).exec();
+
+        case "acceptedProductOrders":
+            query.orderStatus = "accepted";
+            return OrderModel.find(query).populate({
+                path: "items.item",
+                match: { itemType: "product" }
+            }).exec();
+
+        case "rejectedProductOrders":
+            query.orderStatus = "rejected";
+            return OrderModel.find(query).populate({
+                path: "items.item",
+                match: { itemType: "product" }
+            }).exec();
+
+        case "deliveredProductOrders":
+            query.orderStatus = "delivered";
+            return OrderModel.find(query).populate({
+                path: "items.item",
+                match: { itemType: "product" }
+            }).exec();
+
+        case "cancelledProductOrders":
+            query.orderStatus = "cancelled";
+            return OrderModel.find(query).populate({
+                path: "items.item",
+                match: { itemType: "product" }
+            }).exec();
+
+        default:
+            throw new Error("Invalid type for order list retrieval.");
+    }
+};
+
 const calculateEarningsForPartner = async (partnerId) => {
     const partner = await UserModel.findById(partnerId);
     if (!partner || partner.type !== "partner") {
@@ -616,6 +774,7 @@ module.exports = {
     findBusinessesNearUser,
     findNearbyHotelsWithRooms,
     getDashboardCountsForPartner,
+    getOrderListByType,
     calculateEarningsForPartner,
     getAllBusinesses
 }

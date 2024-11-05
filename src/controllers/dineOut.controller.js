@@ -115,20 +115,38 @@ const updateDineOutRequestStatus = catchAsync(async (req, res) => {
     try {
         const dineOutRequest = await DineOutRequestService.getDineOutRequestById(requestId);
 
-        if (!dineOutRequest) { return res.status(CONSTANTS.NOT_FOUND).json({ statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.DINEOUT_NOT_FOUND }) }
+        if (!dineOutRequest) { 
+            return res.status(CONSTANTS.NOT_FOUND).json({ statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.DINEOUT_NOT_FOUND });
+        }
 
-        if (dineOutRequest.partner._id.toString() !== req.user._id.toString()) { return res.status(CONSTANTS.UNAUTHORIZED).json({ statusCode: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.PERMISSION_DENIED }) }
+        if (dineOutRequest.partner._id.toString() !== req.user._id.toString()) { 
+            return res.status(CONSTANTS.UNAUTHORIZED).json({ statusCode: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.PERMISSION_DENIED });
+        }
 
-        if (dineOutRequest.status === 'Accepted' && status === 'Rejected') { return res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: CONSTANTS.REJECT_AFTER_ACCEPTED }) }
+        if (dineOutRequest.status === 'Accepted' && status === 'Rejected') { 
+            return res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: CONSTANTS.REJECT_AFTER_ACCEPTED });
+        }
 
         let bookingId = null;
-        if (status === 'Accepted') { bookingId = Math.floor(Date.now() / 1000).toString() }
+        if (status === 'Accepted') { 
+            bookingId = Math.floor(Date.now() / 1000).toString();
+        }
+
         const updatedRequest = await DineOutRequestService.updateDineOutRequestStatus(requestId, status, bookingId);
+
         if (status === 'Accepted') {
             const business = await BusinessModel.findById(dineOutRequest.business);
             if (!business) {
                 return res.status(CONSTANTS.NOT_FOUND).json({ statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.BUSINESS_NOT_FOUND });
             }
+
+            // Update table status to "booked" in tableManagement array
+            const tableToUpdate = business.tableManagement.find(table => table.tableNumber === dineOutRequest.tableNumber);
+            if (tableToUpdate) {
+                tableToUpdate.status = "booked"; // Set status to booked
+                await business.save(); // Save the business with the updated table status
+            }
+
             return res.status(CONSTANTS.SUCCESSFUL).json({
                 statusCode: CONSTANTS.SUCCESSFUL,
                 message: CONSTANTS.DINEOUT_REQUEST_ACCEPTED,
@@ -142,6 +160,7 @@ const updateDineOutRequestStatus = catchAsync(async (req, res) => {
                 }
             });
         }
+
         if (status === 'Rejected') {
             return res.status(CONSTANTS.SUCCESSFUL).json({
                 statusCode: CONSTANTS.SUCCESSFUL,

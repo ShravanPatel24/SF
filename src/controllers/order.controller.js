@@ -379,11 +379,33 @@ const getTransactionHistoryByOrderId = catchAsync(async (req, res) => {
     }
 });
 
+const getHistoryByCategory = catchAsync(async (req, res) => {
+    const { category } = req.params;
+    const { status, page = 1, limit = 10 } = req.query;
+    const userId = req.user._id;
+    const history = await OrderService.getHistoryByCategory(userId, category, status, parseInt(page), parseInt(limit));
+    res.status(200).json(history);
+});
+
+const getAllHistory = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const history = await OrderService.getAllHistory(userId);
+
+        res.status(200).json({
+            statusCode: 200,
+            data: history
+        });
+    } catch (error) {
+        res.status(500).json({ statusCode: 500, message: error.message });
+    }
+};
+
 const getAllTransactionHistory = catchAsync(async (req, res) => {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, itemType, status, search, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
 
     try {
-        const orderSummaries = await OrderService.getAllTransactionHistory({ page, limit });
+        const orderSummaries = await OrderService.getAllTransactionHistory({ page, limit, itemType, status, search, sortBy, sortOrder });
 
         res.status(200).json({
             statusCode: 200,
@@ -485,6 +507,8 @@ module.exports = {
     getAllOrdersAdmin,
     getOrdersByUserIdAdmin,
     getOrdersByPartnerId,
+    getHistoryByCategory,
+    getAllHistory,
     getTransactionHistoryByOrderId,
     getAllTransactionHistory,
     requestRefund,

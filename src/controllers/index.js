@@ -15,3 +15,4 @@ module.exports.ContactUsController = require('./contactUs.controller');
 module.exports.FAQController = require('./faq.controller');
 module.exports.StaticContentController = require('./staticContent.controller');
 module.exports.TemplateController = require('./template.controller');
+module.exports.AddressController = require('./address.controller');

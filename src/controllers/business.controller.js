@@ -247,6 +247,30 @@ const getDashboardCounts = catchAsync(async (req, res) => {
     }
 });
 
+const getOrderListByType = catchAsync(async (req, res) => {
+    const partnerId = req.user._id;
+    const { type } = req.query;
+
+    try {
+        const orders = await BusinessService.getOrderListByType(partnerId, type);
+
+        res.status(CONSTANTS.SUCCESSFUL).json({
+            statusCode: CONSTANTS.SUCCESSFUL,
+            message: `List for ${type} fetched successfully.`,
+            data: orders,
+        });
+    } catch (error) {
+        const errorMessage = error.message === "Invalid type for order list retrieval."
+            ? "Invalid type provided. Please provide a valid order list type."
+            : error.message;
+        
+        res.status(CONSTANTS.BAD_REQUEST).json({
+            statusCode: CONSTANTS.BAD_REQUEST,
+            message: errorMessage
+        });
+    }
+});
+
 const getPartnerEarnings = catchAsync(async (req, res) => {
     const partnerId = req.user._id;
 
@@ -283,6 +307,7 @@ module.exports = {
     getBusinessesNearUser,
     getHotelsNearUser,
     getDashboardCounts,
+    getOrderListByType,
     getPartnerEarnings,
     getAllBusinesses
 };

@@ -7,23 +7,19 @@ const { businessValidation } = require('../../validations');
 const { businessController } = require('../../controllers');
 
 const router = express.Router();
+
+// Existing routes
 router.get('/hotels/nearby', businessController.getHotelsNearUser);
-
-// Guest user route to get all businesses
-router.get('/guest', businessController.getAllBusinesses); // Allow guests to get all businesses
-
-// Route to get businesses near a user (for both guests and authenticated users)
+router.get('/guest', businessController.getAllBusinesses);
 router.get('/near', validate(businessValidation.getBusinessesNearUser), businessController.getBusinessesNearUser);
-
 
 // Partner's business routes
 router.get('/partner/:partnerId', userAuth(), validate(businessValidation.getBusinessByPartnerId), businessController.getBusinessesForPartner);
-
-// Route to get businesses by businessTypeId
 router.get('/type/:businessTypeId', userAuth(), businessController.getBusinessesByType);
-
-// Route to get dashboard counts for a partner
 router.get('/dashboard/counts', userAuth(), businessController.getDashboardCounts);
+
+// New Route for Retrieving Orders by Type
+router.get('/dashboard/orders', userAuth(), businessController.getOrderListByType);  // Retrieve specific order lists based on type
 
 // Business routes with businessId
 router

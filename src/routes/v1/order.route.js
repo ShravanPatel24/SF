@@ -5,6 +5,11 @@ const validate = require('../../middlewares/validate');
 const { orderValidation } = require('../../validations');
 const { orderController } = require('../../controllers');
 
+// --- Order History Routes ---
+
+router.get('/history/all', userAuth(), orderController.getAllHistory);
+router.get('/history/:category', userAuth(), orderController.getHistoryByCategory);
+
 // --- Order Management Routes ---
 
 // Create a new order
