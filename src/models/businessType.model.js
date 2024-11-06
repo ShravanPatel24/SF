@@ -8,6 +8,7 @@ const businessTypeSchema = new Schema({
   isProduct: { type: Boolean, default: false },
   status: { type: Number, default: 1 }, //0 is Inactive, 1 is Active
   isDelete: { type: Number, default: 1 }, //0 is delete, 1 is Active
+  image: { type: String }
 },
   {
     timestamps: true,
@@ -48,7 +49,7 @@ async function inIt() {
     ];
 
     await BUSINESSTYPE.insertMany(businessTypes);
-  } 
+  }
 }
 
 inIt();

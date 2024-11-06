@@ -6,7 +6,6 @@ const contactUsSchema = mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String },
     phone: { type: String },
-    subject: { type: String, required: true },
     message: { type: String, required: true },
     status: { type: Number, default: 1 }, //0 is Inactive, 1 is Active
     isDelete: { type: Number, default: 1 }, //0 is delete, 1 is Active

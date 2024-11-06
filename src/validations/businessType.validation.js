@@ -3,9 +3,10 @@ const { objectId } = require('./custom.validation');
 
 const create = {
   body: Joi.object().keys({
-    name: Joi.string().required()
+    name: Joi.string().required(),
   }),
 };
+
 const getList = {
   query: Joi.object().keys({
     sortBy: Joi.string(),

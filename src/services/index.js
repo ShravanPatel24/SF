@@ -10,6 +10,7 @@ module.exports.BusinessService = require('./business.service');
 module.exports.BankService = require('./bank.service');
 module.exports.CartService = require('./cart.service');
 module.exports.OrderService = require('./order.service');
+module.exports.PostsService = require('./posts.service');
 module.exports.ItemService = require('./item.service');
 module.exports.ItemCategoryService = require('./itemCategory.service');
 module.exports.DineOutRequestService = require('./dineOut.service');

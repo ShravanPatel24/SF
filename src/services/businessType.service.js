@@ -1,4 +1,5 @@
 const { BusinessTypeModel } = require('../models');
+const { s3Service } = require('../services');
 const CONSTANT = require('../config/constant');
 
 /**
@@ -10,9 +11,8 @@ const create = async (requestBody) => {
     if (requestBody.name && await BusinessTypeModel.isFieldValueTaken('name', requestBody.name)) {
         return { data: {}, code: CONSTANT.BAD_REQUEST, message: `Business Type ${requestBody.name} already exists.` };
     }
-
     const data = await BusinessTypeModel.create(requestBody);
-    return { data: data, code: 200, message: CONSTANT.CREATED };
+    return { data, code: CONSTANT.SUCCESSFUL, message: CONSTANT.CREATED };
 };
 
 /**

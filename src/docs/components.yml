@@ -59,6 +59,10 @@ components:
           type: string
           enum: [1, 0]
           description: Status of the business type (1 for active, 0 for inactive)
+        image:
+          type: string
+          format: binary
+          description: Image file for the business type
       example:
         id: "613b6f7a84d1b7f2b09467c5"
         name: "Retail"
@@ -2809,9 +2813,18 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
-              $ref: "#/components/schemas/BusinessType"
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the business type
+                  example: "Retail"
+                image:
+                  type: string
+                  format: binary
+                  description: Image file to upload for the business type
       responses:
         "201":
           description: Business type added successfully
@@ -7017,6 +7030,12 @@ paths:
             format: int32
             example: 10
           description: The number of results to return per page (default is 10)
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search term to filter businesses
         - in: query
           name: businessTypeId
           required: false
@@ -8617,15 +8636,11 @@ paths:
             schema:
               type: object
               properties:
-                firstName:
-                  type: string
-                lastName:
+                name:
                   type: string
                 email:
                   type: string
                 phone:
-                  type: string
-                subject:
                   type: string
                 message:
                   type: string
@@ -8687,8 +8702,6 @@ paths:
                 email:
                   type: string
                 phone:
-                  type: string
-                subject:
                   type: string
                 message:
                   type: string

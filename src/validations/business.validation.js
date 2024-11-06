@@ -188,6 +188,7 @@ const getBusinessesNearUser = {
             .messages({
                 'number.min': 'Limit must be at least 1',
             }),
+        search: Joi.string().allow('').allow(null),
         businessTypeId: Joi.string()
             .optional()
             .messages({

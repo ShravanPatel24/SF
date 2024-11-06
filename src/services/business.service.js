@@ -255,12 +255,22 @@ const deleteBusinessById = async (businessId) => {
     await BusinessModel.findByIdAndDelete(businessId);
 };
 
-const findBusinessesNearUser = async (latitude, longitude, radiusInKm, page = 1, limit = 10, businessTypeId) => {
+const findBusinessesNearUser = async (latitude, longitude, radiusInKm, page = 1, limit = 10, businessTypeId, search) => {
     const radiusInMeters = radiusInKm * 1000; // Convert km to meters
 
     const query = {};
     if (businessTypeId) {
         query.businessType = new ObjectId(businessTypeId);
+    }
+
+    // Apply search filter if search term is provided
+    if (search) {
+        query.$or = [
+            { businessName: { $regex: search, $options: "i" } }, // Case-insensitive search on business name
+            { businessDescription: { $regex: search, $options: "i" } }, // Case-insensitive search on description
+            { "businessAddress.city": { $regex: search, $options: "i" } }, // Case-insensitive search on city
+            { "businessAddress.state": { $regex: search, $options: "i" } } // Case-insensitive search on state
+        ];
     }
 
     const businesses = await BusinessModel.aggregate([
@@ -273,14 +283,14 @@ const findBusinessesNearUser = async (latitude, longitude, radiusInKm, page = 1,
                 distanceField: "distance", // This will add a field called `distance` to each document
                 maxDistance: radiusInMeters, // Maximum distance in meters
                 spherical: true, // For spherical coordinates
-                query: query, // Filter by businessTypeId if provided
+                query: query, // Filter by businessTypeId and search if provided
             },
         },
         { $skip: (page - 1) * limit }, // Skip the documents for pagination
         { $limit: limit } // Limit the number of documents per page
     ]);
 
-    // Get total number of businesses matching the geospatial query and businessTypeId filter
+    // Get total number of businesses matching the geospatial query and filters
     const totalDocs = await BusinessModel.countDocuments({
         ...query,
         "businessAddress.location": {
@@ -313,7 +323,11 @@ const findNearbyHotelsWithRooms = async (latitude, longitude, radiusInKm, checkI
     console.log(`Parameters - Latitude: ${latitude}, Longitude: ${longitude}, Radius: ${radiusInKm}`);
     console.log(`Check-in: ${checkInDate}, Check-out: ${checkOutDate}, Guests: ${guests}, Room Quantity: ${roomQuantity}`);
 
-    const hotelBusinessType = await BusinessTypeModel.findOne({ name: "Hotels" }).select('_id');
+    // Modify the query to use a case-insensitive regex search
+    const hotelBusinessType = await BusinessTypeModel.findOne({
+        name: { $regex: /^hotel(s)?$/i } // Matches "Hotel", "Hotels", "hotel", or "hotels" case-insensitively
+    }).select('_id');
+
     if (!hotelBusinessType) {
         throw new Error("Hotel business type not found.");
     }

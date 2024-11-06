@@ -2,11 +2,31 @@ const pick = require('../utils/pick');
 const catchAsync = require('../utils/catchAsync');
 const { BusinessTypeService } = require('../services');
 const CONSTANT = require('../config/constant');
+const { s3Service } = require('../services');
 
 // Create a new business type
 const create = catchAsync(async (req, res) => {
-    const data = await BusinessTypeService.create(req.body);
-    res.status(CONSTANT.SUCCESSFUL).json({ statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.CREATED, data });
+    if (req.files && req.files.image && req.files.image[0]) {
+        const s3Response = await s3Service.uploadImage(req.files.image[0], 'businessTypeImages');
+        if (s3Response && s3Response.data) {
+            req.body.image = s3Response.data.Key;
+        } else {
+            throw new Error(CONSTANT.S3_BUCKET_UPLOAD_FAILED);
+        }
+    }
+    const result = await BusinessTypeService.create(req.body);
+    if (result.code !== CONSTANT.SUCCESSFUL) {
+        return res.status(result.code).json({
+            statusCode: result.code,
+            message: result.message,
+            data: result.data || {}
+        });
+    }
+    res.status(CONSTANT.SUCCESSFUL).json({
+        statusCode: CONSTANT.SUCCESSFUL,
+        message: CONSTANT.CREATED,
+        data: result.data,
+    });
 });
 
 // Get business type list with pagination

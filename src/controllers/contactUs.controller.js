@@ -4,7 +4,6 @@ const { ContactUsService } = require('../services');
 const CONSTANT = require('../config/constant');
 
 const createContact = catchAsync(async (req, res) => {
-    req.body['name'] = req.body.firstName + (req.body.lastName ? (' ' + req.body.lastName) : '');
     const data = await ContactUsService.createContact(req.body);
     res.status(CONSTANT.SUCCESSFUL).json({
         statusCode: CONSTANT.SUCCESSFUL,

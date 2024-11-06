@@ -160,7 +160,7 @@ const deleteBusinessImages = catchAsync(async (req, res) => {
 });
 
 const getBusinessesNearUser = catchAsync(async (req, res) => {
-    const { latitude, longitude, radiusInKm, businessTypeId } = req.query;
+    const { latitude, longitude, radiusInKm, businessTypeId, search } = req.query;
     const options = pick(req.query, ["page", "limit"]);
     const page = parseInt(options.page, 10) || 1;
     const limit = parseInt(options.limit, 10) || 10;
@@ -173,7 +173,7 @@ const getBusinessesNearUser = catchAsync(async (req, res) => {
     }
 
     try {
-        const result = await BusinessService.findBusinessesNearUser(latitude, longitude, radiusInKm, page, limit, businessTypeId);
+        const result = await BusinessService.findBusinessesNearUser(latitude, longitude, radiusInKm, page, limit, businessTypeId, search);
         res.status(CONSTANTS.SUCCESSFUL).json({
             statusCode: CONSTANTS.SUCCESSFUL,
             data: {
@@ -193,7 +193,7 @@ const getBusinessesNearUser = catchAsync(async (req, res) => {
     } catch (error) {
         res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: error.message });
     }
-})
+});
 
 const getHotelsNearUser = catchAsync(async (req, res) => {
     const { latitude, longitude, radiusInKm, checkIn, checkOut, guests, roomQuantity } = req.query;

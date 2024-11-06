@@ -3,13 +3,10 @@ const { objectId } = require('./custom.validation');
 
 const createContact = {
     body: Joi.object().keys({
-        firstName: Joi.string().required(),
-        lastName: Joi.string().required(),
+        name: Joi.string().required(),
         phone: Joi.string().allow('').allow(null),
         email: Joi.string().allow('').allow(null).required(),
-        subject: Joi.allow('').allow(null),
         message: Joi.allow('').allow(null).required(),
-        recaptcha: Joi.allow('').allow(null),
     }),
 };
 
@@ -39,7 +36,6 @@ const updateContact = {
             name: Joi.string().required(),
             phone: Joi.string().allow('').allow(null),
             email: Joi.string().allow('').allow(null),
-            subject: Joi.allow('').allow(null),
             message: Joi.allow('').allow(null),
             status: Joi.allow('').allow(null),
             isDelete: Joi.number().allow('').allow(null),
