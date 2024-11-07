@@ -271,21 +271,6 @@ const getOrderListByType = catchAsync(async (req, res) => {
     }
 });
 
-const getPartnerEarnings = catchAsync(async (req, res) => {
-    const partnerId = req.user._id;
-
-    try {
-        const earnings = await BusinessService.calculateEarningsForPartner(partnerId);
-        res.status(CONSTANTS.SUCCESSFUL).json({
-            statusCode: CONSTANTS.SUCCESSFUL,
-            message: 'Earnings calculated successfully.',
-            data: earnings,
-        });
-    } catch (error) {
-        res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: error.message });
-    }
-});
-
 // Get all businesses for guests
 const getAllBusinesses = catchAsync(async (req, res) => {
     try {
@@ -308,6 +293,5 @@ module.exports = {
     getHotelsNearUser,
     getDashboardCounts,
     getOrderListByType,
-    getPartnerEarnings,
     getAllBusinesses
 };

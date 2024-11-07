@@ -13,13 +13,13 @@ const orderSchema = new mongoose.Schema({
         selectedColor: { type: String }
     }],
     deliveryAddress: {
-        name: { type: String, required: true },
-        street: { type: String, required: true },
-        city: { type: String, required: true },
+        name: { type: String, required: function() { return this.requiresDeliveryAddress(); } },
+        street: { type: String, required: function() { return this.requiresDeliveryAddress(); } },
+        city: { type: String, required: function() { return this.requiresDeliveryAddress(); } },
         state: { type: String },
-        country: { type: String, required: true },
-        postalCode: { type: String, required: true },
-        phone: { type: String, required: true }
+        country: { type: String, required: function() { return this.requiresDeliveryAddress(); } },
+        postalCode: { type: String, required: function() { return this.requiresDeliveryAddress(); } },
+        phone: { type: String, required: function() { return this.requiresDeliveryAddress(); } }
     },
     totalPrice: { type: Number, required: true },
     subtotal: { type: Number, required: true },
@@ -47,14 +47,12 @@ const orderSchema = new mongoose.Schema({
         enum: ['none', 'pending', 'approved', 'rejected'],
         default: 'none'
     },
-    // Separate transaction history
     transactionHistory: [{
-        type: { type: String, required: true }, // e.g., "Order Placed", "Payment Completed"
+        type: { type: String, required: true },
         date: { type: Date, required: true },
         amount: { type: Number, required: true },
-        status: { type: String, required: true } // e.g., "Pending", "Completed"
+        status: { type: String, required: true }
     }],
-    // Separate refund details
     refundDetails: {
         reason: { type: String },
         status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
@@ -69,7 +67,6 @@ const orderSchema = new mongoose.Schema({
             ifscCode: { type: String }
         }
     },
-    // Separate exchange details
     exchangeDetails: [{
         reason: { type: String },
         status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
@@ -79,7 +76,11 @@ const orderSchema = new mongoose.Schema({
     }]
 }, { timestamps: true });
 
-// Add plugins that convert mongoose to json, and handle pagination
+// Helper method to determine if delivery address is required
+orderSchema.methods.requiresDeliveryAddress = function() {
+    return this.items.some(item => item.itemType === 'food' || item.itemType === 'product');
+};
+
 orderSchema.plugin(toJSON);
 orderSchema.plugin(mongoosePaginate);
 orderSchema.plugin(aggregatePaginate);

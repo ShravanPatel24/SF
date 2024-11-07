@@ -3,14 +3,38 @@ const { ItemCategoryModel } = require('../models');
 const CONSTANTS = require("../config/constant");
 
 // Create a new category
-const createCategory = async ({ categoryName, categoryType, parentCategory }) => {
+const createCategory = async ({ categoryName, categoryType, parentCategory, tax, inheritParentTax }) => {
     const category = new ItemCategoryModel({
         categoryName,
         categoryType,
-        parentCategory: parentCategory || null
+        parentCategory: parentCategory || null,
+        tax: parentCategory ? null : tax, // Only set tax if not inheriting from parent
+        inheritParentTax: inheritParentTax !== undefined ? inheritParentTax : !!parentCategory // Default to true if parentCategory exists
     });
     await category.save();
     return category;
+};
+
+// Get the applicable tax rate for a category
+const getCategoryTax = async (categoryId) => {
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+        throw new Error("Invalid category ID");
+    }
+
+    const category = await ItemCategoryModel.findById(categoryId);
+
+    if (!category) {
+        throw new Error("Category not found");
+    }
+
+    // If inheritParentTax is true, look up the parent's tax rate
+    if (category.inheritParentTax && category.parentCategory) {
+        const parentCategory = await ItemCategoryModel.findById(category.parentCategory);
+        return parentCategory ? parentCategory.tax : category.tax;
+    }
+
+    // Otherwise, return the category's own tax rate
+    return category.tax;
 };
 
 // Get categories by type (product, food, room)
@@ -50,6 +74,20 @@ const getAllCategories = async ({ page = 1, limit = 10, sortBy = 'asc', search, 
 
     const categories = await ItemCategoryModel.paginate(query, options);
     return categories;
+};
+
+// Get category by category ID
+const getCategoryById = async (categoryId) => {
+    // Validate categoryId
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+        throw new Error(CONSTANTS.INVALID_CATEGORY_ID);
+    }
+
+    const category = await ItemCategoryModel.findById(categoryId).populate('parentCategory', 'categoryName');
+    if (!category) {
+        throw new Error(CONSTANTS.CATEGORY_NOT_FOUND);
+    }
+    return category;
 };
 
 // Get subcategories by parent category ID
@@ -93,7 +131,9 @@ const deleteCategory = async (categoryId) => {
 
 module.exports = {
     createCategory,
+    getCategoryTax,
     getCategoriesByType,
+    getCategoryById,
     getSubcategoriesByParent,
     getAllCategories,
     updateCategory,

@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const mongoosePaginate = require("mongoose-paginate-v2");
 
+
 const itemCategorySchema = new mongoose.Schema({
     categoryName: { type: String, required: true },
     categoryType: {
@@ -20,11 +21,14 @@ const itemCategorySchema = new mongoose.Schema({
             message: "Parent category is not allowed for room types."
         }
     },
+    tax: { type: Number, default: 0 },
+    inheritParentTax: { type: Boolean, default: false },
     status: { type: Number, default: 1 }, //0 is Inactive, 1 is Active
-    isDelete: { type: Number, default: 1 }
+    isDelete: { type: Number, default: 1 },
 }, {
     timestamps: true
 });
+
 
 itemCategorySchema.plugin(mongoosePaginate);
 const ItemCategoryModel = mongoose.model("ItemCategory", itemCategorySchema);

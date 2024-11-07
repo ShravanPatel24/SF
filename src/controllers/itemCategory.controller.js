@@ -4,19 +4,21 @@ const CONSTANTS = require("../config/constant");
 
 // Create a new category
 const createCategory = catchAsync(async (req, res) => {
-    const { categoryName, categoryType, parentCategory } = req.body;
+    const { categoryName, categoryType, parentCategory, tax, inheritParentTax } = req.body;
 
     try {
         const categoryData = {
             categoryName,
             categoryType,
-            parentCategory: categoryType === 'room' ? null : parentCategory // Only allow for product and food
+            parentCategory: categoryType === 'room' ? null : parentCategory, // Only allow parent for product and food
+            tax,
+            inheritParentTax: inheritParentTax || false // Default to false if not provided
         };
 
         // Use the service function to create a new category
         const newCategory = await ItemCategoryService.createCategory(categoryData);
         res.status(201).json({
-            statusCode: 201,
+            statusCode: 200,
             message: CONSTANTS.CATEGORY_CREATED,
             data: newCategory
         });
@@ -34,6 +36,18 @@ const createCategory = catchAsync(async (req, res) => {
             message: "Error creating category.",
             error: error.message
         });
+    }
+});
+
+// Endpoint to get the tax rate for a specific category
+const getCategoryTax = catchAsync(async (req, res) => {
+    const { categoryId } = req.params;
+
+    try {
+        const taxRate = await ItemCategoryService.getCategoryTax(categoryId);
+        res.status(200).json({ statusCode: 200, tax: taxRate });
+    } catch (error) {
+        res.status(400).json({ statusCode: 400, message: error.message });
     }
 });
 
@@ -78,6 +92,30 @@ const getAllCategories = catchAsync(async (req, res) => {
         },
         message: CONSTANTS.LIST
     });
+});
+
+// Get category by category ID
+const getCategoryById = catchAsync(async (req, res) => {
+    const { categoryId } = req.params;
+
+    try {
+        const category = await ItemCategoryService.getCategoryById(categoryId);
+        if (!category) {
+            return res.status(404).json({
+                statusCode: 404,
+                message: CONSTANTS.CATEGORY_NOT_FOUND
+            });
+        }
+        res.status(200).json({
+            statusCode: 200,
+            data: category
+        });
+    } catch (error) {
+        res.status(400).json({
+            statusCode: 400,
+            message: error.message
+        });
+    }
 });
 
 // Get subcategories by parent category
@@ -132,8 +170,10 @@ const deleteCategory = catchAsync(async (req, res) => {
 
 module.exports = {
     createCategory,
+    getCategoryTax,
     getCategoriesByType,
     getAllCategories,
+    getCategoryById,
     getSubcategoriesByParent,
     updateCategory,
     deleteCategory

@@ -28,12 +28,16 @@ const createOrder = async (userId, cartId, paymentMethod, orderNote) => {
         status: "Completed"
     }];
 
-    // Create the order
-    const order = new OrderModel({
+    // Check if deliveryAddress is required
+    const requiresDeliveryAddress = cart.items.some(
+        item => item.item.itemType === 'food' || item.item.itemType === 'product'
+    );
+
+    // Create the order object with conditional deliveryAddress
+    const orderData = {
         user: userId,
         partner: partnerId,
         items: cart.items,
-        deliveryAddress: cart.deliveryAddress,
         totalPrice: cart.totalPrice,
         subtotal: cart.subtotal,
         tax: cart.tax,
@@ -43,11 +47,18 @@ const createOrder = async (userId, cartId, paymentMethod, orderNote) => {
         orderId: customOrderId,
         orderNumber: orderNumber,
         orderStatus: 'pending',
-        transactionHistory: transactionHistory
-    });
+        transactionHistory: transactionHistory,
+    };
+
+    if (requiresDeliveryAddress) {
+        orderData.deliveryAddress = cart.deliveryAddress;
+    }
+
+    const order = new OrderModel(orderData);
 
     await order.save();
 
+    // Handle online payment if required
     if (paymentMethod === 'online') {
         const paymentResult = await processOnlinePayment(order);
         if (!paymentResult.success) {
@@ -65,6 +76,7 @@ const createOrder = async (userId, cartId, paymentMethod, orderNote) => {
         await order.save();
     }
 
+    // Clear the cart
     cart.items = [];
     cart.totalPrice = 0;
     await cart.save();
@@ -121,36 +133,73 @@ const getOrderById = async (orderId) => {
     return order;
 };
 
-// Get pending food orders for the partner
-const getPendingFoodOrders = async (partnerId) => {
+// Get pending food requests for the partner
+const getPendingFoodRequests = async (partnerId) => {
     const orders = await OrderModel.find({
         partner: partnerId,
-        orderStatus: 'pending',  // Assuming 'pending' means not yet accepted/rejected
-    }).populate('items.item'); // Populate the related items
-    return orders;
+        orderStatus: 'pending'
+    }).populate({
+        path: 'items.item',
+        select: 'itemType dishPrice', // Include fields you need from Item model
+        match: { itemType: 'food' }
+    });
+    return orders.filter(order => order.items.some(item => item.item));
 };
 
-// Update the order status (Accept or Reject)
-const updatePartnerOrderStatus = async (orderId, partnerId, partnerResponse) => {
+// Get pending room requests for the partner
+const getPendingRoomRequests = async (partnerId) => {
+    // Fetch orders with 'pending' status and populate item details
+    const orders = await OrderModel.find({
+        partner: partnerId,
+        orderStatus: 'pending'
+    }).populate({
+        path: 'items.item',
+        select: 'itemType roomPrice', // Include fields you need from Item model
+        match: { itemType: 'room' } // Filter items by room type
+    });
+
+    // Filter out orders where items array is empty after population
+    return orders.filter(order => order.items.some(item => item.item));
+};
+
+// Get pending product requests for the partner
+const getPendingProductRequests = async (partnerId) => {
+    const orders = await OrderModel.find({
+        partner: partnerId,
+        orderStatus: 'pending'
+    }).populate('items.item');
+
+    // Filter orders to include only those that contain product items
+    const productOrders = orders.filter(order =>
+        order.items.some(item => item.item && item.item.itemType === 'product')
+    );
+
+    return productOrders;
+};
+
+// Update the status of an order/request (Accept or Reject)
+const updatePartnerRequestStatus = async (orderId, partnerId, partnerResponse) => {
     const order = await OrderModel.findOne({ _id: orderId, partner: partnerId });
 
     if (!order) {
-        throw new Error("Order not found");
+        throw new Error("Order not found or unauthorized access");
     }
 
     if (order.orderStatus !== 'pending') {
-        throw new Error("Order is no longer in pending state");
+        throw new Error("Order is no longer in a pending state");
     }
 
-    if (partnerResponse === 'accepted') {
-        order.orderStatus = 'ordered';
-        order.partnerResponse = 'accepted';
-    } else if (partnerResponse === 'rejected') {
-        order.orderStatus = 'rejected';
-        order.partnerResponse = 'rejected';
-    } else {
-        throw new Error("Invalid response");
-    }
+    // Update order status and partner response
+    order.orderStatus = partnerResponse === 'accepted' ? 'accepted' : 'rejected';
+    order.partnerResponse = partnerResponse;
+
+    // Log the response in transaction history
+    order.transactionHistory.push({
+        type: `Request ${partnerResponse.charAt(0).toUpperCase() + partnerResponse.slice(1)}`,
+        date: new Date(),
+        amount: order.totalPrice,
+        status: partnerResponse === 'accepted' ? 'Completed' : 'Rejected'
+    });
 
     await order.save();
     return order;
@@ -444,14 +493,15 @@ const getTransactionHistoryByOrderId = async (orderId) => {
                 select: 'businessName name'
             }
         })
-        .select('transactionHistory refundDetails totalPrice subtotal tax deliveryCharge orderStatus paymentMethod deliveryAddress orderNote createdAt updatedAt items');
+        .select('transactionHistory refundDetails totalPrice subtotal tax deliveryCharge orderStatus paymentMethod deliveryAddress orderNote createdAt updatedAt items orderId');
 
     if (!order) {
         throw new Error(CONSTANTS.ORDER_NOT_FOUND);
     }
 
-    // Map transaction history and exclude refund details from it
+    // Map transaction history and add transactionId
     const filteredTransactionHistory = order.transactionHistory.map(transaction => ({
+        transactionId: transaction._id, // Assuming _id is available as a unique identifier for each transaction
         type: transaction.type,
         date: transaction.date,
         amount: transaction.amount,
@@ -469,7 +519,7 @@ const getTransactionHistoryByOrderId = async (orderId) => {
     } : null;
 
     return {
-        orderId: order.orderId,
+        orderId: order.orderId, // Ensure orderId is included
         orderNumber: order.orderNumber,
         user: order.user,
         partner: order.partner,
@@ -490,7 +540,7 @@ const getTransactionHistoryByOrderId = async (orderId) => {
         paymentMethod: order.paymentMethod,
         deliveryAddress: order.deliveryAddress,
         orderNote: order.orderNote,
-        transactionHistory: filteredTransactionHistory,
+        transactionHistory: filteredTransactionHistory, // Updated transaction history with transactionId
         refundDetails,  // Separate refund details
         createdAt: order.createdAt,
         updatedAt: order.updatedAt
@@ -568,33 +618,18 @@ const getAllTransactionHistory = async ({ page = 1, limit = 10, itemType, status
         // Project only relevant fields
         {
             $project: {
+                transactionId: "$_id",
+                createdAt: 1,
+                userName: "$userDetails.name",
                 orderId: 1,
-                'userDetails.name': 1,
-                'userDetails._id': 1,  // Include user ID
-                'partnerDetails.name': 1,
-                'partnerDetails._id': 1,  // Include partner ID
-                paymentMethod: 1,
-                transactionHistory: 1,
-                refundStatus: 1,
-                totalPrice: 1,
-                items: {
-                    $filter: {
-                        input: "$items",
-                        as: "item",
-                        cond: { $eq: ["$$item.item.itemType", itemType] }
-                    }
-                }
+                amount: "$totalPrice",
+                status: "$orderStatus"
             }
         }
     ];
 
     // Execute the aggregation
     const orderSummaries = await OrderModel.aggregate(aggregateQuery);
-
-    // Check if no results found for the specified itemType
-    if (orderSummaries.length === 0 && itemType) {
-        throw new Error(`No transactions found for the selected item type: ${itemType}`);
-    }
 
     return {
         data: orderSummaries,
@@ -745,14 +780,84 @@ const processReturnDecision = async (orderId, decision, partnerId) => {
     return order;
 };
 
+// Get Partner Transactions
+const getPartnerTransactionList = async (partnerId, timeFilter, page = 1, limit = 10) => {
+    // Convert partnerId to ObjectId, ensuring it’s a string
+    const matchCondition = { partner: new mongoose.Types.ObjectId(String(partnerId)) };
+    const currentDate = new Date();
+    let startDate;
+
+    // Set the date filter based on timeFilter
+    if (timeFilter === 'month') {
+        startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    } else if (timeFilter === 'week') {
+        const startOfWeek = currentDate.getDate() - currentDate.getDay();
+        startDate = new Date(currentDate.setDate(startOfWeek));
+    } else if (timeFilter === 'year') {
+        startDate = new Date(currentDate.getFullYear(), 0, 1);
+    }
+
+    // Add date filtering only if startDate is set
+    if (startDate) {
+        matchCondition['transactionHistory.date'] = { $gte: startDate, $lte: currentDate };
+    }
+
+    // Aggregate transactions within the specified time range
+    const transactions = await OrderModel.aggregate([
+        { $match: matchCondition },
+        { $unwind: '$transactionHistory' },
+        {
+            $match: startDate ? { 'transactionHistory.date': { $gte: startDate, $lte: currentDate } } : {}
+        },
+        {
+            $project: {
+                orderId: 1,
+                transactionId: "$transactionHistory._id",
+                type: "$transactionHistory.type",
+                date: "$transactionHistory.date",
+                amount: "$transactionHistory.amount",
+                status: "$transactionHistory.status"
+            }
+        },
+        { $sort: { date: -1 } }
+    ]);
+
+    // Pagination calculations
+    const totalDocs = transactions.length;
+    const totalPages = Math.ceil(totalDocs / limit);
+    const currentPage = Math.min(page, totalPages); // Ensures current page does not exceed total pages
+    const skipIndex = (currentPage - 1) * limit;
+    const paginatedTransactions = transactions.slice(skipIndex, skipIndex + limit);
+
+    // Response structure
+    return {
+        statusCode: 200,
+        message: CONSTANTS.LIST,
+        data: {
+            docs: paginatedTransactions,
+            totalDocs: totalDocs,
+            limit: limit,
+            totalPages: totalPages,
+            page: currentPage,
+            pagingCounter: skipIndex + 1,
+            hasPrevPage: currentPage > 1,
+            hasNextPage: currentPage < totalPages,
+            prevPage: currentPage > 1 ? currentPage - 1 : null,
+            nextPage: currentPage < totalPages ? currentPage + 1 : null
+        }
+    };
+};
+
 module.exports = {
     createOrder,
     processOnlinePayment,
     updateOrderStatus,
     getOrdersByUser,
     getOrderById,
-    getPendingFoodOrders,
-    updatePartnerOrderStatus,
+    getPendingFoodRequests,
+    getPendingRoomRequests,
+    getPendingProductRequests,
+    updatePartnerRequestStatus,
     updateDeliveryPartner,
     cancelOrder,
     trackOrder,
@@ -767,4 +872,5 @@ module.exports = {
     processRefundDecision,
     initiateReturnOrExchange,
     processReturnDecision,
+    getPartnerTransactionList
 };

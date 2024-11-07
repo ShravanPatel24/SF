@@ -10,25 +10,45 @@ const createOrder = catchAsync(async (req, res) => {
     const { cartId, paymentMethod, orderNote } = req.body;
     const cart = await CartModel.findById(cartId).populate({
         path: 'items.item',
-        strictPopulate: false // Allow flexible population
+        strictPopulate: false
     });
-    if (!cart || cart.items.length === 0) { return res.status(400).json({ statusCode: 400, message: CONSTANTS.CART_EMPTY }) }
+    if (!cart || cart.items.length === 0) {
+        return res.status(400).json({ statusCode: 400, message: CONSTANTS.CART_EMPTY });
+    }
+
     let containsRoom = false;
-    if (!Array.isArray(cart.items)) { return res.status(400).json({ statusCode: 400, message: "Invalid cart items." }) }
+    let containsFood = false;
+    let containsProduct = false;
 
     cart.items.forEach(item => {
         const product = item.item;
         if (!product) { return; }
-        if (product.itemType === 'room') { containsRoom = true; }
+        if (product.itemType === 'room') containsRoom = true;
+        else if (product.itemType === 'food') containsFood = true;
+        else if (product.itemType === 'product') containsProduct = true;
     });
 
     const order = await OrderService.createOrder(userId, cart, paymentMethod, orderNote);
 
-    if (paymentMethod === 'online' && order.paymentFailed) { return res.status(400).json({ statusCode: 400, message: "Payment failed. Please try again." }) }
+    if (paymentMethod === 'online' && order.paymentFailed) {
+        return res.status(400).json({ statusCode: 400, message: "Payment failed. Please try again." });
+    }
 
-    let successMessage = paymentMethod === 'online' ?
-        (containsRoom ? CONSTANTS.PAYMENT_SUCCESS_ONLINE_HOTEL_MSG : CONSTANTS.PAYMENT_SUCCESS_ONLINE_ORDER_MSG) :
-        (containsRoom ? CONSTANTS.HOTEL_BOOKED_MSG : CONSTANTS.ORDER_PLACED_MSG);
+    // Determine the success message based on item types in the cart
+    let successMessage = '';
+    if (containsRoom) {
+        successMessage = paymentMethod === 'online'
+            ? CONSTANTS.PAYMENT_SUCCESS_ONLINE_HOTEL_MSG
+            : "Your hotel reservation request has been submitted. Please await confirmation.";
+    } else if (containsFood && containsProduct) {
+        successMessage = "Your order with food and products has been placed successfully!";
+    } else if (containsFood) {
+        successMessage = "Your food order has been placed successfully and is awaiting preparation.";
+    } else if (containsProduct) {
+        successMessage = "Your product order has been placed successfully! It will be dispatched soon. Thank you for shopping with us!";
+    } else {
+        successMessage = CONSTANTS.ORDER_PLACED_MSG;
+    }
 
     return res.status(201).json({
         statusCode: 201,
@@ -110,30 +130,50 @@ const updateOrderStatus = catchAsync(async (req, res) => {
 });
 
 // Get pending food orders for the partner
-const getPartnerFoodRequests = catchAsync(async (req, res) => {
+const getPendingFoodRequests = catchAsync(async (req, res) => {
     const partnerId = req.user._id; // From auth middleware
-    const orders = await OrderService.getPendingFoodOrders(partnerId); // Call service method
+    const requests = await OrderService.getPendingFoodRequests(partnerId);
     res.status(200).json({
         statusCode: 200,
-        data: orders,
+        data: requests,
         message: "Pending food orders retrieved successfully",
     });
 });
 
+const getPendingRoomRequests = catchAsync(async (req, res) => {
+    const partnerId = req.user._id;
+    const requests = await OrderService.getPendingRoomRequests(partnerId);
+    res.status(200).json({
+        statusCode: 200,
+        data: requests,
+        message: "Pending room requests retrieved successfully",
+    });
+});
+
+const getPendingProductRequests = catchAsync(async (req, res) => {
+    const partnerId = req.user._id;
+    const requests = await OrderService.getPendingProductRequests(partnerId);
+    res.status(200).json({
+        statusCode: 200,
+        data: requests,
+        message: "Pending product requests retrieved successfully",
+    });
+});
+
 // Accept or Reject the order
-const updatePartnerOrderStatus = catchAsync(async (req, res) => {
+const updatePartnerRequestStatus = catchAsync(async (req, res) => {
     const { orderId } = req.params;
     const { partnerResponse } = req.body;  // 'accepted' or 'rejected'
     const partnerId = req.user._id;  // Assuming the partner is authenticated
 
     try {
-        const updatedOrder = await OrderService.updatePartnerOrderStatus(orderId, partnerId, partnerResponse);
+        const updatedOrder = await OrderService.updatePartnerRequestStatus(orderId, partnerId, partnerResponse);
         return res.status(200).json({
             statusCode: 200,
-            message: "Order status updated successfully",
+            message: `Request ${partnerResponse} successfully`,
             order: {
                 _id: updatedOrder._id,
-                status: updatedOrder.status,
+                status: updatedOrder.orderStatus,  // Use `orderStatus` to reflect the updated status
                 partnerResponse: updatedOrder.partnerResponse
             }
         });
@@ -494,13 +534,28 @@ const processReturnDecision = catchAsync(async (req, res) => {
     }
 });
 
+// Get Partner Transactions
+const getPartnerTransactionList = catchAsync(async (req, res) => {
+    const partnerId = req.user._id;
+    const { filter, page = 1, limit = 10 } = req.query;
+
+    try {
+        const transactions = await OrderService.getPartnerTransactionList(partnerId, filter, parseInt(page), parseInt(limit));
+        res.status(200).json(transactions);
+    } catch (error) {
+        res.status(500).json({ statusCode: 500, message: error.message });
+    }
+});
+
 module.exports = {
     createOrder,
     updateOrderStatus,
     getUserOrders,
     getOrderById,
-    getPartnerFoodRequests,
-    updatePartnerOrderStatus,
+    getPendingFoodRequests,
+    getPendingRoomRequests,
+    getPendingProductRequests,
+    updatePartnerRequestStatus,
     updateDeliveryPartner,
     cancelOrder,
     trackOrder,
@@ -515,4 +570,5 @@ module.exports = {
     respondToRefundRequest,
     initiateReturnOrExchange,
     processReturnDecision,
+    getPartnerTransactionList
 };

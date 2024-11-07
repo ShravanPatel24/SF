@@ -7,6 +7,7 @@ const variantSchema = new mongoose.Schema({
     color: { type: String }, // Color of the variant
     productPrice: { type: Number, required: true }, // Price of the variant
     nonReturnable: { type: Boolean, default: false }, // Non-returnable flag for the variant
+    image: { type: String } // Image specific to the variant
 });
 
 // Main item schema
@@ -23,34 +24,34 @@ const itemSchema = new mongoose.Schema({
     partner: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true }, // Reference to the partner (user type = 'partner')
 
     // Category for items (refers to ItemCategory model)
-    parentCategory: { // This is optional for food
+    parentCategory: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'ItemCategory',
         required: function () {
             return this.itemType !== 'room'; // Required for food and product, optional for room
         }
     },
-    subCategory: { // General subCategory field for food and product
+    subCategory: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'ItemCategory',
         required: function () {
             return this.itemType === 'product' || this.itemType === 'food'; // Required for product and food
         }
     },
-    roomCategory: { // Specific for room items
+    roomCategory: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'ItemCategory',
         required: function () {
             return this.itemType === 'room'; // Required for room items
         }
     },
-    // Fields for food items (optional)
+    // Fields for food items
     dishName: { type: String, required: function () { return this.itemType === 'food'; } },
     dishDescription: { type: String, required: function () { return this.itemType === 'food'; } },
     dishPrice: { type: Number, required: function () { return this.itemType === 'food'; } },
     foodDeliveryCharge: { type: Number, required: function () { return this.itemType === 'food'; } },
 
-    // Fields for rooms (optional)
+    // Fields for rooms
     roomName: { type: String, required: function () { return this.itemType === 'room'; } },
     roomDescription: { type: String, required: function () { return this.itemType === 'room'; } },
     roomPrice: { type: Number, required: function () { return this.itemType === 'room'; } },
@@ -60,7 +61,7 @@ const itemSchema = new mongoose.Schema({
     checkOut: { type: Date, required: function () { return this.itemType === 'room'; } },
     amenities: [{ type: String }],
 
-    // Fields for products (optional)
+    // Fields for products
     productName: { type: String, required: function () { return this.itemType === 'product'; } },
     productDescription: { type: String, required: function () { return this.itemType === 'product'; } },
     productDeliveryCharge: { type: Number },

@@ -4,6 +4,9 @@ const { adminAuth } = require('../../middlewares');
 
 const router = express.Router();
 
+// Route to get the tax rate for a specific category
+router.get('/:categoryId/tax', adminAuth(), ItemCategoryController.getCategoryTax);
+
 // Route to get categories with status filters
 router.get('/categories', adminAuth(), ItemCategoryController.getAllCategories);
 
@@ -21,5 +24,8 @@ router.patch('/update/:categoryId', adminAuth(), ItemCategoryController.updateCa
 
 // Route to delete a category
 router.delete('/delete/:categoryId', adminAuth(), ItemCategoryController.deleteCategory);
+
+// Route to get category details by ID
+router.get('/category/:categoryId', adminAuth(), ItemCategoryController.getCategoryById);
 
 module.exports = router;

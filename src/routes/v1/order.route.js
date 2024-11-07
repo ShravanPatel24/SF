@@ -35,11 +35,26 @@ router.patch('/status/:orderId', userAuth(), validate(orderValidation.updateOrde
 // Add/update delivery partner details
 router.post('/:orderId/delivery-partner', userAuth('updateOrder'), orderController.updateDeliveryPartner);
 
-// Get pending food requests for partner
-router.get('/partner/food-requests', userAuth(), orderController.getPartnerFoodRequests);
+// Get transaction list for partner with filters by month, week, and year
+router.get('/partner/transactions', userAuth(), orderController.getPartnerTransactionList);
 
-// Accept/reject food order by partner
-router.patch('/partner/food-requests/:orderId', userAuth(), validate(orderValidation.updatePartnerOrderStatusValidation), orderController.updatePartnerOrderStatus);
+// Get pending room requests for partner
+router.get('/partner/food-requests', userAuth(), orderController.getPendingFoodRequests);
+
+// Get pending room requests for partner
+router.get('/partner/room-requests', userAuth(), orderController.getPendingRoomRequests);
+
+// Get pending product requests for partner
+router.get('/partner/product-requests', userAuth(), orderController.getPendingProductRequests);
+
+// Accept or reject food request
+router.patch('/partner/food-requests/:orderId', userAuth(), orderController.updatePartnerRequestStatus);
+
+// Accept or reject room request
+router.patch('/partner/room-requests/:orderId', userAuth(), orderController.updatePartnerRequestStatus);
+
+// Accept or reject product request
+router.patch('/partner/product-requests/:orderId', userAuth(), orderController.updatePartnerRequestStatus);
 
 // --- Refund and Return/Exchange Routes ---
 

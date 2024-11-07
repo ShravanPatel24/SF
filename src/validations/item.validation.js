@@ -34,7 +34,6 @@ const createItem = {
         // Specific fields for product items
         productName: Joi.string().when('itemType', { is: 'product', then: Joi.required() }),
         productDescription: Joi.string().when('itemType', { is: 'product', then: Joi.required() }),
-        productPrice: Joi.number().when('itemType', { is: 'product', then: Joi.required() }),
         productDeliveryCharge: Joi.number().when('itemType', { is: 'product', then: Joi.required() }),
         productFeatures: Joi.array().items(Joi.string()).when('itemType', { is: 'product', then: Joi.optional() }),
         variants: Joi.array().items(
@@ -44,6 +43,7 @@ const createItem = {
                 color: Joi.string().optional(),
                 productPrice: Joi.number().required(),
                 nonReturnable: Joi.boolean().optional(),
+                image: Joi.string().optional(),
             })
         ).when('itemType', { is: 'product', then: Joi.optional() }),
     }),
@@ -109,7 +109,7 @@ const updateItem = {
             // Common category fields (forbidden for room)
             parentCategory: Joi.string().custom(objectId).optional(),
             subCategory: Joi.string().custom(objectId).optional(),
-            
+
             // Fields specific to food
             dishName: Joi.string().optional(),
             dishDescription: Joi.string().optional(),
@@ -130,7 +130,6 @@ const updateItem = {
             productName: Joi.string().optional(),
             productCategory: Joi.string().optional(),
             productDescription: Joi.string().optional(),
-            productPrice: Joi.number().optional(),
             productDeliveryCharge: Joi.number().optional(),
             productFeatures: Joi.array().items(Joi.string()).optional(),
             variants: Joi.array().items(
@@ -140,6 +139,7 @@ const updateItem = {
                     color: Joi.string().optional(),
                     productPrice: Joi.number().optional(),
                     nonReturnable: Joi.boolean().optional(),
+                    image: Joi.string().optional(),
                 })
             ).optional(),
         })

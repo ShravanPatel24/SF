@@ -22,17 +22,13 @@ router.get('/foods/business/:businessId', userAuth(), validate(itemsValidation.g
 // Route to get all product under a specific Clothing (business)
 router.get('/products/business/:businessId', userAuth(), validate(itemsValidation.getProductByBusinessId), itemsController.getProductByBusiness);
 
-router.post('/create', userAuth(), upload.fields([
-    { name: 'images', maxCount: 10 },
-]), validate(itemsValidation.createItem), itemsController.createItem);
+router.post('/create', userAuth(), upload.any(), validate(itemsValidation.createItem), itemsController.createItem);
 
 router.get('/business/:businessId', userAuth(), validate(itemsValidation.getItemsByBusinessId), itemsController.getItemsByBusiness);
 router.get('/business-type/:businessTypeId', userAuth(), validate(itemsValidation.getItemsByBusinessTypeId), itemsController.getItemsByBusinessType);
 router.get('/:itemId', userAuth(), validate(itemsValidation.getItemById), itemsController.getItemById);
 
-router.patch('/:itemId', userAuth(), upload.fields([
-    { name: 'images', maxCount: 10 },
-]), validate(itemsValidation.updateItem), itemsController.updateItem);
+router.patch('/:itemId', userAuth(), upload.any(), validate(itemsValidation.updateItem), itemsController.updateItem);
 
 router.delete('/:itemId', userAuth(), validate(itemsValidation.deleteItem), itemsController.deleteItem);
 

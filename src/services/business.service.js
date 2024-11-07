@@ -433,341 +433,274 @@ const findNearbyHotelsWithRooms = async (latitude, longitude, radiusInKm, checkI
 // Get Partner Dashboard count
 const getDashboardCountsForPartner = async (partnerId) => {
     const partner = await UserModel.findById(partnerId);
-    if (!partner || partner.type !== "partner") {
-        throw new Error(CONSTANTS.PARTNER_NOT_FOUND_MSG);
-    }
-
-    // Initialize response structure
-    const counts = {
-        restaurants: {
-            availableTables: 0,
-            bookingRequests: 0,
-            currentFoodOrders: 0,
-            confirmedFoodOrders: 0,
-            acceptedFoodOrders: 0,
-            rejectedFoodOrders: 0,
-            deliveredFoodOrders: 0,
-            cancelledFoodOrders: 0,
+    if (!partner || !partner.businessType) { throw new Error(CONSTANTS.PARTNER_NOT_FOUND_MSG) }
+    const businessTypes = Array.isArray(partner.businessType) ? partner.businessType : [partner.businessType];
+    const todayStart = moment().utc().startOf('day').toDate();
+    const todayEnd = moment().utc().endOf('day').toDate();
+    // Initialize counts based on partner's business types
+    const counts = {};
+    businessTypes.forEach(type => {
+        counts[type] = {
+            title: type,
+            orderCounts: [],
+            dineOutCounts: [],
             earnings: 0
+        };
+    });
+    const orderCounts = await OrderModel.aggregate([
+        {
+            $match: {
+                partner: partnerId,
+                createdAt: { $gte: todayStart, $lte: todayEnd }
+            }
         },
-        products: {
-            currentProductOrders: 0,
-            confirmedProductOrders: 0,
-            acceptedProductOrders: 0,
-            rejectedProductOrders: 0,
-            deliveredProductOrders: 0,
-            cancelledProductOrders: 0,
-            earnings: 0
+        { $unwind: "$items" },
+        {
+            $lookup: {
+                from: 'items',
+                localField: 'items.item',
+                foreignField: '_id',
+                as: 'itemDetails'
+            }
         },
-        hotels: {
-            currentBookings: 0,
-            confirmedBookings: 0,
-            acceptedBookings: 0,
-            rejectedBookings: 0,
-            earnings: 0
-        },
-        dineOut: {
-            pendingRequests: 0,
-            confirmedRequests: 0,
-            acceptedRequests: 0,
-            rejectedRequests: 0,
-            completedRequests: 0,
-            cancelledRequests: 0
+        { $unwind: "$itemDetails" },
+        {
+            $group: {
+                _id: {
+                    status: "$orderStatus",
+                    itemType: "$itemDetails.itemType",
+                    businessType: "$itemDetails.businessType"
+                },
+                count: { $sum: 1 },
+                earnings: { $sum: "$totalPrice" }
+            }
         }
+    ]);
+
+    orderCounts.forEach(entry => {
+        const { status, itemType, businessType } = entry._id;
+        const count = entry.count;
+        const earnings = entry.earnings || 0;
+        if (!counts[businessType]) {
+            counts[businessType] = {
+                title: businessType,
+                orderCounts: [],
+                dineOutCounts: [],
+                earnings: 0
+            };
+        }
+
+        const countsForBusinessType = counts[businessType];
+
+        if (itemType === 'product') {
+            if (status === 'pending') countsForBusinessType.orderCounts.push({ title: 'current Produc tOrders', count });
+            if (status === 'confirmed') countsForBusinessType.orderCounts.push({ title: 'confirmed Product Orders', count });
+            if (status === 'accepted') countsForBusinessType.orderCounts.push({ title: 'accepted Product Orders', count });
+            if (status === 'rejected') countsForBusinessType.orderCounts.push({ title: 'rejected Product Orders', count });
+            if (status === 'delivered') countsForBusinessType.orderCounts.push({ title: 'delivered Product Orders', count });
+            if (status === 'cancelled') countsForBusinessType.orderCounts.push({ title: 'cancelled Product Orders', count });
+        } else if (itemType === 'food') {
+            if (status === 'pending') countsForBusinessType.orderCounts.push({ title: 'current Food Orders', count });
+            if (status === 'confirmed') countsForBusinessType.orderCounts.push({ title: 'confirmed Food Orders', count });
+            if (status === 'accepted') countsForBusinessType.orderCounts.push({ title: 'accepted Food Orders', count });
+            if (status === 'rejected') countsForBusinessType.orderCounts.push({ title: 'rejected Food Orders', count });
+            if (status === 'delivered') countsForBusinessType.orderCounts.push({ title: 'delivered Food Orders', count });
+            if (status === 'cancelled') countsForBusinessType.orderCounts.push({ title: 'cancelled Food Orders', count });
+        } else if (itemType === 'room') {
+            if (status === 'pending') countsForBusinessType.orderCounts.push({ title: 'current Bookings', count });
+            if (status === 'confirmed') countsForBusinessType.orderCounts.push({ title: 'confirmed Bookings', count });
+            if (status === 'accepted') countsForBusinessType.orderCounts.push({ title: 'accepted Bookings', count });
+            if (status === 'rejected') countsForBusinessType.orderCounts.push({ title: 'rejected Bookings', count });
+        }
+        countsForBusinessType.earnings += earnings;
+    });
+
+    const dineOutCounts = await DineOutModel.aggregate([
+        {
+            $match: {
+                partner: partnerId,
+                createdAt: { $gte: todayStart, $lte: todayEnd }
+            }
+        },
+        {
+            $lookup: {
+                from: 'businesses',  // Replace with the actual collection name for Business
+                localField: 'business',
+                foreignField: '_id',
+                as: 'businessDetails'
+            }
+        },
+        { $unwind: '$businessDetails' },
+        {
+            $group: {
+                _id: {
+                    status: "$status",
+                    businessType: "$businessDetails.businessType"
+                },
+                count: { $sum: 1 }
+            }
+        }
+    ]);
+
+    // Define status mapping
+    const statusMapping = {
+        pending: "booking Requests",
+        confirmed: "confirmed Requests",
+        accepted: "accepted Requests",
+        rejected: "rejected Requests",
+        completed: "completed Requests",
+        cancelled: "cancelled Requests"
     };
 
-    // 1. Retrieve Restaurant Counts
-    const restaurantCounts = await DineOutModel.aggregate([
-        { $match: { partner: partnerId } },
-        {
-            $group: {
-                _id: null,
-                bookingRequests: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } },
-                currentFoodOrders: { $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] } },
-                confirmedFoodOrders: { $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] } },
-                acceptedFoodOrders: { $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] } },
-                rejectedFoodOrders: { $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] } },
-                deliveredFoodOrders: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, 1, 0] } },
-                cancelledFoodOrders: { $sum: { $cond: [{ $eq: ['$status', 'Cancelled'] }, 1, 0] } },
-                earnings: { $sum: '$earnings' }
-            }
-        },
-        { $project: { _id: 0 } } // Exclude _id from the output
-    ]);
-    if (restaurantCounts[0]) {
-        Object.assign(counts.restaurants, restaurantCounts[0]);
-    }
+    dineOutCounts.forEach(entry => {
+        const { status, businessType } = entry._id;
+        const count = entry.count;
 
-    // 2. Retrieve Product Counts
-    const productCounts = await ItemModel.aggregate([
-        { $match: { itemType: 'product', business: partner.businessId } },
-        {
-            $group: {
-                _id: null,
-                currentProductOrders: { $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] } },
-                confirmedProductOrders: { $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] } },
-                acceptedProductOrders: { $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] } },
-                rejectedProductOrders: { $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] } },
-                deliveredProductOrders: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, 1, 0] } },
-                cancelledProductOrders: { $sum: { $cond: [{ $eq: ['$status', 'Cancelled'] }, 1, 0] } },
-                earnings: { $sum: '$earnings' }
-            }
-        },
-        { $project: { _id: 0 } } // Exclude _id from the output
-    ]);
-    if (productCounts[0]) {
-        Object.assign(counts.products, productCounts[0]);
-    }
+        if (!counts[businessType]) {
+            counts[businessType] = {
+                title: businessType,
+                orderCounts: [],
+                dineOutCounts: [],
+                earnings: 0
+            };
+        }
+        // Apply status mapping here
+        const mappedTitle = statusMapping[status.toLowerCase()] || status.toLowerCase();
+        counts[businessType].dineOutCounts.push({ title: mappedTitle, count });
+    });
 
-    // 3. Retrieve Hotel Counts
-    const hotelCounts = await ItemModel.aggregate([
-        { $match: { itemType: 'room', business: partner.businessId } },
-        {
-            $group: {
-                _id: null,
-                currentBookings: { $sum: { $cond: [{ $eq: ['$status', 'In Progress'] }, 1, 0] } },
-                confirmedBookings: { $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] } },
-                acceptedBookings: { $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] } },
-                rejectedBookings: { $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] } },
-                earnings: { $sum: '$earnings' }
-            }
-        },
-        { $project: { _id: 0 } } // Exclude _id from the output
-    ]);
-    if (hotelCounts[0]) {
-        Object.assign(counts.hotels, hotelCounts[0]);
-    }
+    // Retrieve names for business types
+    const businessTypeNames = await BusinessTypeModel.find({
+        _id: { $in: Object.keys(counts) }
+    }).select('_id name');
 
-    // 4. Retrieve Dine-Out Counts
-    const dineOutCounts = await DineOutModel.aggregate([
-        { $match: { partner: partnerId } },
-        {
-            $group: {
-                _id: null,
-                pendingRequests: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } },
-                confirmedRequests: { $sum: { $cond: [{ $eq: ['$status', 'Confirmed'] }, 1, 0] } },
-                acceptedRequests: { $sum: { $cond: [{ $eq: ['$status', 'Accepted'] }, 1, 0] } },
-                rejectedRequests: { $sum: { $cond: [{ $eq: ['$status', 'Rejected'] }, 1, 0] } },
-                completedRequests: { $sum: { $cond: [{ $eq: ['$status', 'Completed'] }, 1, 0] } },
-                cancelledRequests: { $sum: { $cond: [{ $eq: ['$status', 'Cancelled'] }, 1, 0] } }
-            }
-        },
-        { $project: { _id: 0 } } // Exclude _id from the output
-    ]);
-    if (dineOutCounts[0]) {
-        Object.assign(counts.dineOut, dineOutCounts[0]);
-    }
+    businessTypeNames.forEach(({ _id, name }) => {
+        if (counts[_id]) {
+            counts[_id].title = name;
+        }
+    });
 
-    return counts;
+    // Set default title for any remaining IDs without a name
+    Object.keys(counts).forEach(key => {
+        if (typeof counts[key].title === 'object') {  // If the title is still an ObjectId
+            counts[key].title = "Unknown Business Type";
+        }
+    });
+
+    return Object.values(counts).map(businessTypeCounts => ({
+        title: businessTypeCounts.title,
+        orderCounts: businessTypeCounts.orderCounts,
+        dineOutCounts: businessTypeCounts.dineOutCounts,
+        earnings: businessTypeCounts.earnings
+    }));
 };
 
 const getOrderListByType = async (partnerId, type) => {
     let query = { partner: partnerId };
 
+    // Set the order status or other conditions based on the type
     switch (type) {
-        // Restaurant (Food Orders)
+        // Food Orders
         case "currentFoodOrders":
-            query.orderStatus = "processing";
-            return OrderModel.find(query).populate({
-                path: "items.item",
-                match: { itemType: "food" }
-            }).exec();
-
+            query.orderStatus = "pending";
+            break;
         case "confirmedFoodOrders":
-            query.orderStatus = "accepted";
-            return OrderModel.find(query).populate({
-                path: "items.item",
-                match: { itemType: "food" }
-            }).exec();
-
+            query.orderStatus = "confirmed";
+            break;
         case "acceptedFoodOrders":
             query.orderStatus = "accepted";
-            return OrderModel.find(query).populate({
-                path: "items.item",
-                match: { itemType: "food" }
-            }).exec();
-
+            break;
         case "rejectedFoodOrders":
             query.orderStatus = "rejected";
-            return OrderModel.find(query).populate({
-                path: "items.item",
-                match: { itemType: "food" }
-            }).exec();
-
+            break;
         case "deliveredFoodOrders":
             query.orderStatus = "delivered";
-            return OrderModel.find(query).populate({
-                path: "items.item",
-                match: { itemType: "food" }
-            }).exec();
-
+            break;
         case "cancelledFoodOrders":
             query.orderStatus = "cancelled";
-            return OrderModel.find(query).populate({
-                path: "items.item",
-                match: { itemType: "food" }
-            }).exec();
+            break;
 
-        // Dine Out
-        case "availableTables":
-            return BusinessModel.findOne({ partner: partnerId, dineInStatus: true })
-                .select("tableManagement")
-                .then(business => {
-                    if (business && business.tableManagement) {
-                        return business.tableManagement.filter(table => table.status === "available");
-                    }
-                    return [];
-                });
-
-        case "bookedTables":
-            return BusinessModel.findOne({ partner: partnerId, dineInStatus: true })
-                .select("tableManagement")
-                .then(business => {
-                    if (business && business.tableManagement) {
-                        return business.tableManagement.filter(table => table.status === "booked");
-                    }
-                    return [];
-                });
-
-        case "cancelledTables":
-            return BusinessModel.findOne({ partner: partnerId, dineInStatus: true })
-                .select("tableManagement")
-                .then(business => {
-                    if (business && business.tableManagement) {
-                        return business.tableManagement.filter(table => table.status === "cancelled");
-                    }
-                    return [];
-                });
-
-        case "bookingRequests":
-            return DineOutModel.find({ partner: partnerId, status: "Pending" }).populate("user", "name").exec();
-
-        // Hotels (Room Bookings)
+        // Hotel Bookings
         case "currentHotelBookings":
-            query.orderStatus = "processing";
-            return OrderModel.find(query).populate({
-                path: "items.item",
-                match: { itemType: "room" }
-            }).exec();
-
+            query.orderStatus = "pending";
+            break;
         case "confirmedHotelBookings":
-            query.orderStatus = "accepted";
-            return OrderModel.find(query).populate({
-                path: "items.item",
-                match: { itemType: "room" }
-            }).exec();
-
+            query.orderStatus = "confirmed";
+            break;
         case "acceptedHotelBookings":
             query.orderStatus = "accepted";
-            return OrderModel.find(query).populate({
-                path: "items.item",
-                match: { itemType: "room" }
-            }).exec();
-
+            break;
         case "rejectedHotelBookings":
             query.orderStatus = "rejected";
-            return OrderModel.find(query).populate({
-                path: "items.item",
-                match: { itemType: "room" }
-            }).exec();
+            break;
 
-        // Products (Product Orders)
+        // Product Orders
         case "currentProductOrders":
-            query.orderStatus = "processing";
-            return OrderModel.find(query).populate({
-                path: "items.item",
-                match: { itemType: "product" }
-            }).exec();
-
+            query.orderStatus = "pending";
+            break;
         case "confirmedProductOrders":
-            query.orderStatus = "accepted";
-            return OrderModel.find(query).populate({
-                path: "items.item",
-                match: { itemType: "product" }
-            }).exec();
-
+            query.orderStatus = "confirmed";
+            break;
         case "acceptedProductOrders":
             query.orderStatus = "accepted";
-            return OrderModel.find(query).populate({
-                path: "items.item",
-                match: { itemType: "product" }
-            }).exec();
-
+            break;
         case "rejectedProductOrders":
             query.orderStatus = "rejected";
-            return OrderModel.find(query).populate({
-                path: "items.item",
-                match: { itemType: "product" }
-            }).exec();
-
+            break;
         case "deliveredProductOrders":
             query.orderStatus = "delivered";
-            return OrderModel.find(query).populate({
-                path: "items.item",
-                match: { itemType: "product" }
-            }).exec();
-
+            break;
         case "cancelledProductOrders":
             query.orderStatus = "cancelled";
-            return OrderModel.find(query).populate({
-                path: "items.item",
-                match: { itemType: "product" }
-            }).exec();
+            break;
+
+        // Dine-Out Requests
+        case "pendingDineOutRequests":
+            query = { partner: partnerId, status: "Pending" };
+            break;
+        case "confirmedDineOutRequests":
+            query = { partner: partnerId, status: "Confirmed" };
+            break;
+        case "acceptedDineOutRequests":
+            query = { partner: partnerId, status: "Accepted" };
+            break;
+        case "rejectedDineOutRequests":
+            query = { partner: partnerId, status: "Rejected" };
+            break;
+        case "completedDineOutRequests":
+            query = { partner: partnerId, status: "Completed" };
+            break;
+        case "cancelledDineOutRequests":
+            query = { partner: partnerId, status: "Cancelled" };
+            break;
+
+        // Available Tables (Assuming a separate table or collection handles table management)
+        case "availableTables":
+            query = { partner: partnerId, "tableManagement.status": "available" };
+            break;
 
         default:
             throw new Error("Invalid type for order list retrieval.");
     }
-};
 
-const calculateEarningsForPartner = async (partnerId) => {
-    const partner = await UserModel.findById(partnerId);
-    if (!partner || partner.type !== "partner") {
-        throw new Error(CONSTANTS.PARTNER_NOT_FOUND_MSG);
-    }
+    // Fetch orders or requests based on type and populate items where applicable
+    const orders = await OrderModel.find(query).populate({
+        path: "items.item",
+        match: {
+            itemType: type.includes("Food") ? "food" :
+                type.includes("Hotel") ? "room" :
+                    type.includes("DineOut") ? null :  // No need to filter for DineOut
+                        "product"
+        },
+        select: "-__v" // Adjust fields as needed
+    }).exec();
 
-    // Initialize earnings object
-    const earnings = {
-        totalEarnings: 0,
-        businesses: {}
-    };
+    // Filter to include only entries with populated items (for orders with items)
+    const filteredOrders = orders.filter(order =>
+        order.items.some(item => item.item) || type.includes("DineOut") || type.includes("Table")
+    );
 
-    // Calculate earnings from items (food, room, product)
-    const itemEarnings = await ItemModel.aggregate([
-        { $match: { business: partner.businessId } }, // Ensure this matches the correct business ID
-        {
-            $group: {
-                _id: '$business',
-                totalEarnings: { $sum: { $multiply: ['$roomPrice', 1] } } // Use roomPrice, productPrice, etc.
-            }
-        }
-    ]);
-
-    // Add item earnings to earnings object
-    itemEarnings.forEach(item => {
-        earnings.totalEarnings += item.totalEarnings;
-        earnings.businesses[item._id] = { totalEarnings: item.totalEarnings };
-    });
-
-    // Calculate earnings from dine-out requests
-    const dineOutEarnings = await DineOutModel.aggregate([
-        { $match: { partner: partnerId } }, // Ensure to match the partner ID
-        {
-            $group: {
-                _id: '$business', // Group by business ID
-                totalEarnings: { $sum: '$totalPrice' } // Adjust based on your field for total price
-            }
-        }
-    ]);
-    // Add dine-out earnings to earnings object
-    dineOutEarnings.forEach(dineOut => {
-        earnings.totalEarnings += dineOut.totalEarnings;
-        if (!earnings.businesses[dineOut._id]) {
-            earnings.businesses[dineOut._id] = { totalEarnings: 0 };
-        }
-        earnings.businesses[dineOut._id].totalEarnings += dineOut.totalEarnings;
-    });
-
-    return earnings;
+    return filteredOrders;
 };
 
 // Get all businesses for guests
@@ -789,6 +722,5 @@ module.exports = {
     findNearbyHotelsWithRooms,
     getDashboardCountsForPartner,
     getOrderListByType,
-    calculateEarningsForPartner,
     getAllBusinesses
 }
