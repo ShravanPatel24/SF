@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { AdminSettingModel } = require('../models');
 
 const cartSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'user' },
@@ -24,6 +25,7 @@ const cartSchema = new mongoose.Schema({
     subtotal: { type: Number, required: true, default: 0 },
     tax: { type: Number, required: true, default: 0 },
     deliveryCharge: { type: Number, required: true, default: 0 },
+    commission: { type: Number, required: true, default: 0 },
     totalPrice: { type: Number, required: true, default: 0 }
 }, {
     timestamps: true
@@ -40,6 +42,11 @@ cartSchema.pre('save', async function (next) {
     let subtotal = 0;
     let totalDeliveryCharge = 0;
     let totalTax = 0;
+    let totalCommission = 0;
+
+    // Retrieve the commission percentage from system settings
+    const systemSettings = await AdminSettingModel.findOne();
+    const commissionPercentage = systemSettings ? systemSettings.commission : 0;
 
     for (let item of this.items) {
         const product = await mongoose.model('Item').findById(item.item);
@@ -73,19 +80,22 @@ cartSchema.pre('save', async function (next) {
 
         if (isNaN(pricePerUnit) || pricePerUnit <= 0) return next(new Error('Invalid price for the item.'));
 
-        // Calculate the item price and tax amount (absolute cost) and update totals
+        // Calculate item price, tax, and commission amount
         item.price = pricePerUnit * item.quantity;
-        const itemTaxCost = (item.price * itemTaxRate) / 100;  // Calculate tax as an absolute amount
+        const itemTaxCost = (item.price * itemTaxRate) / 100;
+        const itemCommissionCost = (item.price * commissionPercentage) / 100;  // Calculate commission as an absolute amount
         subtotal += item.price;
         totalDeliveryCharge += itemDeliveryCharge;
         totalTax += itemTaxCost;
+        totalCommission += itemCommissionCost;
     }
 
     // Set totals in the cart
     this.subtotal = subtotal;
     this.tax = totalTax;
     this.deliveryCharge = totalDeliveryCharge;
-    this.totalPrice = this.subtotal + this.tax + this.deliveryCharge;
+    this.commission = totalCommission;  // Store total commission cost
+    this.totalPrice = this.subtotal + this.tax + this.deliveryCharge + this.commission;
 
     next();
 });

@@ -433,20 +433,25 @@ const findNearbyHotelsWithRooms = async (latitude, longitude, radiusInKm, checkI
 // Get Partner Dashboard count
 const getDashboardCountsForPartner = async (partnerId) => {
     const partner = await UserModel.findById(partnerId);
-    if (!partner || !partner.businessType) { throw new Error(CONSTANTS.PARTNER_NOT_FOUND_MSG) }
+    if (!partner || !partner.businessType) {
+        throw new Error(CONSTANTS.PARTNER_NOT_FOUND_MSG);
+    }
+
     const businessTypes = Array.isArray(partner.businessType) ? partner.businessType : [partner.businessType];
     const todayStart = moment().utc().startOf('day').toDate();
     const todayEnd = moment().utc().endOf('day').toDate();
-    // Initialize counts based on partner's business types
+
+    // Initialize counts based on partner's business types with earnings and payout set to 0 by default
     const counts = {};
     businessTypes.forEach(type => {
         counts[type] = {
             title: type,
             orderCounts: [],
             dineOutCounts: [],
-            earnings: 0
+            earnings: { total: 0, payout: 0 }
         };
     });
+
     const orderCounts = await OrderModel.aggregate([
         {
             $match: {
@@ -481,19 +486,20 @@ const getDashboardCountsForPartner = async (partnerId) => {
         const { status, itemType, businessType } = entry._id;
         const count = entry.count;
         const earnings = entry.earnings || 0;
+
         if (!counts[businessType]) {
             counts[businessType] = {
                 title: businessType,
                 orderCounts: [],
                 dineOutCounts: [],
-                earnings: 0
+                earnings: { total: 0, payout: 0 }
             };
         }
 
         const countsForBusinessType = counts[businessType];
 
         if (itemType === 'product') {
-            if (status === 'pending') countsForBusinessType.orderCounts.push({ title: 'current Produc tOrders', count });
+            if (status === 'pending') countsForBusinessType.orderCounts.push({ title: 'current Product Orders', count });
             if (status === 'confirmed') countsForBusinessType.orderCounts.push({ title: 'confirmed Product Orders', count });
             if (status === 'accepted') countsForBusinessType.orderCounts.push({ title: 'accepted Product Orders', count });
             if (status === 'rejected') countsForBusinessType.orderCounts.push({ title: 'rejected Product Orders', count });
@@ -512,7 +518,7 @@ const getDashboardCountsForPartner = async (partnerId) => {
             if (status === 'accepted') countsForBusinessType.orderCounts.push({ title: 'accepted Bookings', count });
             if (status === 'rejected') countsForBusinessType.orderCounts.push({ title: 'rejected Bookings', count });
         }
-        countsForBusinessType.earnings += earnings;
+        countsForBusinessType.earnings.total += earnings;
     });
 
     const dineOutCounts = await DineOutModel.aggregate([
@@ -561,9 +567,10 @@ const getDashboardCountsForPartner = async (partnerId) => {
                 title: businessType,
                 orderCounts: [],
                 dineOutCounts: [],
-                earnings: 0
+                earnings: { total: 0, payout: 0 }
             };
         }
+
         // Apply status mapping here
         const mappedTitle = statusMapping[status.toLowerCase()] || status.toLowerCase();
         counts[businessType].dineOutCounts.push({ title: mappedTitle, count });

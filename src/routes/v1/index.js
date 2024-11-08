@@ -19,6 +19,7 @@ const AdminRoleRoute = require("./admin/adminRole.route");
 const AdminUserRoute = require('./admin/adminUser.route');
 const DashboardRoute = require('./dashboard.routes');
 const AdminDashboardRoute = require('./admin/dashboard.route');
+const AdminSettingRoute = require('./admin/adminSettings.route');
 
 const ContactUsRoute = require('./contactUs.route');
 const FAQRoute = require('./faq.route');
@@ -40,6 +41,7 @@ const defaultRoutes = [
   { path: "/admin/dashboard", route: AdminDashboardRoute },
   { path: "/admin/roles", route: AdminRoleRoute },
   { path: "/admin/staff", route: AdminStaffRoute },
+  { path: "/admin/settings", route: AdminSettingRoute },
   { path: "/contact-us", route: ContactUsRoute },
   { path: "/faq", route: FAQRoute },
   { path: '/static-content', route: StaticContentRoute },
@@ -76,4 +78,3 @@ devRoutes.forEach((route) => {
 // }
 
 module.exports = router;
-

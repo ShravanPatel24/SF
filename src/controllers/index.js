@@ -10,6 +10,7 @@ module.exports.orderController = require('./order.controller');
 module.exports.adminAuthController = require('./admin/adminAuth.controller');
 module.exports.adminRoleController = require('./admin/adminRole.controller');
 module.exports.adminStaffController = require('./admin/adminStaff.controller');
+module.exports.adminSettingController = require('./admin/adminSettings.controller');
 module.exports.PostsController = require('./posts.controller');
 module.exports.DashboardController = require('./dashboard.controller');
 module.exports.ContactUsController = require('./contactUs.controller');

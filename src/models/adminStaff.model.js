@@ -9,7 +9,7 @@ const adminStaffSchema = new mongoose.Schema({
     countryCode: { type: String, required: true },
     phone: { type: String, required: true, unique: true },
     fullPhoneNumber: { type: String },
-    type: { type: String, default: 'staff' }, 
+    type: { type: String, default: 'staff' },
     password: { type: String, required: true, },
     role: {
         type: mongoose.Schema.Types.ObjectId,
@@ -23,7 +23,7 @@ const adminStaffSchema = new mongoose.Schema({
     },
     isDelete: {
         type: Number,
-        default: 1, // 0 is deleted, 1 is Active
+        default: 1,
     },
 }, { timestamps: true });
 

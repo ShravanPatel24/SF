@@ -13,18 +13,19 @@ const orderSchema = new mongoose.Schema({
         selectedColor: { type: String }
     }],
     deliveryAddress: {
-        name: { type: String, required: function() { return this.requiresDeliveryAddress(); } },
-        street: { type: String, required: function() { return this.requiresDeliveryAddress(); } },
-        city: { type: String, required: function() { return this.requiresDeliveryAddress(); } },
+        name: { type: String, required: function () { return this.requiresDeliveryAddress(); } },
+        street: { type: String, required: function () { return this.requiresDeliveryAddress(); } },
+        city: { type: String, required: function () { return this.requiresDeliveryAddress(); } },
         state: { type: String },
-        country: { type: String, required: function() { return this.requiresDeliveryAddress(); } },
-        postalCode: { type: String, required: function() { return this.requiresDeliveryAddress(); } },
-        phone: { type: String, required: function() { return this.requiresDeliveryAddress(); } }
+        country: { type: String, required: function () { return this.requiresDeliveryAddress(); } },
+        postalCode: { type: String, required: function () { return this.requiresDeliveryAddress(); } },
+        phone: { type: String, required: function () { return this.requiresDeliveryAddress(); } }
     },
     totalPrice: { type: Number, required: true },
     subtotal: { type: Number, required: true },
     tax: { type: Number, required: true },
     deliveryCharge: { type: Number, required: true },
+    commission: { type: Number, required: true, default: 0 },
     orderNote: { type: String },
     orderId: { type: String, unique: true, required: true },
     orderNumber: { type: String, unique: true, required: true },
@@ -41,11 +42,6 @@ const orderSchema = new mongoose.Schema({
         type: String,
         enum: ['credit_card', 'paypal', 'cash', 'online', 'bank_transfer'],
         required: true
-    },
-    refundStatus: {
-        type: String,
-        enum: ['none', 'pending', 'approved', 'rejected'],
-        default: 'none'
     },
     transactionHistory: [{
         type: { type: String, required: true },
@@ -77,7 +73,7 @@ const orderSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Helper method to determine if delivery address is required
-orderSchema.methods.requiresDeliveryAddress = function() {
+orderSchema.methods.requiresDeliveryAddress = function () {
     return this.items.some(item => item.itemType === 'food' || item.itemType === 'product');
 };
 

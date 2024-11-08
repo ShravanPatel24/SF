@@ -3,15 +3,9 @@ const CONSTANTS = require('../config/constant');
 const mongoose = require('mongoose');
 
 // Create a new order
-const createOrder = async (userId, cartId, paymentMethod, orderNote) => {
+const createOrder = async (userId, cart, paymentMethod, orderNote) => {
     const customOrderId = Math.floor(Date.now() / 1000).toString();
     const orderNumber = `#${customOrderId}`;
-
-    // Fetch the cart
-    const cart = await CartModel.findById(cartId).populate({
-        path: 'items.item',
-        populate: { path: 'partner', select: '_id name' }
-    });
 
     if (!cart || cart.items.length === 0) {
         throw new Error(CONSTANTS.CART_EMPTY);
@@ -20,7 +14,6 @@ const createOrder = async (userId, cartId, paymentMethod, orderNote) => {
     const firstItem = cart.items[0].item;
     const partnerId = firstItem.partner._id;
 
-    // Initialize the transaction history
     const transactionHistory = [{
         type: "Order Placed",
         date: new Date(),
@@ -28,12 +21,10 @@ const createOrder = async (userId, cartId, paymentMethod, orderNote) => {
         status: "Completed"
     }];
 
-    // Check if deliveryAddress is required
     const requiresDeliveryAddress = cart.items.some(
         item => item.item.itemType === 'food' || item.item.itemType === 'product'
     );
 
-    // Create the order object with conditional deliveryAddress
     const orderData = {
         user: userId,
         partner: partnerId,
@@ -42,6 +33,7 @@ const createOrder = async (userId, cartId, paymentMethod, orderNote) => {
         subtotal: cart.subtotal,
         tax: cart.tax,
         deliveryCharge: cart.deliveryCharge,
+        commission: cart.commission,
         paymentMethod: paymentMethod,
         orderNote: orderNote,
         orderId: customOrderId,
@@ -55,10 +47,8 @@ const createOrder = async (userId, cartId, paymentMethod, orderNote) => {
     }
 
     const order = new OrderModel(orderData);
-
     await order.save();
 
-    // Handle online payment if required
     if (paymentMethod === 'online') {
         const paymentResult = await processOnlinePayment(order);
         if (!paymentResult.success) {
@@ -76,7 +66,6 @@ const createOrder = async (userId, cartId, paymentMethod, orderNote) => {
         await order.save();
     }
 
-    // Clear the cart
     cart.items = [];
     cart.totalPrice = 0;
     await cart.save();
@@ -639,55 +628,144 @@ const getAllTransactionHistory = async ({ page = 1, limit = 10, itemType, status
     };
 };
 
-const requestRefundForItems = async (orderId, itemIds, reason, processedBy, bankDetails) => {
+const getRefundDetails = async ({ page = 1, limit = 10, status, search, sortBy, sortOrder, fromDate, toDate }) => {
+    // Convert page and limit to integers
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+
+    const matchCondition = { 'refundDetails.status': { $ne: 'none' } };
+
+    if (status) matchCondition['refundDetails.status'] = status;
+    if (search) {
+        matchCondition.$or = [
+            { 'userDetails.name': { $regex: search, $options: 'i' } },
+            { 'orderId': { $regex: search, $options: 'i' } }
+        ];
+    }
+    if (fromDate || toDate) {
+        matchCondition['refundDetails.requestedDate'] = {};
+        if (fromDate) matchCondition['refundDetails.requestedDate'].$gte = new Date(fromDate);
+        if (toDate) matchCondition['refundDetails.requestedDate'].$lte = new Date(toDate);
+    }
+
+    const aggregateQuery = [
+        { $match: matchCondition },
+        {
+            $lookup: {
+                from: 'users',
+                localField: 'user',
+                foreignField: '_id',
+                as: 'userDetails'
+            }
+        },
+        { $unwind: '$userDetails' },
+        {
+            $addFields: {
+                lastTransaction: {
+                    $arrayElemAt: [
+                        {
+                            $filter: {
+                                input: "$transactionHistory",
+                                cond: {
+                                    $or: [
+                                        { $eq: ["$$this.type", "Refund Approved"] },
+                                        { $eq: ["$$this.type", "Refund Requested"] }
+                                    ]
+                                }
+                            }
+                        },
+                        -1
+                    ]
+                }
+            }
+        },
+        {
+            $project: {
+                refundId: '$refundDetails._id',  // Getting refundId
+                transactionId: '$lastTransaction._id',
+                createdAt: '$refundDetails.requestedDate',
+                userName: '$userDetails.name',
+                orderId: '$orderId',
+                status: '$refundDetails.status',  // Access the latest refund status
+                amount: '$refundDetails.amount',  // Getting refund amount
+            }
+        },
+        { $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } },
+        { $skip: (pageNum - 1) * limitNum },
+        { $limit: limitNum }
+    ];
+
+    const refundDetails = await OrderModel.aggregate(aggregateQuery);
+
+    return {
+        docs: refundDetails,
+        page: pageNum,
+        limit: limitNum,
+        totalDocs: refundDetails.length,
+    };
+};
+
+const requestRefundOrExchange = async (orderId, itemIds, reason, action, processedBy, bankDetails) => {
     const order = await OrderModel.findById(orderId).populate('items.item');
     if (!order) throw new Error(CONSTANTS.ORDER_NOT_FOUND);
 
-    const exactRefundAmount = order.items
+    // Ensure action is either 'refund' or 'exchange'
+    if (action !== 'refund' && action !== 'exchange') {
+        throw new Error("Invalid action. Must be 'refund' or 'exchange'.");
+    }
+
+    // Prevent duplicate requests for the same action
+    if (action === 'refund') {
+        if (order.refundStatus === 'pending' || order.refundStatus === 'approved') {
+            throw new Error("A refund request is already pending or has been approved for this order.");
+        }
+    } else if (action === 'exchange') {
+        const existingExchange = order.exchangeDetails.some(detail => detail.status === 'pending' || detail.status === 'approved');
+        if (existingExchange) {
+            throw new Error("An exchange request is already pending or has been approved for this order.");
+        }
+    }
+
+    // Check for refund eligibility only on product items
+    if (action === 'refund') {
+        const invalidItems = order.items.filter(item => itemIds.includes(item.item._id.toString()) && item.item.itemType !== 'product');
+        if (invalidItems.length > 0) {
+            throw new Error("Refund is only applicable for product items.");
+        }
+    }
+
+    // Prevent exchange for items that were refunded
+    if (action === 'exchange') {
+        const refundedItems = itemIds.filter(itemId => itemId in order.refundDetails && order.refundDetails.status === 'approved');
+        if (refundedItems.length > 0) {
+            throw new Error("Exchange is not allowed for items that have already been refunded.");
+        }
+    }
+
+    // Calculate amount based on action (refund/exchange)
+    const exactAmount = order.items
         .filter(item => itemIds.includes(item.item._id.toString()) && item.item.itemType === 'product')
         .reduce((total, item) => {
-            let price;
-            if (item.item.itemType === 'product') {
-                const variant = item.item.variants.find(v =>
-                    v.size === item.selectedSize && v.color === item.selectedColor
-                );
-                if (variant) {
-                    price = variant.productPrice;
-                } else {
-                    throw new Error("Variant not found for selected options during refund calculation.");
-                }
-            } else {
-                price = item.item.dishPrice || item.item.roomPrice;
-            }
-            if (!price) throw new Error("Price not found for item during refund calculation.");
+            const variant = item.item.variants?.find(v => v.size === item.selectedSize && v.color === item.selectedColor);
+            const price = variant?.productPrice || item.item.dishPrice || item.item.roomPrice;
+            if (!price) throw new Error("Price not found for item during calculation.");
             return total + (price * item.quantity);
         }, 0);
 
-    if (isNaN(exactRefundAmount) || exactRefundAmount <= 0) {
-        throw new Error("Invalid refund amount calculated.");
+    if (isNaN(exactAmount) || exactAmount <= 0) throw new Error("Invalid amount calculated.");
+
+    // Handle the refund and exchange actions separately
+    if (action === 'refund') {
+        order.refundStatus = 'pending';
+        order.refundDetails = { reason, status: 'pending', requestedDate: new Date(), amount: exactAmount, bankDetails };
+    } else {
+        order.exchangeDetails.push({ reason, status: 'pending', requestedDate: new Date(), newProductId: itemIds[0] });
     }
 
-    // Update the refund status and details at the root level
-    order.refundStatus = 'pending';
-    order.refundDetails = {
-        reason: reason,
-        status: 'pending',
-        requestedDate: new Date(),
-        amount: exactRefundAmount,
-        bankDetails: {
-            country: bankDetails.country,
-            bankName: bankDetails.bankName,
-            accountName: bankDetails.accountName,
-            accountNumber: bankDetails.accountNumber,
-            ifscCode: bankDetails.ifscCode
-        }
-    };
-
-    // Add a record in the transaction history as well
     order.transactionHistory.push({
-        type: "Refund Requested",
+        type: `${action.charAt(0).toUpperCase() + action.slice(1)} Requested`,
         date: new Date(),
-        amount: exactRefundAmount,
+        amount: exactAmount,
         status: "pending"
     });
 
@@ -695,85 +773,31 @@ const requestRefundForItems = async (orderId, itemIds, reason, processedBy, bank
     return order;
 };
 
-const processRefundDecision = async (orderId, decision, partnerId, bankDetails = {}) => {
+const processRefundOrExchangeDecision = async (orderId, decision, action, partnerId) => {
     const order = await OrderModel.findOne({ _id: orderId, partner: partnerId });
     if (!order) throw new Error("Order not found or unauthorized access");
 
-    const lastTransaction = order.transactionHistory
-        .filter(th => th && th.type === "Refund Requested")
+    const pendingTransaction = order.transactionHistory
+        .filter(th => th.type === `${action.charAt(0).toUpperCase() + action.slice(1)} Requested`)
         .pop();
 
-    if (!lastTransaction || lastTransaction.status !== "pending") {
-        throw new Error("Refund request is either not pending or already processed.");
+    if (!pendingTransaction || pendingTransaction.status !== "pending") {
+        throw new Error(`${action.charAt(0).toUpperCase() + action.slice(1)} request is either not pending or already processed.`);
     }
 
     const isAccepted = decision === 'accept';
-    order.refundStatus = isAccepted ? 'approved' : 'rejected';
-
-    // Add a new transaction history entry for the refund decision
-    order.transactionHistory.push({
-        type: `Refund ${isAccepted ? 'Approved' : 'Rejected'}`,
-        date: new Date(),
-        amount: lastTransaction.amount,
-        status: isAccepted ? 'Completed' : 'Rejected',
-        refundDetails: isAccepted && lastTransaction.refundDetails ? {
-            bankDetails: lastTransaction.refundDetails.bankDetails || {}, // Check if bankDetails exists
-            reason: lastTransaction.refundDetails.reason || ""
-        } : {}
-    });
-
-    await order.save();
-    return order;
-};
-
-// New Functions for Return/Exchange Functionality
-
-const initiateReturnOrExchange = async (orderId, itemIds, reason, action, processedBy) => {
-    const order = await OrderModel.findById(orderId).populate('items.item');
-    if (!order) throw new Error(CONSTANTS.ORDER_NOT_FOUND);
-
-    // Ensure transactionHistory is initialized as an array
-    if (!Array.isArray(order.transactionHistory)) {
-        order.transactionHistory = [];
+    if (action === 'refund') {
+        order.refundDetails.status = isAccepted ? 'approved' : 'rejected';
+    } else {
+        const exchangeDetail = order.exchangeDetails.find(detail => detail.status === 'pending');
+        if (exchangeDetail) exchangeDetail.status = isAccepted ? 'approved' : 'rejected';
     }
 
     order.transactionHistory.push({
-        type: action === 'exchange' ? 'Exchange Requested' : 'Return Requested',
+        type: `${action.charAt(0).toUpperCase() + action.slice(1)} ${isAccepted ? 'Approved' : 'Rejected'}`,
         date: new Date(),
-        amount: order.totalPrice,
-        status: "pending",
-        returnDetails: {
-            reason: reason,
-            processedBy: processedBy,
-            action: action,
-            items: itemIds
-        }
-    });
-
-    await order.save();
-    return order;
-};
-
-const processReturnDecision = async (orderId, decision, partnerId) => {
-    const order = await OrderModel.findOne({ _id: orderId, partner: partnerId });
-    if (!order) throw new Error("Order not found or unauthorized access");
-
-    const lastTransaction = order.transactionHistory
-        .filter(th => th.type.startsWith("Return") || th.type.startsWith("Exchange"))
-        .pop();
-
-    if (!lastTransaction || lastTransaction.status !== "pending") {
-        throw new Error("Return/Exchange request is either not pending or already processed.");
-    }
-
-    const isAccepted = decision === 'accept';
-    order.returnStatus = isAccepted ? 'approved' : 'rejected';
-
-    order.transactionHistory.push({
-        type: `${lastTransaction.type.split(' ')[0]} ${isAccepted ? 'Approved' : 'Rejected'}`,
-        date: new Date(),
-        amount: lastTransaction.amount,
-        status: isAccepted ? 'Completed' : 'Rejected',
+        amount: pendingTransaction.amount,
+        status: isAccepted ? 'Completed' : 'Rejected'
     });
 
     await order.save();
@@ -868,9 +892,8 @@ module.exports = {
     getAllHistory,
     getTransactionHistoryByOrderId,
     getAllTransactionHistory,
-    requestRefundForItems,
-    processRefundDecision,
-    initiateReturnOrExchange,
-    processReturnDecision,
+    getRefundDetails,
+    requestRefundOrExchange,
+    processRefundOrExchangeDecision,
     getPartnerTransactionList
 };

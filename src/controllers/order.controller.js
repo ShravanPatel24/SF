@@ -8,25 +8,20 @@ const pick = require("../utils/pick");
 const createOrder = catchAsync(async (req, res) => {
     const userId = req.user._id;
     const { cartId, paymentMethod, orderNote } = req.body;
+
     const cart = await CartModel.findById(cartId).populate({
         path: 'items.item',
         strictPopulate: false
     });
+
     if (!cart || cart.items.length === 0) {
         return res.status(400).json({ statusCode: 400, message: CONSTANTS.CART_EMPTY });
     }
 
-    let containsRoom = false;
-    let containsFood = false;
-    let containsProduct = false;
-
-    cart.items.forEach(item => {
-        const product = item.item;
-        if (!product) { return; }
-        if (product.itemType === 'room') containsRoom = true;
-        else if (product.itemType === 'food') containsFood = true;
-        else if (product.itemType === 'product') containsProduct = true;
-    });
+    const itemTypes = new Set(cart.items.map(item => item.item?.itemType));
+    const containsRoom = itemTypes.has('room');
+    const containsFood = itemTypes.has('food');
+    const containsProduct = itemTypes.has('product');
 
     const order = await OrderService.createOrder(userId, cart, paymentMethod, orderNote);
 
@@ -34,7 +29,6 @@ const createOrder = catchAsync(async (req, res) => {
         return res.status(400).json({ statusCode: 400, message: "Payment failed. Please try again." });
     }
 
-    // Determine the success message based on item types in the cart
     let successMessage = '';
     if (containsRoom) {
         successMessage = paymentMethod === 'online'
@@ -56,6 +50,10 @@ const createOrder = catchAsync(async (req, res) => {
         _id: order._id,
         orderId: order.orderId,
         orderNumber: order.orderNumber,
+        subtotal: order.subtotal,
+        commission: order.commission,
+        tax: order.tax,
+        deliveryCharge: order.deliveryCharge,
         totalPrice: order.totalPrice,
         paymentMethod: order.paymentMethod,
         deliveryAddress: order.deliveryAddress
@@ -460,47 +458,40 @@ const getAllTransactionHistory = catchAsync(async (req, res) => {
     }
 });
 
-const requestRefund = catchAsync(async (req, res) => {
-    const { orderId } = req.params;
-    const { itemIds, reason, bankDetails } = req.body;
-    const processedBy = req.user._id;
+const getRefundDetails = catchAsync(async (req, res) => {
+    const { page = 1, limit = 10, status, search, sortBy = 'createdAt', sortOrder = 'desc', fromDate, toDate } = req.query;
 
     try {
-        const order = await OrderService.requestRefundForItems(orderId, itemIds, reason, processedBy, bankDetails);
+        const refunds = await OrderService.getRefundDetails({ page, limit, status, search, sortBy, sortOrder, fromDate, toDate });
+
         res.status(200).json({
             statusCode: 200,
-            message: "Refund requested successfully",
-            data: order
+            message: 'Refund details fetched successfully',
+            data: refunds
         });
     } catch (error) {
         res.status(error.statusCode || 500).json({
             statusCode: error.statusCode || 500,
-            message: error.message || 'An error occurred while requesting a refund.'
+            message: error.message || 'An error occurred while fetching refund details.'
         });
     }
 });
 
-const respondToRefundRequest = catchAsync(async (req, res) => {
+const requestRefundOrExchange = catchAsync(async (req, res) => {
     const { orderId } = req.params;
-    const { decision } = req.body; // 'accept' or 'reject'
-    const partnerId = req.user._id; // Assuming partner ID is taken from the auth token
-
-    const result = await OrderService.processRefundDecision(orderId, decision, partnerId);
-
-    res.status(200).json({
-        statusCode: 200,
-        message: `Refund ${decision}ed successfully`,
-        data: result,
-    });
-});
-
-const initiateReturnOrExchange = catchAsync(async (req, res) => {
-    const { orderId } = req.params;
-    const { itemIds, reason, action } = req.body; // action can be 'exchange' or 'refund'
+    const { itemIds, reason, action, bankDetails } = req.body;
     const processedBy = req.user._id;
 
+    // Check if the requester is a user
+    if (req.user.type !== 'user') {
+        return res.status(403).json({
+            statusCode: 403,
+            message: "Only users can request a refund or exchange from partners."
+        });
+    }
+
     try {
-        const order = await OrderService.initiateReturnOrExchange(orderId, itemIds, reason, action, processedBy);
+        const order = await OrderService.requestRefundOrExchange(orderId, itemIds, reason, action, processedBy, bankDetails);
         res.status(200).json({
             statusCode: 200,
             message: `${action.charAt(0).toUpperCase() + action.slice(1)} requested successfully`,
@@ -509,27 +500,27 @@ const initiateReturnOrExchange = catchAsync(async (req, res) => {
     } catch (error) {
         res.status(error.statusCode || 500).json({
             statusCode: error.statusCode || 500,
-            message: error.message || 'An error occurred while initiating the return or exchange.'
+            message: error.message || `An error occurred while requesting a ${action}.`
         });
     }
 });
 
-const processReturnDecision = catchAsync(async (req, res) => {
+const processRefundOrExchangeDecision = catchAsync(async (req, res) => {
     const { orderId } = req.params;
-    const { decision } = req.body; // 'accept' or 'reject'
+    const { decision, action } = req.body; // 'accept' or 'reject'
     const partnerId = req.user._id;
 
     try {
-        const result = await OrderService.processReturnDecision(orderId, decision, partnerId);
+        const result = await OrderService.processRefundOrExchangeDecision(orderId, decision, action, partnerId);
         res.status(200).json({
             statusCode: 200,
-            message: `Return ${decision}ed successfully`,
-            data: result
+            message: `${action.charAt(0).toUpperCase() + action.slice(1)} ${decision}ed successfully`,
+            data: result,
         });
     } catch (error) {
         res.status(error.statusCode || 500).json({
             statusCode: error.statusCode || 500,
-            message: error.message || 'An error occurred while processing the return decision.'
+            message: error.message || `An error occurred while processing the ${action} decision.`,
         });
     }
 });
@@ -566,9 +557,8 @@ module.exports = {
     getAllHistory,
     getTransactionHistoryByOrderId,
     getAllTransactionHistory,
-    requestRefund,
-    respondToRefundRequest,
-    initiateReturnOrExchange,
-    processReturnDecision,
+    getRefundDetails,
+    requestRefundOrExchange,
+    processRefundOrExchangeDecision,
     getPartnerTransactionList
 };

@@ -11,6 +11,7 @@ const router = express.Router();
 // Place transaction-history routes at the top for priority
 router.get('/orders/transaction-history/:orderId', adminAuth('manageOrders'), orderController.getTransactionHistoryByOrderId);
 router.get('/orders/transaction-history', adminAuth('manageOrders'), orderController.getAllTransactionHistory);
+router.get('/orders/refunds', adminAuth('viewRefunds'), orderController.getRefundDetails);
 
 router.get('/orders/id/:orderId', adminAuth('manageOrders'), orderController.getOrderById);
 router.get('/orders/:userId', adminAuth('manageOrders'), orderController.getOrdersByUserIdAdmin);

@@ -1102,6 +1102,166 @@ paths:
         "403":
           $ref: "#/components/responses/InvalidCurrentPassword"
 
+  # Admin Settings
+  /admin/settings/create:
+    post:
+      summary: Create or update system settings
+      tags:
+        - Admin Settings
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                commission:
+                  type: number
+                  description: Commission rate
+                  example: 5
+                platformFee:
+                  type: number
+                  description: Platform fee (optional)
+                  example: 2.5
+                websiteName:
+                  type: string
+                  description: Name of the website
+                  example: "My Website"
+                adminNo:
+                  type: string
+                  description: Admin contact number
+                  example: "+1234567890"
+                socialMediaLinks:
+                  type: object
+                  properties:
+                    facebook:
+                      type: string
+                      example: "https://facebook.com/mywebsite"
+                    twitter:
+                      type: string
+                      example: "https://twitter.com/mywebsite"
+                    instagram:
+                      type: string
+                      example: "https://instagram.com/mywebsite"
+                    linkedin:
+                      type: string
+                      example: "https://linkedin.com/mywebsite"
+                address:
+                  type: string
+                  description: Business address
+                  example: "123 Main St"
+                city:
+                  type: string
+                  description: City
+                  example: "San Francisco"
+                state:
+                  type: string
+                  description: State
+                  example: "CA"
+                adminSupportEmail:
+                  type: string
+                  description: Support email for admin
+                  example: "support@mywebsite.com"
+      responses:
+        201:
+          description: System settings created or updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Created"
+                  systemSettings:
+                    $ref: "#/components/schemas/SystemSetting"
+
+  /admin/settings/get:
+    get:
+      summary: Get system settings
+      tags:
+        - Admin Settings
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: System settings fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Fetched"
+                  systemSettings:
+                    $ref: "#/components/schemas/SystemSetting"
+
+  /admin/settings/{settingsId}:
+    patch:
+      summary: Update specific system settings by ID
+      tags:
+        - Admin Settings
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: settingsId
+          required: true
+          schema:
+            type: string
+          description: ID of the system setting to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              example:
+                commission: 6
+                platformFee: 3
+      responses:
+        200:
+          description: System settings updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Updated"
+                  systemSettings:
+                    $ref: "#/components/schemas/SystemSetting"
+
+    delete:
+      summary: Delete specific system settings by ID
+      tags:
+        - Admin Settings
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: settingsId
+          required: true
+          schema:
+            type: string
+          description: ID of the system setting to delete
+      responses:
+        200:
+          description: System settings deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Deleted"
+
   # Admin User
   /admin/user:
     get:
@@ -1625,6 +1785,134 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserProfile"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /admin/user/orders/refunds:
+    get:
+      summary: Get Refund Details
+      tags:
+        - Admin User
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: Page number for pagination
+          schema:
+            type: integer
+            default: 1
+            example: 1
+        - name: limit
+          in: query
+          required: false
+          description: Number of refunds per page
+          schema:
+            type: integer
+            default: 10
+            example: 10
+        - name: search
+          in: query
+          required: false
+          description: Search query to filter by user name or order ID
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          required: false
+          description: Field to sort refunds by (e.g., `createdAt`, `amount`)
+          schema:
+            type: string
+            default: "createdAt"
+        - name: sortOrder
+          in: query
+          required: false
+          description: Order of sorting, either `asc` or `desc`
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: "desc"
+        - name: status
+          in: query
+          required: false
+          description: Filter refunds by status (e.g., `pending`, `approved`, `rejected`)
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+            example: "approved"
+        - name: fromDate
+          in: query
+          required: false
+          description: Start date for filtering refunds
+          schema:
+            type: string
+            format: date
+            example: "2024-01-01"
+        - name: toDate
+          in: query
+          required: false
+          description: End date for filtering refunds
+          schema:
+            type: string
+            format: date
+            example: "2024-12-31"
+      security:
+        - bearerAuth: [] # Use Bearer Token for authenticated routes
+      responses:
+        "200":
+          description: Admin User's refund details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Refund details fetched successfully
+                  data:
+                    type: object
+                    properties:
+                      docs:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            refundId:
+                              type: string
+                              example: "672c700fa1a40f804d63ef4a"
+                            transactionId:
+                              type: string
+                              example: "672c700fa1a40f804d63ef4c"
+                            createdAt:
+                              type: string
+                              format: date-time
+                              example: "2024-11-08T05:13:24.489Z"
+                            userName:
+                              type: string
+                              example: "John Doe"
+                            orderId:
+                              type: string
+                              example: "1730965519"
+                            status:
+                              type: string
+                              enum: ["pending", "approved", "rejected"]
+                              example: "approved"
+                            amount:
+                              type: number
+                              example: 59.99
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 10
+                      totalDocs:
+                        type: integer
+                        example: 4
         "404":
           $ref: "#/components/responses/NotFound"
         "401":
@@ -4911,13 +5199,13 @@ paths:
         "500":
           description: Internal server error
 
-  /order/user/request-refund/{orderId}:
+  /order/user/{orderId}/request-refund-or-exchange:
     post:
       tags:
         - Order
       security:
         - bearerAuth: []
-      summary: Request a refund for specific items in an order
+      summary: Request a refund or exchange for specific items in an order
       parameters:
         - name: orderId
           in: path
@@ -4927,7 +5215,7 @@ paths:
             type: string
             example: 670ad27c5e1dd4288ee6cfc0
       requestBody:
-        description: Request a refund for specified items in the order
+        description: Request a refund or exchange for specified items in the order
         required: true
         content:
           application/json:
@@ -4938,16 +5226,16 @@ paths:
                   type: array
                   items:
                     type: string
-                  description: Array of item IDs for which the refund is requested
+                  description: Array of item IDs for which the refund or exchange is requested
                   example: ["671e0e0e4845c39926c3143a"]
                 reason:
                   type: string
-                  description: Reason for requesting the refund
+                  description: Reason for requesting the refund or exchange
                   example: "Customer changed their mind"
                 action:
                   type: string
                   enum: ["refund", "exchange"]
-                  description: "Action to perform, either 'exchange' or 'refund'"
+                  description: Action to perform, either 'refund' or 'exchange'
                 bankDetails:
                   type: object
                   properties:
@@ -4961,10 +5249,10 @@ paths:
                       type: string
                     ifscCode:
                       type: string
-                  description: "Bank details for refund processing (if applicable)"
+                  description: Bank details for refund processing (if applicable)
       responses:
         "200":
-          description: Refund requested successfully
+          description: Refund or exchange requested successfully
           content:
             application/json:
               schema:
@@ -4975,14 +5263,14 @@ paths:
                     example: 200
                   message:
                     type: string
-                    example: Refund requested successfully
+                    example: Refund or exchange requested successfully
                   data:
                     type: object
                     properties:
                       orderId:
                         type: string
                         example: "1730792577"
-                      refundDetails:
+                      details:
                         type: object
                         properties:
                           reason:
@@ -5021,28 +5309,30 @@ paths:
           description: Bad request
         "401":
           description: Unauthorized
+        "403":
+          description: Only users can request refunds or exchanges
         "404":
           description: Order not found
         "500":
           description: Internal server error
 
-  /order/partner/refund-request/{orderId}/respond:
+  /order/partner/{orderId}/refund-or-exchange/decision:
     patch:
       tags:
         - Order
       security:
         - bearerAuth: []
-      summary: Partner approves or rejects a refund request for an order
+      summary: Partner approves or rejects a refund or exchange request for an order
       parameters:
         - name: orderId
           in: path
           required: true
-          description: The ID of the order for which the refund request is being processed
+          description: The ID of the order for which the refund or exchange request is being processed
           schema:
             type: string
             example: 670ad27c5e1dd4288ee6cfc0
       requestBody:
-        description: Decision by the partner to either accept or reject the refund request
+        description: Decision by the partner to either accept or reject the refund or exchange request
         required: true
         content:
           application/json:
@@ -5052,11 +5342,15 @@ paths:
                 decision:
                   type: string
                   enum: [accept, reject]
-                  description: Decision by the partner on the refund request
+                  description: Decision by the partner on the refund or exchange request
                   example: accept
+                action:
+                  type: string
+                  enum: ["refund", "exchange"]
+                  description: Action to confirm for the request (either refund or exchange)
       responses:
         "200":
-          description: Refund request processed successfully
+          description: Refund or exchange request processed successfully
           content:
             application/json:
               schema:
@@ -5074,7 +5368,7 @@ paths:
                       orderId:
                         type: string
                         example: "1730792577"
-                      refundDetails:
+                      details:
                         type: object
                         properties:
                           reason:
@@ -5117,110 +5411,12 @@ paths:
           description: Bad request
         "401":
           description: Unauthorized
+        "403":
+          description: Unauthorized access
         "404":
           description: Order not found or unauthorized access
         "500":
           description: Internal server error
-
-  /order/user/{orderId}/return-or-exchange:
-    post:
-      summary: "Initiate Return or Exchange"
-      description: "Allows users to initiate a return or exchange request for specific items in an order."
-      tags:
-        - Order
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: orderId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: "ID of the order to initiate return or exchange for"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                itemIds:
-                  type: array
-                  items:
-                    type: string
-                  description: "IDs of items for return or exchange"
-                reason:
-                  type: string
-                  description: "Reason for the return or exchange request"
-                action:
-                  type: string
-                  enum: ["exchange", "refund"]
-                  description: "Action to perform, either 'exchange' or 'refund'"
-      responses:
-        "200":
-          description: "Return or exchange request initiated successfully"
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                  message:
-                    type: string
-                  data:
-                    type: object
-                    description: "Details of the return/exchange request"
-        "400":
-          description: "Invalid request data or parameters"
-        "500":
-          description: "Internal server error"
-
-  /order/partner/{orderId}/return-or-exchange/decision:
-    patch:
-      summary: "Process Return or Exchange Decision"
-      description: "Allows partners to accept or reject a return or exchange request."
-      tags:
-        - Order
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: orderId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: "ID of the order to process return or exchange decision for"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                decision:
-                  type: string
-                  enum: ["accept", "reject"]
-                  description: "Decision to either 'accept' or 'reject' the return/exchange request"
-      responses:
-        "200":
-          description: "Return or exchange request decision processed successfully"
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                  message:
-                    type: string
-                  data:
-                    type: object
-                    description: "Details of the processed decision"
-        "400":
-          description: "Invalid request data or parameters"
-        "500":
-          description: "Internal server error"
 
   /order/partner/transactions:
     get:

@@ -56,18 +56,12 @@ router.patch('/partner/room-requests/:orderId', userAuth(), orderController.upda
 // Accept or reject product request
 router.patch('/partner/product-requests/:orderId', userAuth(), orderController.updatePartnerRequestStatus);
 
-// --- Refund and Return/Exchange Routes ---
+// --- Refund and Refund/Exchange Routes ---
 
 // Request a refund for specific items
-router.post('/user/request-refund/:orderId', userAuth(), orderController.requestRefund);
+router.post('/user/:orderId/request-refund-or-exchange', userAuth(), orderController.requestRefundOrExchange);
 
 // Process refund decision (accept/reject) by partner
-router.patch('/partner/refund-request/:orderId/respond', userAuth(), orderController.respondToRefundRequest);
-
-// Initiate return or exchange request by user
-router.post('/user/:orderId/return-or-exchange', userAuth(), orderController.initiateReturnOrExchange);
-
-// Process return/exchange decision (accept/reject) by partner
-router.patch('/partner/:orderId/return-or-exchange/decision', userAuth(), orderController.processReturnDecision);
+router.patch('/partner/:orderId/refund-or-exchange/decision', userAuth(), orderController.processRefundOrExchangeDecision);
 
 module.exports = router;
