@@ -51,7 +51,7 @@ const orderSchema = new mongoose.Schema({
     }],
     refundDetails: {
         reason: { type: String },
-        status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+        status: { type: String, enum: ['pending_partner', 'pending_admin', 'approved', 'rejected'] },
         requestedDate: { type: Date },
         approvedDate: { type: Date },
         amount: { type: Number },

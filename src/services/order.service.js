@@ -56,7 +56,7 @@ const createOrder = async (userId, cart, paymentMethod, orderNote) => {
             await order.save();
             throw new Error(CONSTANTS.PAYMENT_FAILED);
         }
-        order.orderStatus = 'paid';
+        // Keep order status as 'pending' for partner review after successful payment
         order.transactionHistory.push({
             type: "Payment Completed",
             date: new Date(),
@@ -66,6 +66,7 @@ const createOrder = async (userId, cart, paymentMethod, orderNote) => {
         await order.save();
     }
 
+    // Clear cart after order creation
     cart.items = [];
     cart.totalPrice = 0;
     await cart.save();
@@ -108,7 +109,10 @@ const updateOrderStatus = async (orderId, orderStatus) => {
 // Get all orders by user
 const getOrdersByUser = async (userId) => {
     const orders = await OrderModel.find({ user: userId })
-        .populate('items.item')
+        .populate({
+            path: 'items.item',
+            select: 'name',
+        })
         .sort({ createdAt: -1 });
     return orders;
 };
@@ -119,7 +123,16 @@ const getOrderById = async (orderId) => {
         .populate('user', '_id name email phone')
         .populate('items.item')
         .populate('orderStatus');
-    return order;
+
+    if (!order) throw new Error(CONSTANTS.ORDER_NOT_FOUND);
+
+    return {
+        ...order.toObject(),
+        deliveryPartner: {
+            name: order.deliveryPartner?.name || null,
+            phone: order.deliveryPartner?.phone || null
+        }
+    };
 };
 
 // Get pending food requests for the partner
@@ -164,6 +177,21 @@ const getPendingProductRequests = async (partnerId) => {
     );
 
     return productOrders;
+};
+
+// Get order by status for the partner
+const getOrdersByStatus = async (partnerId, itemType, orderStatus) => {
+    const orders = await OrderModel.find({
+        partner: partnerId,
+        ...(orderStatus && { orderStatus }),
+    }).populate({
+        path: 'items.item',
+        select: 'itemType',
+        match: { itemType: itemType }
+    });
+
+    // Filter out orders that do not match the itemType
+    return orders.filter(order => order.items.some(item => item.item && item.item.itemType === itemType));
 };
 
 // Update the status of an order/request (Accept or Reject)
@@ -628,6 +656,78 @@ const getAllTransactionHistory = async ({ page = 1, limit = 10, itemType, status
     };
 };
 
+// Get Partner Refund Details
+const getPartnerRefunds = async (partnerId, { page = 1, limit = 10, status, search, sortBy = 'createdAt', sortOrder = 'desc' }) => {
+    const matchCondition = {
+        partner: partnerId,
+        'refundDetails.status': { $ne: 'none' } // Fetch refunds with a defined status
+    };
+
+    // Apply status filter if provided
+    if (status) matchCondition['refundDetails.status'] = status;
+
+    // Apply search filter for user name or orderId
+    if (search) {
+        matchCondition['$or'] = [
+            { 'userDetails.name': { $regex: search, $options: 'i' } },
+            { 'orderId': { $regex: search, $options: 'i' } }
+        ];
+    }
+
+    // Define sorting
+    const sortOption = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
+
+    // Convert page and limit to numbers
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+
+    // Build aggregation pipeline
+    const aggregateQuery = [
+        { $match: matchCondition },
+        {
+            $lookup: {
+                from: 'users',
+                localField: 'user',
+                foreignField: '_id',
+                as: 'userDetails'
+            }
+        },
+        { $unwind: '$userDetails' },
+        {
+            $project: {
+                refundId: '$refundDetails._id',
+                transactionId: '$transactionHistory._id',
+                createdAt: '$refundDetails.requestedDate',
+                userName: '$userDetails.name',
+                orderId: '$orderId',
+                status: '$refundDetails.status',
+                amount: '$refundDetails.amount'
+            }
+        },
+        { $sort: sortOption },
+        { $skip: (pageNum - 1) * limitNum },
+        { $limit: limitNum }
+    ];
+
+    // Execute the aggregation pipeline with pagination
+    const refundListings = await OrderModel.aggregate(aggregateQuery);
+    const totalDocs = await OrderModel.countDocuments(matchCondition);
+
+    return {
+        docs: refundListings,
+        page: pageNum,
+        limit: limitNum,
+        totalDocs,
+        totalPages: Math.ceil(totalDocs / limitNum),
+        pagingCounter: (pageNum - 1) * limitNum + 1,
+        hasPrevPage: pageNum > 1,
+        hasNextPage: pageNum < Math.ceil(totalDocs / limitNum),
+        prevPage: pageNum > 1 ? pageNum - 1 : null,
+        nextPage: pageNum < Math.ceil(totalDocs / limitNum) ? pageNum + 1 : null,
+    };
+};
+
+// Get Admin Refund Details
 const getRefundDetails = async ({ page = 1, limit = 10, status, search, sortBy, sortOrder, fromDate, toDate }) => {
     // Convert page and limit to integers
     const pageNum = parseInt(page, 10);
@@ -716,7 +816,8 @@ const requestRefundOrExchange = async (orderId, itemIds, reason, action, process
 
     // Prevent duplicate requests for the same action
     if (action === 'refund') {
-        if (order.refundStatus === 'pending' || order.refundStatus === 'approved') {
+        // Only throw an error if there is an existing refund request that is pending or approved
+        if (order.refundDetails && (order.refundDetails.status === 'pending_partner' || order.refundDetails.status === 'approved')) {
             throw new Error("A refund request is already pending or has been approved for this order.");
         }
     } else if (action === 'exchange') {
@@ -756,8 +857,13 @@ const requestRefundOrExchange = async (orderId, itemIds, reason, action, process
 
     // Handle the refund and exchange actions separately
     if (action === 'refund') {
-        order.refundStatus = 'pending';
-        order.refundDetails = { reason, status: 'pending', requestedDate: new Date(), amount: exactAmount, bankDetails };
+        order.refundDetails = {
+            reason,
+            status: 'pending_partner',  // Set to pending_partner for partner action
+            requestedDate: new Date(),
+            amount: exactAmount,
+            bankDetails
+        };
     } else {
         order.exchangeDetails.push({ reason, status: 'pending', requestedDate: new Date(), newProductId: itemIds[0] });
     }
@@ -766,13 +872,14 @@ const requestRefundOrExchange = async (orderId, itemIds, reason, action, process
         type: `${action.charAt(0).toUpperCase() + action.slice(1)} Requested`,
         date: new Date(),
         amount: exactAmount,
-        status: "pending"
+        status: "pending_partner"  // Updated to pending_partner for tracking
     });
 
     await order.save();
     return order;
 };
 
+// Process refund requests by partner
 const processRefundOrExchangeDecision = async (orderId, decision, action, partnerId) => {
     const order = await OrderModel.findOne({ _id: orderId, partner: partnerId });
     if (!order) throw new Error("Order not found or unauthorized access");
@@ -781,7 +888,7 @@ const processRefundOrExchangeDecision = async (orderId, decision, action, partne
         .filter(th => th.type === `${action.charAt(0).toUpperCase() + action.slice(1)} Requested`)
         .pop();
 
-    if (!pendingTransaction || pendingTransaction.status !== "pending") {
+    if (!pendingTransaction || pendingTransaction.status !== "pending_partner") {  // Check for pending_partner status
         throw new Error(`${action.charAt(0).toUpperCase() + action.slice(1)} request is either not pending or already processed.`);
     }
 
@@ -802,6 +909,19 @@ const processRefundOrExchangeDecision = async (orderId, decision, action, partne
 
     await order.save();
     return order;
+};
+
+// Process refund requests by admin
+const updateExpiredRefundsToAdmin = async () => {
+    const sevenDaysAgo = moment().subtract(7, 'days').toDate();
+
+    await OrderModel.updateMany(
+        {
+            'refundDetails.status': 'pending_partner',
+            'refundDetails.requestedAt': { $lte: sevenDaysAgo }
+        },
+        { $set: { 'refundDetails.status': 'pending_admin' } }
+    );
 };
 
 // Get Partner Transactions
@@ -881,6 +1001,7 @@ module.exports = {
     getPendingFoodRequests,
     getPendingRoomRequests,
     getPendingProductRequests,
+    getOrdersByStatus,
     updatePartnerRequestStatus,
     updateDeliveryPartner,
     cancelOrder,
@@ -892,8 +1013,10 @@ module.exports = {
     getAllHistory,
     getTransactionHistoryByOrderId,
     getAllTransactionHistory,
+    getPartnerRefunds,
     getRefundDetails,
     requestRefundOrExchange,
     processRefundOrExchangeDecision,
+    updateExpiredRefundsToAdmin,
     getPartnerTransactionList
 };

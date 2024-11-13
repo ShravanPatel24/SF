@@ -17,6 +17,7 @@ const docsRoute = require('./routes/v1/docs.route');
 // const ApiError = require('./utils/ApiError');
 const path = require('path');
 
+require('./utils/cronJobs');
 
 const app = express();
 

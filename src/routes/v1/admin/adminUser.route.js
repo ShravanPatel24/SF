@@ -12,6 +12,7 @@ const router = express.Router();
 router.get('/orders/transaction-history/:orderId', adminAuth('manageOrders'), orderController.getTransactionHistoryByOrderId);
 router.get('/orders/transaction-history', adminAuth('manageOrders'), orderController.getAllTransactionHistory);
 router.get('/orders/refunds', adminAuth('viewRefunds'), orderController.getRefundDetails);
+router.patch('/orders/refunds/update-status', adminAuth('manageRefunds'), orderController.updateRefundStatusByAdmin);
 
 router.get('/orders/id/:orderId', adminAuth('manageOrders'), orderController.getOrderById);
 router.get('/orders/:userId', adminAuth('manageOrders'), orderController.getOrdersByUserIdAdmin);

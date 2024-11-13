@@ -1,4 +1,4 @@
-const { BusinessModel, UserModel, BusinessTypeModel, ItemModel, DineOutModel, OrderModel } = require("../models");
+const { BusinessModel, UserModel, BusinessTypeModel, DineOutModel, OrderModel } = require("../models");
 const CONSTANTS = require("../config/constant");
 const { s3Service } = require('../services');
 const moment = require('moment');
@@ -513,10 +513,10 @@ const getDashboardCountsForPartner = async (partnerId) => {
             if (status === 'delivered') countsForBusinessType.orderCounts.push({ title: 'delivered Food Orders', count });
             if (status === 'cancelled') countsForBusinessType.orderCounts.push({ title: 'cancelled Food Orders', count });
         } else if (itemType === 'room') {
-            if (status === 'pending') countsForBusinessType.orderCounts.push({ title: 'current Bookings', count });
-            if (status === 'confirmed') countsForBusinessType.orderCounts.push({ title: 'confirmed Bookings', count });
-            if (status === 'accepted') countsForBusinessType.orderCounts.push({ title: 'accepted Bookings', count });
-            if (status === 'rejected') countsForBusinessType.orderCounts.push({ title: 'rejected Bookings', count });
+            if (status === 'pending') countsForBusinessType.orderCounts.push({ title: 'current Room Bookings', count });
+            if (status === 'confirmed') countsForBusinessType.orderCounts.push({ title: 'confirmed Room Bookings', count });
+            if (status === 'accepted') countsForBusinessType.orderCounts.push({ title: 'accepted Room Bookings', count });
+            if (status === 'rejected') countsForBusinessType.orderCounts.push({ title: 'rejected Room Bookings', count });
         }
         countsForBusinessType.earnings.total += earnings;
     });
@@ -590,29 +590,40 @@ const getDashboardCountsForPartner = async (partnerId) => {
     // Set default title for any remaining IDs without a name
     Object.keys(counts).forEach(key => {
         if (typeof counts[key].title === 'object') {  // If the title is still an ObjectId
-            counts[key].title = "Unknown Business Type";
+            counts[key].title = "Business Type";
         }
     });
 
     return Object.values(counts).map(businessTypeCounts => ({
         title: businessTypeCounts.title,
-        orderCounts: businessTypeCounts.orderCounts,
-        dineOutCounts: businessTypeCounts.dineOutCounts,
+        orderCounts: businessTypeCounts.orderCounts.map(order => ({
+            ...order,
+            searchKey: order.title
+                .toLowerCase()
+                .replace(/\s(.)/g, match => match.toUpperCase())  // Capitalize each word except the first
+                .replace(/\s+/g, '')  // Remove spaces
+        })),
+        dineOutCounts: businessTypeCounts.dineOutCounts.map(dineOut => ({
+            ...dineOut,
+            searchKey: dineOut.title
+                .toLowerCase()
+                .replace(/\s(.)/g, match => match.toUpperCase())  // Capitalize each word except the first
+                .replace(/\s+/g, '')  // Remove spaces
+        })),
         earnings: businessTypeCounts.earnings
     }));
-};
+}
 
 const getOrderListByType = async (partnerId, type) => {
     let query = { partner: partnerId };
 
-    // Set the order status or other conditions based on the type
     switch (type) {
         // Food Orders
         case "currentFoodOrders":
             query.orderStatus = "pending";
             break;
         case "confirmedFoodOrders":
-            query.orderStatus = "confirmed";
+            query.orderStatus = "accepted";
             break;
         case "acceptedFoodOrders":
             query.orderStatus = "accepted";
@@ -628,16 +639,16 @@ const getOrderListByType = async (partnerId, type) => {
             break;
 
         // Hotel Bookings
-        case "currentHotelBookings":
+        case "currentRoomBookings":
             query.orderStatus = "pending";
             break;
-        case "confirmedHotelBookings":
-            query.orderStatus = "confirmed";
-            break;
-        case "acceptedHotelBookings":
+        case "confirmedRoomBookings":
             query.orderStatus = "accepted";
             break;
-        case "rejectedHotelBookings":
+        case "acceptedRoomBookings":
+            query.orderStatus = "accepted";
+            break;
+        case "rejectedRoomBookings":
             query.orderStatus = "rejected";
             break;
 
@@ -646,7 +657,7 @@ const getOrderListByType = async (partnerId, type) => {
             query.orderStatus = "pending";
             break;
         case "confirmedProductOrders":
-            query.orderStatus = "confirmed";
+            query.orderStatus = "accepted";
             break;
         case "acceptedProductOrders":
             query.orderStatus = "accepted";
@@ -664,22 +675,34 @@ const getOrderListByType = async (partnerId, type) => {
         // Dine-Out Requests
         case "pendingDineOutRequests":
             query = { partner: partnerId, status: "Pending" };
-            break;
-        case "confirmedDineOutRequests":
-            query = { partner: partnerId, status: "Confirmed" };
-            break;
+            return await DineOutModel.find(query)
+                .populate('user', 'name')
+                .populate('business', 'businessName')
+                .exec();
         case "acceptedDineOutRequests":
             query = { partner: partnerId, status: "Accepted" };
-            break;
+            return await DineOutModel.find(query)
+                .populate('user', 'name')
+                .populate('business', 'businessName')
+                .exec();
         case "rejectedDineOutRequests":
             query = { partner: partnerId, status: "Rejected" };
-            break;
+            return await DineOutModel.find(query)
+                .populate('user', 'name')
+                .populate('business', 'businessName')
+                .exec();
         case "completedDineOutRequests":
             query = { partner: partnerId, status: "Completed" };
-            break;
+            return await DineOutModel.find(query)
+                .populate('user', 'name')
+                .populate('business', 'businessName')
+                .exec();
         case "cancelledDineOutRequests":
             query = { partner: partnerId, status: "Cancelled" };
-            break;
+            return await DineOutModel.find(query)
+                .populate('user', 'name')
+                .populate('business', 'businessName')
+                .exec();
 
         // Available Tables (Assuming a separate table or collection handles table management)
         case "availableTables":
@@ -690,13 +713,13 @@ const getOrderListByType = async (partnerId, type) => {
             throw new Error("Invalid type for order list retrieval.");
     }
 
-    // Fetch orders or requests based on type and populate items where applicable
+    // Fetch Food, Hotel, and Product Orders using OrderModel with itemType matching
     const orders = await OrderModel.find(query).populate({
         path: "items.item",
         match: {
             itemType: type.includes("Food") ? "food" :
                 type.includes("Hotel") ? "room" :
-                    type.includes("DineOut") ? null :  // No need to filter for DineOut
+                    type.includes("DineOut") ? null : // No need to filter for DineOut
                         "product"
         },
         select: "-__v" // Adjust fields as needed

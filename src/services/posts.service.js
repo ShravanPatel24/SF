@@ -238,13 +238,23 @@ const getSavedPosts = async (userId, page = 1, limit = 10) => {
         page,
         limit,
         populate: [
-            { path: 'userId', select: 'name profilePhoto' },
-            { path: 'savedBy', select: 'name' }
+            { path: 'userId', select: 'name profilePhoto' }
         ],
         sort: { createdAt: -1 }
     };
+
     const savedPosts = await PostModel.paginate({ savedBy: userId }, options);
-    return savedPosts;
+
+    // Transform savedPosts to include savedBy as an array of IDs
+    const savedPostsWithIdsOnly = savedPosts.docs.map(post => {
+        const savedByIds = post.savedBy.map(savedUser => savedUser._id.toString()); // Extract only IDs
+        return {
+            ...post.toObject(),
+            savedBy: savedByIds
+        };
+    });
+
+    return { ...savedPosts, docs: savedPostsWithIdsOnly };
 };
 
 module.exports = {

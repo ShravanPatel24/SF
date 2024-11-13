@@ -47,6 +47,9 @@ router.get('/partner/room-requests', userAuth(), orderController.getPendingRoomR
 // Get pending product requests for partner
 router.get('/partner/product-requests', userAuth(), orderController.getPendingProductRequests);
 
+// Get accepted or rejected orders by item type and status for partner
+router.get('/partner/orders-by-status', userAuth(), orderController.getOrdersByTypeAndStatus);
+
 // Accept or reject food request
 router.patch('/partner/food-requests/:orderId', userAuth(), orderController.updatePartnerRequestStatus);
 
@@ -57,6 +60,8 @@ router.patch('/partner/room-requests/:orderId', userAuth(), orderController.upda
 router.patch('/partner/product-requests/:orderId', userAuth(), orderController.updatePartnerRequestStatus);
 
 // --- Refund and Refund/Exchange Routes ---
+// Get all refund requests for the partner
+router.get('/partner/refunds', userAuth(), orderController.getPartnerRefunds);
 
 // Request a refund for specific items
 router.post('/user/:orderId/request-refund-or-exchange', userAuth(), orderController.requestRefundOrExchange);

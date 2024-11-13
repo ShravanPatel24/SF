@@ -101,9 +101,7 @@ const updateUser = {
         galleryImages: Joi.any().optional().messages({
             'any.required': 'Gallery images are required.'
         })
-    }).min(1).messages({
-        'object.min': 'At least one field must be provided for update.'
-    }),
+    })
 };
 
 const deleteUser = {

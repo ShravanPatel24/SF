@@ -74,7 +74,9 @@ const getUserOrders = catchAsync(async (req, res) => {
 const getOrderById = catchAsync(async (req, res) => {
     const { orderId } = req.params;
     const order = await OrderService.getOrderById(orderId);
-    if (!order) { return res.status(404).json({ statusCode: 404, message: CONSTANTS.ORDER_NOT_FOUND }) }
+    if (!order) {
+        return res.status(404).json({ statusCode: 404, message: CONSTANTS.ORDER_NOT_FOUND });
+    }
     return res.status(200).json({
         statusCode: 200,
         _id: order._id,
@@ -95,6 +97,10 @@ const getOrderById = catchAsync(async (req, res) => {
             selectedSize: item.selectedSize || null,
             selectedColor: item.selectedColor || null
         })),
+        deliveryPartner: {
+            name: order.deliveryPartner?.name || null,
+            phone: order.deliveryPartner?.phone || null
+        },
         user: {
             userId: order.user._id,
             name: order.user.name,
@@ -155,6 +161,29 @@ const getPendingProductRequests = catchAsync(async (req, res) => {
         statusCode: 200,
         data: requests,
         message: "Pending product requests retrieved successfully",
+    });
+});
+
+// Get order by status for the partner
+const getOrdersByTypeAndStatus = catchAsync(async (req, res) => {
+    const partnerId = req.user._id;
+    const { itemType, orderStatus } = req.query;  // Accept itemType and orderStatus as query params
+
+    const validStatuses = ["pending", "accepted", "rejected", "ordered", "processing", "out_for_delivery", "pending_payment", "paid", "payment_failed", "delivered", "cancelled"];
+
+    // Check if the provided orderStatus is valid
+    if (orderStatus && !validStatuses.includes(orderStatus)) {
+        return res.status(400).json({
+            statusCode: 400,
+            message: `Invalid order status. Valid statuses are: ${validStatuses.join(", ")}`
+        });
+    }
+
+    const orders = await OrderService.getOrdersByStatus(partnerId, itemType, orderStatus);
+    return res.status(200).json({
+        statusCode: 200,
+        data: orders,
+        message: `${orderStatus ? `${orderStatus} ` : ""}${itemType ? `${itemType} ` : ""}orders retrieved successfully`
     });
 });
 
@@ -458,6 +487,21 @@ const getAllTransactionHistory = catchAsync(async (req, res) => {
     }
 });
 
+// Get Partner Refund Details
+const getPartnerRefunds = catchAsync(async (req, res) => {
+    const partnerId = req.user._id; // Get the partner ID from the authenticated user
+    const { page, limit, status, search, sortBy, sortOrder } = req.query;
+
+    const refunds = await OrderService.getPartnerRefunds(partnerId, { page, limit, status, search, sortBy, sortOrder });
+
+    res.status(200).json({
+        statusCode: 200,
+        message: 'Refunds retrieved successfully',
+        data: refunds,
+    });
+});
+
+// Get Admin Refund Details
 const getRefundDetails = catchAsync(async (req, res) => {
     const { page = 1, limit = 10, status, search, sortBy = 'createdAt', sortOrder = 'desc', fromDate, toDate } = req.query;
 
@@ -525,6 +569,40 @@ const processRefundOrExchangeDecision = catchAsync(async (req, res) => {
     }
 });
 
+// Admin API to Update Refund
+const updateRefundStatusByAdmin = catchAsync(async (req, res) => {
+    const { orderId } = req.body;
+    const { status, approvedDate, adminReason } = req.body;
+
+    const validStatuses = ['approved', 'rejected'];
+    if (!validStatuses.includes(status)) {
+        return res.status(400).json({
+            statusCode: 400,
+            message: `Invalid status. Valid statuses are: ${validStatuses.join(", ")}`
+        });
+    }
+
+    const order = await OrderModel.findOneAndUpdate(
+        { _id: orderId, 'refundDetails.status': 'pending_admin' },
+        {
+            'refundDetails.status': status,
+            'refundDetails.approvedDate': approvedDate || new Date(),
+            'refundDetails.adminReason': adminReason
+        },
+        { new: true }
+    );
+
+    if (!order) {
+        return res.status(404).json({ statusCode: 404, message: "Order or refund not found" });
+    }
+
+    return res.status(200).json({
+        statusCode: 200,
+        message: `Refund ${status} by admin successfully.`,
+        data: order
+    });
+});
+
 // Get Partner Transactions
 const getPartnerTransactionList = catchAsync(async (req, res) => {
     const partnerId = req.user._id;
@@ -546,6 +624,7 @@ module.exports = {
     getPendingFoodRequests,
     getPendingRoomRequests,
     getPendingProductRequests,
+    getOrdersByTypeAndStatus,
     updatePartnerRequestStatus,
     updateDeliveryPartner,
     cancelOrder,
@@ -557,8 +636,10 @@ module.exports = {
     getAllHistory,
     getTransactionHistoryByOrderId,
     getAllTransactionHistory,
+    getPartnerRefunds,
     getRefundDetails,
     requestRefundOrExchange,
     processRefundOrExchangeDecision,
+    updateRefundStatusByAdmin,
     getPartnerTransactionList
 };
