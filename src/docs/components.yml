@@ -4510,7 +4510,8 @@ paths:
         - Cart
       security:
         - bearerAuth: []
-      summary: Add an item to the cart (Product/Food/Room(Checkout))
+      summary: Add an item to the cart (Product/Food/Room)
+      description: Add an item to the cart. For rooms, check-in and check-out dates are required. Delivery address is not required at this step.
       requestBody:
         description: The data required to add an item to the cart
         required: true
@@ -4521,34 +4522,34 @@ paths:
               properties:
                 itemId:
                   type: string
-                  description: The ID of the product or food item
+                  description: The ID of the product, food, or room item
                   example: 66fc32743be26b54e9be9085
                 quantity:
                   type: integer
-                  description: The quantity to add to the cart
+                  description: The quantity to add to the cart. For rooms, quantity is always 1.
                   example: 2
                 guestCount:
                   type: integer
-                  description: The guest count for room
+                  description: The number of guests for room booking (required for rooms only)
                   example: 2
                 checkIn:
                   type: string
-                  description: The check in for the room
-                  example: 2024-10-20
+                  format: date
+                  description: The check-in date for the room booking (required for rooms only)
+                  example: 2024-11-20
                 checkOut:
                   type: string
-                  description: The check out for the room
-                  example: 2024-10-20
+                  format: date
+                  description: The check-out date for the room booking (required for rooms only)
+                  example: 2024-11-22
                 selectedSize:
                   type: string
-                  description: Size of the product (if applicable)
+                  description: The size of the product (if applicable)
                   example: M
                 selectedColor:
                   type: string
-                  description: Color of the product (if applicable)
+                  description: The color of the product (if applicable)
                   example: Red
-                deliveryAddress:
-                  $ref: "#/components/schemas/DeliveryAddress"
       responses:
         "200":
           description: Item added to cart successfully
@@ -4559,17 +4560,48 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: Product added to cart successfully
+                    example: Item added to cart successfully
                   cart:
                     $ref: "#/components/schemas/CartItem"
         "400":
-          description: Bad request
+          description: Bad request (e.g., invalid item ID or missing required fields for room booking)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: Invalid item ID
         "401":
           description: Unauthorized
-        "403":
-          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  message:
+                    type: string
+                    example: Unauthorized
         "500":
           description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: An unexpected error occurred.
 
   /cart:
     get:
@@ -4767,7 +4799,8 @@ paths:
         - Order
       security:
         - bearerAuth: []
-      summary: Place an order (Product/Food)
+      summary: Place an order (Product/Food/Room)
+      description: Place an order for the items in the cart. Delivery address is required for product and food orders.
       requestBody:
         description: The data required to place an order
         required: true
@@ -4778,16 +4811,51 @@ paths:
               properties:
                 cartId:
                   type: string
-                  description: The ID of the cart
+                  description: The ID of the cart containing the items to order
                   example: 66fc32743be26b54e9be9085
                 paymentMethod:
                   type: string
                   description: The payment method for the order
+                  enum:
+                    - cash
+                    - online
                   example: cash
                 orderNote:
                   type: string
                   description: A note for the order
                   example: Please deliver quickly
+                deliveryAddress:
+                  type: object
+                  description: The delivery address for product or food orders (not required for room bookings)
+                  properties:
+                    name:
+                      type: string
+                      description: Recipient's name
+                      example: John Doe
+                    street:
+                      type: string
+                      description: Street address
+                      example: 123 Main St
+                    city:
+                      type: string
+                      description: City
+                      example: New York
+                    state:
+                      type: string
+                      description: State
+                      example: NY
+                    country:
+                      type: string
+                      description: Country
+                      example: USA
+                    postalCode:
+                      type: string
+                      description: Postal code
+                      example: 10001
+                    phone:
+                      type: string
+                      description: Phone number
+                      example: 555-1234
       responses:
         "201":
           description: Order placed successfully
@@ -4796,19 +4864,86 @@ paths:
               schema:
                 type: object
                 properties:
+                  statusCode:
+                    type: integer
+                    example: 201
                   message:
                     type: string
                     example: Order placed successfully
-                  order:
-                    $ref: "#/components/schemas/Order"
+                  orderId:
+                    type: string
+                    description: The unique identifier for the order
+                    example: 1731737443
+                  orderNumber:
+                    type: string
+                    description: The order number for user reference
+                    example: #1731737443
+                  subtotal:
+                    type: number
+                    format: float
+                    description: The subtotal of the order
+                    example: 59.00
+                  tax:
+                    type: number
+                    format: float
+                    description: The tax amount
+                    example: 1.00
+                  deliveryCharge:
+                    type: number
+                    format: float
+                    description: The delivery charge
+                    example: 5.00
+                  totalPrice:
+                    type: number
+                    format: float
+                    description: The total price of the order
+                    example: 65.00
+                  paymentMethod:
+                    type: string
+                    description: The payment method used
+                    example: cash
+                  deliveryAddress:
+                    type: object
+                    $ref: "#/components/schemas/DeliveryAddress"
         "400":
-          description: Bad request
+          description: Bad request (e.g., missing cart ID, invalid payment method, or missing delivery address for applicable item types)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: Delivery address is required for food or product orders
         "401":
           description: Unauthorized
-        "403":
-          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  message:
+                    type: string
+                    example: Unauthorized
         "500":
           description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: An unexpected error occurred
 
   /order:
     get:
@@ -5822,7 +5957,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [products, hotel, restaurant, dineout]
+            enum: [products, hotels, restaurants, dineout]
             example: products
         - name: status
           in: query
