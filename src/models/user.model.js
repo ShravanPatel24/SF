@@ -165,6 +165,7 @@ async function inIt() {
     await new USER({
       name: "Demo Account",
       email: "demo@yopmail.com",
+      countryCode: "+91",
       phone: "1234567890",
       password: "12345678",
       type: "user",

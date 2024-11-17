@@ -7,39 +7,63 @@ const pick = require("../utils/pick");
 // Create a new order
 const createOrder = catchAsync(async (req, res) => {
     const userId = req.user._id;
-    const { cartId, paymentMethod, orderNote } = req.body;
+    const { cartId, paymentMethod, orderNote, deliveryAddress } = req.body;
 
     const cart = await CartModel.findById(cartId).populate({
         path: 'items.item',
-        strictPopulate: false
+        strictPopulate: false,
     });
 
     if (!cart || cart.items.length === 0) {
         return res.status(400).json({ statusCode: 400, message: CONSTANTS.CART_EMPTY });
     }
 
+    // Validate the delivery address for applicable item types
     const itemTypes = new Set(cart.items.map(item => item.item?.itemType));
-    const containsRoom = itemTypes.has('room');
-    const containsFood = itemTypes.has('food');
-    const containsProduct = itemTypes.has('product');
+    const requiresDeliveryAddress = itemTypes.has('food') || itemTypes.has('product');
 
-    const order = await OrderService.createOrder(userId, cart, paymentMethod, orderNote);
-
-    if (paymentMethod === 'online' && order.paymentFailed) {
-        return res.status(400).json({ statusCode: 400, message: "Payment failed. Please try again." });
+    if (requiresDeliveryAddress) {
+        if (
+            !deliveryAddress ||
+            !deliveryAddress.street ||
+            !deliveryAddress.city ||
+            !deliveryAddress.postalCode
+        ) {
+            return res
+                .status(400)
+                .json({ statusCode: 400, message: CONSTANTS.DELIVERY_ADDRESS_REQUIRED });
+        }
     }
 
+    // Create the order
+    const order = await OrderService.createOrder(
+        userId,
+        cart,
+        paymentMethod,
+        orderNote,
+        requiresDeliveryAddress ? deliveryAddress : null
+    );
+
+    if (paymentMethod === 'online' && order.paymentFailed) {
+        return res.status(400).json({
+            statusCode: 400,
+            message: 'Payment failed. Please try again.',
+        });
+    }
+
+    // Determine the success message based on item types
     let successMessage = '';
-    if (containsRoom) {
-        successMessage = paymentMethod === 'online'
-            ? CONSTANTS.PAYMENT_SUCCESS_ONLINE_HOTEL_MSG
-            : "Your hotel reservation request has been submitted. Please await confirmation.";
-    } else if (containsFood && containsProduct) {
-        successMessage = "Your order with food and products has been placed successfully!";
-    } else if (containsFood) {
-        successMessage = "Your food order has been placed successfully and is awaiting preparation.";
-    } else if (containsProduct) {
-        successMessage = "Your product order has been placed successfully! It will be dispatched soon. Thank you for shopping with us!";
+    if (itemTypes.has('room')) {
+        successMessage =
+            paymentMethod === 'online'
+                ? CONSTANTS.PAYMENT_SUCCESS_ONLINE_HOTEL_MSG
+                : 'Your hotel reservation request has been submitted. Please await confirmation.';
+    } else if (itemTypes.has('food') && itemTypes.has('product')) {
+        successMessage = 'Your order with food and products has been placed successfully!';
+    } else if (itemTypes.has('food')) {
+        successMessage = 'Your food order has been placed successfully and is awaiting preparation.';
+    } else if (itemTypes.has('product')) {
+        successMessage = 'Your product order has been placed successfully! It will be dispatched soon.';
     } else {
         successMessage = CONSTANTS.ORDER_PLACED_MSG;
     }
@@ -56,7 +80,7 @@ const createOrder = catchAsync(async (req, res) => {
         deliveryCharge: order.deliveryCharge,
         totalPrice: order.totalPrice,
         paymentMethod: order.paymentMethod,
-        deliveryAddress: order.deliveryAddress
+        deliveryAddress: order.deliveryAddress,
     });
 });
 

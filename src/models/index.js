@@ -23,3 +23,5 @@ module.exports.RoleBaseAccessModel = require("./roleBaseAccess.model");
 module.exports.StaticContentModel = require("./staticContent.model");
 module.exports.TemplateModel = require("./template.model");
 module.exports.AddressModel = require("./address.model");
+module.exports.ChatModel = require("./Chats/chat.model");
+module.exports.MessageModel = require("./Chats/message.model");

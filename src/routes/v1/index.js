@@ -12,6 +12,8 @@ const cartRoute = require('./cart.routes')
 const orderRoute = require('./order.route')
 const templateRoute = require('./template.route')
 const AddressRoute = require('./address.route')
+const ChatRoute = require('./Chats/chat.route')
+const MessageRoute = require('./Chats/message.route')
 
 const AdminAuthRoute = require("./admin/auth.route");
 const AdminStaffRoute = require("./admin/adminStaff.route");
@@ -56,6 +58,8 @@ const defaultRoutes = [
   { path: '/posts', route: PostRoute },
   { path: '/templates', route: templateRoute },
   { path: '/address', route: AddressRoute },
+  { path: '/chats', route: ChatRoute },
+  { path: '/messages', route: MessageRoute },
 ];
 
 const devRoutes = [
