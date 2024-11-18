@@ -1,10 +1,10 @@
 const mongoose = require("mongoose");
-const { ChatEventEnum } = require("../../config/constant.js");
-const { Chat } = require("../../models/Chats/chat.model.js");
-const { ChatMessage } = require("../../models/Chats/message.model.js");
+const { ChatEventEnum } = require("../../config/chatEvents.js");
+const Chat = require("../../models/Chats/chat.model.js");
+const ChatMessage = require("../../models/Chats/message.model.js");
 const { emitSocketEvent } = require("../../socket/index.js");
-const { ApiError } = require("../../utils/ApiError.js");
-const { ApiResponse } = require("../../utils/ApiSuccess.js");
+const ApiError = require("../../utils/ApiError.js");
+const ApiResponse = require("../../utils/ApiSuccess.js");
 const catchAsync = require("../../utils/catchAsync.js");
 const {
     getLocalPath,

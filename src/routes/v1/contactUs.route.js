@@ -1,5 +1,5 @@
 const express = require('express');
-const { adminAuth, basicAuth } = require('../../middlewares');
+const { adminAuth, userAuth } = require('../../middlewares');
 const validate = require('../../middlewares/validate');
 const { contactValidation } = require('../../validations');
 const { ContactUsController } = require('../../controllers');
@@ -8,7 +8,7 @@ const router = express.Router();
 
 router
     .route('/')
-    .post(basicAuth('createContact'), validate(contactValidation.createContact), ContactUsController.createContact)
+    .post(userAuth('createContact'), validate(contactValidation.createContact), ContactUsController.createContact)
     .get(adminAuth('getContacts'), validate(contactValidation.getContacts), ContactUsController.getContacts);
 
 router

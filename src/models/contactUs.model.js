@@ -3,16 +3,17 @@ const { toJSON } = require("./plugins");
 const mongoosePaginate = require('mongoose-paginate-v2');
 
 const contactUsSchema = mongoose.Schema({
-    name: { type: String, required: true },
-    email: { type: String },
-    phone: { type: String },
-    message: { type: String, required: true },
-    status: { type: Number, default: 1 }, //0 is Inactive, 1 is Active
-    isDelete: { type: Number, default: 1 }, //0 is delete, 1 is Active
+  name: { type: String, required: true },
+  email: { type: String },
+  phone: { type: String },
+  message: { type: String, required: true },
+  status: { type: Number, default: 1 }, //0 is Inactive, 1 is Active
+  isDelete: { type: Number, default: 1 }, //0 is delete, 1 is Active
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
 },
-{
-  timestamps: true
-});
+  {
+    timestamps: true
+  });
 
 
 contactUsSchema.set('toObject', { virtuals: true });

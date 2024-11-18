@@ -1,12 +1,12 @@
 const mongoose = require("mongoose");
-const { ChatEventEnum } = require("../../config/constant");
+const { ChatEventEnum } = require("../../config/chatEvents.js");
 const User = require("../../models/user.model");
 const Chat = require("../../models/Chats/chat.model");
 const ChatMessage = require("../../models/Chats/message.model");
 const { emitSocketEvent } = require("../../socket/index.js");
 const ApiError = require("../../utils/ApiError.js");
 const ApiResponse = require("../../utils/ApiSuccess.js");
-const { removeLocalFile } = require("../..//utils/helper.js");
+const { removeLocalFile } = require("../../utils/helper.js");
 const catchAsync = require("../../utils/catchAsync.js");
 
 /**

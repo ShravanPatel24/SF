@@ -1,5 +1,5 @@
 const catchAsync = require('../../utils/catchAsync');
-const { adminAuthService, adminStaffService, s3Service, UserService } = require('../../services');
+const { adminAuthService, s3Service, UserService } = require('../../services');
 const CONSTANT = require('../../config/constant');
 
 const login = catchAsync(async (req, res) => {

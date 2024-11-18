@@ -1,4 +1,4 @@
-const { OrderModel, CartModel, DineOutModel } = require("../models");
+const { OrderModel, DineOutModel, BusinessModel } = require("../models");
 const CONSTANTS = require("../config/constant");
 const mongoose = require("mongoose");
 
@@ -17,8 +17,17 @@ const createOrder = async (
     throw new Error(CONSTANTS.CART_EMPTY);
   }
 
+  // Get the partner and business ID
   const firstItem = cart.items[0].item;
   const partnerId = firstItem.partner._id;
+
+  // Find the business associated with the partner
+  const business = await BusinessModel.findOne({ partner: partnerId });
+  if (!business) {
+    throw new Error("Associated business not found for the partner.");
+  }
+
+  const businessId = business._id;
 
   const transactionHistory = [
     {
@@ -32,6 +41,7 @@ const createOrder = async (
   const orderData = {
     user: userId,
     partner: partnerId,
+    business: businessId,
     items: cart.items,
     totalPrice: cart.totalPrice,
     subtotal: cart.subtotal,
@@ -113,27 +123,82 @@ const updateOrderStatus = async (orderId, orderStatus) => {
 };
 
 // Get all orders by user
-const getOrdersByUser = async (userId) => {
-  const orders = await OrderModel.find({ user: userId })
-    .populate({
-      path: "items.item",
-      select: "name",
-    })
-    .sort({ createdAt: -1 });
-  return orders;
+const getOrdersByUser = async (userId, page = 1, limit = 10, sortOrder = "desc") => {
+  const sort = { createdAt: sortOrder === "asc" ? 1 : -1 }; // Dynamic sorting based on `asc` or `desc`
+  const query = { user: userId }; // Filtering by user
+
+  const options = {
+    page,
+    limit,
+    sort,
+    lean: true,
+    populate: [
+      {
+        path: "items.item",
+        select: "name itemType",
+      },
+      {
+        path: "business",
+        select: "businessName businessAddress",
+      },
+    ],
+  };
+
+  const result = await OrderModel.paginate(query, options);
+
+  // Map business details and format the response
+  result.docs = result.docs.map((order) => ({
+    ...order,
+    businessDetails: order.business
+      ? {
+        name: order.business.businessName,
+        address: [
+          order.business.businessAddress.street,
+          order.business.businessAddress.city,
+          order.business.businessAddress.state,
+          order.business.businessAddress.country,
+          order.business.businessAddress.postalCode,
+        ]
+          .filter(Boolean)
+          .join(", "),
+      }
+      : null,
+  }));
+
+  return result;
 };
 
 // Get order by ID
 const getOrderById = async (orderId) => {
   const order = await OrderModel.findById(orderId)
     .populate("user", "_id name email phone")
-    .populate("items.item")
-    .populate("orderStatus");
+    .populate({
+      path: "items.item",
+      select: "itemType dishName productName",
+    })
+    .populate({
+      path: "business",
+      select: "businessName businessAddress",
+    });
 
   if (!order) throw new Error(CONSTANTS.ORDER_NOT_FOUND);
 
   return {
     ...order.toObject(),
+    businessDetails: order.business
+      ? {
+        name: order.business.businessName,
+        address: [
+          order.business.businessAddress.street,
+          order.business.businessAddress.city,
+          order.business.businessAddress.state,
+          order.business.businessAddress.country,
+          order.business.businessAddress.postalCode,
+        ]
+          .filter(Boolean)
+          .join(", "),
+      }
+      : null,
     deliveryPartner: {
       name: order.deliveryPartner?.name || null,
       phone: order.deliveryPartner?.phone || null,
@@ -142,47 +207,53 @@ const getOrderById = async (orderId) => {
 };
 
 // Get pending food requests for the partner
-const getPendingFoodRequests = async (partnerId) => {
+const getPendingFoodRequests = async (partnerId, sortOrder = "desc") => {
+  const sort = { createdAt: sortOrder === "asc" ? 1 : -1 };
   const orders = await OrderModel.find({
     partner: partnerId,
     orderStatus: "pending",
-  }).populate({
-    path: "items.item",
-    select: "itemType dishPrice", // Include fields you need from Item model
-    match: { itemType: "food" },
-  });
+  })
+    .sort(sort)
+    .populate({
+      path: "items.item",
+      select: "itemType dishPrice", // Include fields you need from Item model
+      match: { itemType: "food" },
+    });
+
   return orders.filter((order) => order.items.some((item) => item.item));
 };
 
-// Get pending room requests for the partner
-const getPendingRoomRequests = async (partnerId) => {
-  // Fetch orders with 'pending' status and populate item details
+const getPendingRoomRequests = async (partnerId, sortOrder = "desc") => {
+  const sort = { createdAt: sortOrder === "asc" ? 1 : -1 };
   const orders = await OrderModel.find({
     partner: partnerId,
     orderStatus: "pending",
-  }).populate({
-    path: "items.item",
-    select: "itemType roomPrice", // Include fields you need from Item model
-    match: { itemType: "room" }, // Filter items by room type
-  });
+  })
+    .sort(sort)
+    .populate({
+      path: "items.item",
+      select: "itemType roomPrice", // Include fields you need from Item model
+      match: { itemType: "room" }, // Filter items by room type
+    });
 
-  // Filter out orders where items array is empty after population
   return orders.filter((order) => order.items.some((item) => item.item));
 };
 
-// Get pending product requests for the partner
-const getPendingProductRequests = async (partnerId) => {
+const getPendingProductRequests = async (partnerId, sortOrder = "desc") => {
+  const sort = { createdAt: sortOrder === "asc" ? 1 : -1 };
   const orders = await OrderModel.find({
     partner: partnerId,
     orderStatus: "pending",
-  }).populate("items.item");
+  })
+    .sort(sort)
+    .populate({
+      path: "items.item",
+      select: "itemType productName productPrice",
+    });
 
-  // Filter orders to include only those that contain product items
-  const productOrders = orders.filter((order) =>
+  return orders.filter((order) =>
     order.items.some((item) => item.item && item.item.itemType === "product")
   );
-
-  return productOrders;
 };
 
 // Get order by status for the partner
@@ -224,9 +295,8 @@ const updatePartnerRequestStatus = async (
 
   // Log the response in transaction history
   order.transactionHistory.push({
-    type: `Request ${
-      partnerResponse.charAt(0).toUpperCase() + partnerResponse.slice(1)
-    }`,
+    type: `Request ${partnerResponse.charAt(0).toUpperCase() + partnerResponse.slice(1)
+      }`,
     date: new Date(),
     amount: order.totalPrice,
     status: partnerResponse === "accepted" ? "Completed" : "Rejected",
@@ -265,10 +335,18 @@ const trackOrder = async (orderId) => {
   const order = await OrderModel.findById(orderId)
     .populate({
       path: "items.item",
-      select: "itemType dishName productName, productDescription images",
+      select: "itemType dishName productName productDescription images",
     })
     .populate("user", "name email")
-    .populate("partner", "name businessName");
+    .populate("partner", "name")
+    .populate({
+      path: "business",
+      select: "businessName businessAddress",
+    });
+
+  if (!order) {
+    return null;
+  }
 
   order.items = order.items.map((item) => {
     const itemData = item.item;
@@ -276,7 +354,7 @@ const trackOrder = async (orderId) => {
     if (itemData.itemType === "food") {
       itemName = itemData.dishName;
     } else if (itemData.itemType === "product") {
-      itemName = itemData.productName && itemData.productDescription;
+      itemName = itemData.productName;
     }
 
     return {
@@ -288,7 +366,29 @@ const trackOrder = async (orderId) => {
     };
   });
 
-  return order;
+  // Format business details
+  const businessDetails = order.business
+    ? {
+      name: order.business.businessName,
+      address: [
+        order.business.businessAddress.street,
+        order.business.businessAddress.city,
+        order.business.businessAddress.state,
+        order.business.businessAddress.country,
+        order.business.businessAddress.postalCode,
+      ]
+        .filter(Boolean) // Remove any empty values
+        .join(", "),
+    }
+    : null;
+
+  const populatedOrder = {
+    ...order.toObject(),
+    businessDetails,
+  };
+
+  delete populatedOrder.business; // Remove original business field
+  return populatedOrder;
 };
 
 // Get Orders Of All Users
@@ -456,105 +556,135 @@ const getOrdersByPartnerId = async (
   return { orders: filteredOrders, totalOrders };
 };
 
-const getHistoryByCategory = async (
-  userId,
-  category,
-  status,
-  page = 1,
-  limit = 10
-) => {
+const getHistoryByCategory = async (userId, category, status, page = 1, limit = 10, sortOrder = "desc") => {
   const validCategories = ["restaurants", "hotels", "products", "dineout"];
-  let query = { user: userId };
-  if (status) query.orderStatus = status;
-
   if (!validCategories.includes(category)) {
-    throw new Error(
-      `Invalid category specified. Valid categories are: ${validCategories.join(
-        ", "
-      )}`
-    );
+    throw new Error(`Invalid category specified. Valid categories are: ${validCategories.join(", ")}`);
   }
 
-  let results;
-  switch (category) {
-    case "restaurants": {
-      results = await OrderModel.paginate(query, {
-        populate: {
-          path: "items.item",
-          match: { itemType: "food" },
-          select: "dishName dishDescription dishPrice",
+  const matchCondition = { user: userId };
+  if (status) matchCondition.orderStatus = status;
+
+  const sort = { createdAt: sortOrder === "asc" ? 1 : -1 };
+
+  let aggregatePipeline = [];
+
+  if (category === "restaurants") {
+    aggregatePipeline = [
+      { $match: matchCondition },
+      {
+        $lookup: {
+          from: "items",
+          localField: "items.item",
+          foreignField: "_id",
+          as: "itemDetails",
         },
-        page,
-        limit,
-        lean: true,
-      });
-      results.docs = results.docs.filter((order) =>
-        order.items.some((item) => item.item)
-      );
-      break;
-    }
-    case "hotels": {
-      results = await OrderModel.paginate(query, {
-        populate: {
-          path: "items.item",
-          match: { itemType: "room" },
-          select:
-            "roomName roomDescription roomPrice roomCapacity checkIn checkOut",
+      },
+      { $unwind: "$itemDetails" },
+      { $match: { "itemDetails.itemType": "food" } },
+      { $sort: sort },
+      {
+        $facet: {
+          metadata: [{ $count: "totalDocs" }],
+          data: [
+            { $skip: (page - 1) * limit },
+            { $limit: limit },
+          ],
         },
-        page,
-        limit,
-        lean: true,
-      });
-      results.docs = results.docs.filter((order) =>
-        order.items.some((item) => item.item)
-      );
-      break;
-    }
-    case "products": {
-      results = await OrderModel.paginate(query, {
-        populate: {
-          path: "items.item",
-          match: { itemType: "product" },
-          select: "productName productDescription productFeatures variants",
+      },
+    ];
+  } else if (category === "hotels") {
+    aggregatePipeline = [
+      { $match: matchCondition },
+      {
+        $lookup: {
+          from: "items",
+          localField: "items.item",
+          foreignField: "_id",
+          as: "itemDetails",
         },
-        page,
-        limit,
-        lean: true,
-      });
-      results.docs = results.docs.filter((order) =>
-        order.items.some((item) => item.item)
-      );
-      break;
-    }
-    case "dineout": {
-      results = await DineOutRequest.paginate(query, {
-        page,
-        limit,
-        lean: true,
-      });
-      break;
-    }
-    default:
-      throw new Error("Invalid category specified.");
+      },
+      { $unwind: "$itemDetails" },
+      { $match: { "itemDetails.itemType": "room" } },
+      { $sort: sort },
+      {
+        $facet: {
+          metadata: [{ $count: "totalDocs" }],
+          data: [
+            { $skip: (page - 1) * limit },
+            { $limit: limit },
+          ],
+        },
+      },
+    ];
+  } else if (category === "products") {
+    aggregatePipeline = [
+      { $match: matchCondition },
+      {
+        $lookup: {
+          from: "items",
+          localField: "items.item",
+          foreignField: "_id",
+          as: "itemDetails",
+        },
+      },
+      { $unwind: "$itemDetails" },
+      { $match: { "itemDetails.itemType": "product" } },
+      { $sort: sort },
+      {
+        $facet: {
+          metadata: [{ $count: "totalDocs" }],
+          data: [
+            { $skip: (page - 1) * limit },
+            { $limit: limit },
+          ],
+        },
+      },
+    ];
+  } else if (category === "dineout") {
+    aggregatePipeline = [
+      { $match: matchCondition },
+      { $sort: sort },
+      {
+        $facet: {
+          metadata: [{ $count: "totalDocs" }],
+          data: [
+            { $skip: (page - 1) * limit },
+            { $limit: limit },
+          ],
+        },
+      },
+    ];
   }
+
+  const results = await (category === "dineout"
+    ? DineOutModel.aggregate(aggregatePipeline)
+    : OrderModel.aggregate(aggregatePipeline));
+
+  const totalDocs = results[0]?.metadata[0]?.totalDocs || 0;
+  const totalPages = Math.ceil(totalDocs / limit);
 
   return {
-    statusCode: 200,
-    data: results,
-    message: `${
-      category.charAt(0).toUpperCase() + category.slice(1)
-    } history retrieved successfully.`,
+    totalDocs,
+    totalPages,
+    page,
+    limit,
+    data: results[0]?.data || [],
   };
 };
 
-const getAllHistory = async (userId) => {
-  // Fetch orders with items separated by type (food, room, product)
-  const orders = await OrderModel.find({ user: userId }).populate({
-    path: "items.item",
-    select: "itemType dishName productName roomName",
-  });
+const getAllHistory = async (userId, sortOrder = "desc") => {
+  const sort = { createdAt: sortOrder === "asc" ? 1 : -1 };
 
-  // Filter items within orders by type for structured response
+  const orders = await OrderModel.find({ user: userId })
+    .populate({
+      path: "items.item",
+      select: "itemType dishName productName roomName",
+    })
+    .sort(sort);
+
+  const dineOutReservations = await DineOutModel.find({ user: userId }).sort(sort);
+
   const foodOrders = orders.filter((order) =>
     order.items.some((item) => item.item?.itemType === "food")
   );
@@ -564,9 +694,6 @@ const getAllHistory = async (userId) => {
   const productOrders = orders.filter((order) =>
     order.items.some((item) => item.item?.itemType === "product")
   );
-
-  // Fetch dine-out reservations
-  const dineOutReservations = await DineOutModel.find({ user: userId });
 
   return { foodOrders, roomBookings, productOrders, dineOutReservations };
 };
@@ -605,13 +732,13 @@ const getTransactionHistoryByOrderId = async (orderId) => {
   const refundDetails =
     order.refundDetails && order.refundDetails.status !== "none"
       ? {
-          reason: order.refundDetails.reason,
-          status: order.refundDetails.status,
-          requestedDate: order.refundDetails.requestedDate,
-          approvedDate: order.refundDetails.approvedDate,
-          amount: order.refundDetails.amount,
-          bankDetails: order.refundDetails.bankDetails,
-        }
+        reason: order.refundDetails.reason,
+        status: order.refundDetails.status,
+        requestedDate: order.refundDetails.requestedDate,
+        approvedDate: order.refundDetails.approvedDate,
+        amount: order.refundDetails.amount,
+        bankDetails: order.refundDetails.bankDetails,
+      }
       : null;
 
   return {
@@ -1052,8 +1179,7 @@ const processRefundOrExchangeDecision = async (
   if (!pendingTransaction || pendingTransaction.status !== "pending_partner") {
     // Check for pending_partner status
     throw new Error(
-      `${
-        action.charAt(0).toUpperCase() + action.slice(1)
+      `${action.charAt(0).toUpperCase() + action.slice(1)
       } request is either not pending or already processed.`
     );
   }
@@ -1070,9 +1196,8 @@ const processRefundOrExchangeDecision = async (
   }
 
   order.transactionHistory.push({
-    type: `${action.charAt(0).toUpperCase() + action.slice(1)} ${
-      isAccepted ? "Approved" : "Rejected"
-    }`,
+    type: `${action.charAt(0).toUpperCase() + action.slice(1)} ${isAccepted ? "Approved" : "Rejected"
+      }`,
     date: new Date(),
     amount: pendingTransaction.amount,
     status: isAccepted ? "Completed" : "Rejected",

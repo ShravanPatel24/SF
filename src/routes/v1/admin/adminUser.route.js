@@ -3,7 +3,7 @@ const multer = require('multer');
 const { adminAuth, userAuth } = require('../../../middlewares');
 const validate = require('../../../middlewares/validate');
 const { userValidation, businessValidation } = require('../../../validations');
-const { userController, adminAuthController, orderController, businessController, dineOutController } = require('../../../controllers');
+const { userController, adminAuthController, orderController, businessController, dineOutController, ContactUsController } = require('../../../controllers');
 const upload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
@@ -24,6 +24,20 @@ router.patch('/update-business/:businessId', adminAuth('updateById'), validate(b
 
 router.get('/dineout-requests', adminAuth('manageDineOutRequests'), dineOutController.getAllDineOutRequests);
 router.get('/dineout-requests/:requestId', adminAuth('manageDineOutRequests'), dineOutController.getDineOutRequestByIdAdmin);
+
+// Route for fetching contact summaries (simple list)
+router.get(
+  '/contact-us/summaries',
+  adminAuth('viewContactSubmissions'),
+  ContactUsController.getContactSummaries
+);
+
+// Route for fetching detailed contact submission
+router.get(
+  '/contact-us/details/:id',
+  adminAuth('viewContactSubmissions'),
+  ContactUsController.getContactDetails
+);
 
 router
   .route('/')

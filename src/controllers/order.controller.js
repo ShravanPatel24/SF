@@ -87,10 +87,30 @@ const createOrder = catchAsync(async (req, res) => {
 // Get the current user's orders
 const getUserOrders = catchAsync(async (req, res) => {
     const userId = req.user._id;
-    const orders = await OrderService.getOrdersByUser(userId);
+    const { page = 1, limit = 10, sortOrder = "desc" } = req.query;
+
+    const orders = await OrderService.getOrdersByUser(
+        userId,
+        parseInt(page),
+        parseInt(limit),
+        sortOrder
+    );
+
     return res.status(200).json({
         statusCode: 200,
-        data: orders
+        message: "List retrieved successfully.",
+        data: {
+            docs: orders.docs,
+            totalDocs: orders.totalDocs,
+            limit: orders.limit,
+            totalPages: orders.totalPages,
+            page: orders.page,
+            pagingCounter: orders.pagingCounter,
+            hasPrevPage: orders.hasPrevPage,
+            hasNextPage: orders.hasNextPage,
+            prevPage: orders.prevPage,
+            nextPage: orders.nextPage,
+        },
     });
 });
 
@@ -112,27 +132,25 @@ const getOrderById = catchAsync(async (req, res) => {
         totalPrice: order.totalPrice,
         subtotal: order.subtotal,
         tax: order.tax,
-        items: order.items.map(item => ({
+        businessDetails: order.businessDetails,
+        items: order.items.map((item) => ({
             itemId: item.item._id,
             itemType: item.item.itemType,
             productName: item.item.productName || item.item.dishName,
             quantity: item.quantity,
             price: item.price,
             selectedSize: item.selectedSize || null,
-            selectedColor: item.selectedColor || null
+            selectedColor: item.selectedColor || null,
         })),
-        deliveryPartner: {
-            name: order.deliveryPartner?.name || null,
-            phone: order.deliveryPartner?.phone || null
-        },
+        deliveryPartner: order.deliveryPartner,
         user: {
             userId: order.user._id,
             name: order.user.name,
             email: order.user.email,
-            phone: order.user.phone
+            phone: order.user.phone,
         },
         createdAt: order.createdAt,
-        updatedAt: order.updatedAt
+        updatedAt: order.updatedAt,
     });
 });
 
@@ -160,31 +178,37 @@ const updateOrderStatus = catchAsync(async (req, res) => {
 // Get pending food orders for the partner
 const getPendingFoodRequests = catchAsync(async (req, res) => {
     const partnerId = req.user._id; // From auth middleware
-    const requests = await OrderService.getPendingFoodRequests(partnerId);
+    const { page = 1, limit = 10, sortOrder = "desc" } = req.query;
+
+    const requests = await OrderService.getPendingFoodRequests(partnerId, parseInt(page), parseInt(limit), sortOrder);
     res.status(200).json({
         statusCode: 200,
-        data: requests,
         message: "Pending food orders retrieved successfully",
+        data: requests,
     });
 });
 
 const getPendingRoomRequests = catchAsync(async (req, res) => {
     const partnerId = req.user._id;
-    const requests = await OrderService.getPendingRoomRequests(partnerId);
+    const { page = 1, limit = 10, sortOrder = "desc" } = req.query;
+
+    const requests = await OrderService.getPendingRoomRequests(partnerId, parseInt(page), parseInt(limit), sortOrder);
     res.status(200).json({
         statusCode: 200,
-        data: requests,
         message: "Pending room requests retrieved successfully",
+        data: requests,
     });
 });
 
 const getPendingProductRequests = catchAsync(async (req, res) => {
     const partnerId = req.user._id;
-    const requests = await OrderService.getPendingProductRequests(partnerId);
+    const { page = 1, limit = 10, sortOrder = "desc" } = req.query;
+
+    const requests = await OrderService.getPendingProductRequests(partnerId, parseInt(page), parseInt(limit), sortOrder);
     res.status(200).json({
         statusCode: 200,
-        data: requests,
         message: "Pending product requests retrieved successfully",
+        data: requests,
     });
 });
 
@@ -472,25 +496,40 @@ const getTransactionHistoryByOrderId = catchAsync(async (req, res) => {
 
 const getHistoryByCategory = catchAsync(async (req, res) => {
     const { category } = req.params;
-    const { status, page = 1, limit = 10 } = req.query;
+    const { status, page = 1, limit = 10, sortOrder = "desc" } = req.query;
     const userId = req.user._id;
-    const history = await OrderService.getHistoryByCategory(userId, category, status, parseInt(page), parseInt(limit));
-    res.status(200).json(history);
+
+    const history = await OrderService.getHistoryByCategory(
+        userId,
+        category,
+        status,
+        parseInt(page, 10),
+        parseInt(limit, 10),
+        sortOrder
+    );
+
+    return res.status(200).json({
+        statusCode: 200,
+        message: `${category.charAt(0).toUpperCase() + category.slice(1)} history retrieved successfully.`,
+        data: history.data,
+        totalDocs: history.totalDocs,
+        totalPages: history.totalPages,
+        page: history.page,
+        limit: history.limit,
+    });
 });
 
-const getAllHistory = async (req, res) => {
-    try {
-        const userId = req.user._id;
-        const history = await OrderService.getAllHistory(userId);
+const getAllHistory = catchAsync(async (req, res) => {
+    const userId = req.user._id;
+    const { sortOrder = "desc" } = req.query;
 
-        res.status(200).json({
-            statusCode: 200,
-            data: history
-        });
-    } catch (error) {
-        res.status(500).json({ statusCode: 500, message: error.message });
-    }
-};
+    const history = await OrderService.getAllHistory(userId, sortOrder);
+
+    res.status(200).json({
+        statusCode: 200,
+        data: history,
+    });
+});
 
 const getAllTransactionHistory = catchAsync(async (req, res) => {
     const { page = 1, limit = 10, itemType, status, search, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;

@@ -1,4 +1,4 @@
-const { ContactUsModel } = require('../models');
+const { ContactUsModel, UserModel } = require('../models');
 const CONSTANT = require('../config/constant');
 
 /**
@@ -8,7 +8,7 @@ const CONSTANT = require('../config/constant');
  */
 const createContact = async (requestBody) => {
     const data = await ContactUsModel.create(requestBody);
-    return { data: data, statusCode: 200, message: CONSTANT.CONTACT_CREATE };
+    return { data: data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.CONTACT_CREATE };
 };
 
 /**
@@ -17,35 +17,51 @@ const createContact = async (requestBody) => {
  * @param {string} [options.sortBy] - Sort option in the format: sortField:(desc|asc)
  * @param {number} [options.limit] - Maximum number of results per page (default = 10)
  * @param {number} [options.page] - Current page (default = 1)
- * @param {string} [options.searchBy] - Search By use for search
+ * @param {string} [options.search] - Search By use for search
  * @returns {Promise<QueryResult>}
  */
 const queryContact = async (options) => {
-    var condition = { $and: [{ isDelete: 1 }] };
+    let condition = { $and: [{ isDelete: 1 }] };
 
-    if (options.searchBy && options.searchBy != 'undefined') {
+    // Handle the search condition
+    if (options.search && options.search !== 'undefined') {
         condition.$and.push({
-            $or: [{
-                name: {
-                    $regex: '.*' + options.searchBy + '.*',
-                    $options: 'si',
-                }
-            }, {
-                email: {
-                    $regex: '.*' + options.searchBy + '.*',
-                    $options: 'si',
-                }
-            }]
+            $or: [
+                {
+                    name: {
+                        $regex: '.*' + options.search + '.*',
+                        $options: 'i', // Case-insensitive search
+                    },
+                },
+                {
+                    email: {
+                        $regex: '.*' + options.search + '.*',
+                        $options: 'i', // Case-insensitive search
+                    },
+                },
+            ],
         });
     }
-    if (options.status && options.status != 'undefined') {
-        condition.$and.push({
-            $or: [{ status: options.status }]
-        });
-    }
-    options['sort'] = { createdAt: -1 };
 
-    const data = await ContactUsModel.paginate(condition, options);
+    if (options.status && options.status !== 'undefined') {
+        condition.$and.push({ status: parseInt(options.status, 10) });
+    }
+
+    if (options.userType && options.userType !== 'undefined') {
+        const users = await UserModel.find({ type: options.userType }, '_id').lean();
+        const userIds = users.map((user) => user._id);
+        condition.$and.push({ user: { $in: userIds } });
+    }
+
+    // Default sorting
+    options.sort = { createdAt: -1 };
+
+    // Perform the query with pagination
+    const data = await ContactUsModel.paginate(condition, {
+        ...options,
+        populate: { path: 'user', select: 'type name email' }, // Populate user details
+    });
+
     return data;
 };
 
