@@ -10,6 +10,8 @@ const orderSchema = new mongoose.Schema({
     items: [{
         item: { type: mongoose.Schema.Types.ObjectId, ref: 'Item', required: true },
         quantity: { type: Number, required: true },
+        checkIn: { type: Date }, // Added field for user's check-in date
+        checkOut: { type: Date }, // Added field for user's check-out date
         selectedSize: { type: String },
         selectedColor: { type: String }
     }],
@@ -36,7 +38,7 @@ const orderSchema = new mongoose.Schema({
     },
     orderStatus: {
         type: String,
-        enum: ['pending', 'accepted', 'rejected', 'ordered', 'processing', 'out_for_delivery', 'pending_payment', 'paid', 'payment_failed', 'delivered', 'cancelled'],
+        enum: ['pending', 'accepted', 'rejected', 'ordered', 'processing', 'out_for_delivery', 'pending_payment', 'paid', 'payment_failed', 'delivered', 'cancelled', 'completed'],
         default: 'ordered'
     },
     paymentMethod: {

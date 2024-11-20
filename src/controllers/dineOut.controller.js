@@ -107,6 +107,67 @@ const getDineOutRequestsForBusiness = catchAsync(async (req, res) => {
     res.status(CONSTANTS.SUCCESSFUL).json({ statusCode: CONSTANTS.SUCCESSFUL, requests });
 });
 
+// Get dine-out requests details 
+const getDineOutDetailsForUser = catchAsync(async (req, res) => {
+    const { requestId } = req.params;
+
+    try {
+        const dineOutRequest = await DineOutRequestService.getDineOutRequestById(requestId);
+
+        if (!dineOutRequest) {
+            return res.status(CONSTANTS.NOT_FOUND).json({
+                statusCode: CONSTANTS.NOT_FOUND,
+                message: CONSTANTS.DINEOUT_NOT_FOUND,
+            });
+        }
+
+        // Check if the user is authorized to view this request
+        if (dineOutRequest.user._id.toString() !== req.user._id.toString()) {
+            return res.status(CONSTANTS.UNAUTHORIZED).json({
+                statusCode: CONSTANTS.UNAUTHORIZED,
+                message: CONSTANTS.PERMISSION_DENIED,
+            });
+        }
+
+        const responseData = {
+            requestNumber: dineOutRequest.requestNumber,
+            status: dineOutRequest.status,
+            user: {
+                name: dineOutRequest.user.name,
+                email: dineOutRequest.user.email,
+                phone: dineOutRequest.user.phone,
+            },
+            business: {
+                businessName: dineOutRequest.business.businessName,
+                businessAddress: dineOutRequest.business.businessAddress,
+                openingDays: dineOutRequest.business.openingDays,
+                openingTime: dineOutRequest.business.openingTime,
+                closingTime: dineOutRequest.business.closingTime,
+                images: dineOutRequest.business.images || [], // Include images from the business
+            },
+            dineOutDetails: {
+                reservationTime: `${moment(dineOutRequest.date).format('YYYY-MM-DD')} ${dineOutRequest.time}`,
+                guests: dineOutRequest.guests,
+                dinnerType: dineOutRequest.dinnerType,
+            },
+            partner: {
+                name: dineOutRequest.partner.name,
+            },
+        };
+
+        res.status(CONSTANTS.SUCCESSFUL).json({
+            statusCode: CONSTANTS.SUCCESSFUL,
+            message: CONSTANTS.DETAILS,
+            data: responseData,
+        });
+    } catch (error) {
+        res.status(CONSTANTS.INTERNAL_SERVER_ERROR).json({
+            statusCode: CONSTANTS.INTERNAL_SERVER_ERROR,
+            message: error.message,
+        });
+    }
+});
+
 // Confirm the dine-out booking by the partner
 const updateDineOutRequestStatus = catchAsync(async (req, res) => {
     const { requestId } = req.params;
@@ -115,20 +176,20 @@ const updateDineOutRequestStatus = catchAsync(async (req, res) => {
     try {
         const dineOutRequest = await DineOutRequestService.getDineOutRequestById(requestId);
 
-        if (!dineOutRequest) { 
+        if (!dineOutRequest) {
             return res.status(CONSTANTS.NOT_FOUND).json({ statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.DINEOUT_NOT_FOUND });
         }
 
-        if (dineOutRequest.partner._id.toString() !== req.user._id.toString()) { 
+        if (dineOutRequest.partner._id.toString() !== req.user._id.toString()) {
             return res.status(CONSTANTS.UNAUTHORIZED).json({ statusCode: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.PERMISSION_DENIED });
         }
 
-        if (dineOutRequest.status === 'Accepted' && status === 'Rejected') { 
+        if (dineOutRequest.status === 'Accepted' && status === 'Rejected') {
             return res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: CONSTANTS.REJECT_AFTER_ACCEPTED });
         }
 
         let bookingId = null;
-        if (status === 'Accepted') { 
+        if (status === 'Accepted') {
             bookingId = Math.floor(Date.now() / 1000).toString();
         }
 
@@ -244,6 +305,7 @@ module.exports = {
     createDineOutRequest,
     getDineOutRequestById,
     getDineOutRequestsForBusiness,
+    getDineOutDetailsForUser,
     updateDineOutRequestStatus,
     getAllDineOutRequests,
     getDineOutRequestByIdAdmin

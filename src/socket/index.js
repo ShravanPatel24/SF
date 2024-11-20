@@ -1,103 +1,119 @@
-const { Server } = require("socket.io");
-const { ChatEventEnum, AvailableChatEvents } = require("../config/constant.js");
-const { User } = require("../models/user.model");
-const { ApiError } = require("../utils/ApiError.js");
-const cookie = require("cookie");
+const { ChatEventEnum } = require("../config/constant.js");
 const jwt = require("jsonwebtoken");
+const { User } = require("../models/user.model");
+const { Chat } = require("../models/Chats/chat.model");
+const { ChatMessage } = require("../models/Chats/message.model");
 
 /**
- * @description This function is responsible for setting up all events, including message status (sent, delivered, seen)
- * @param {Server} io - The socket.io server instance
+ * @description Initialize WebSocket events
+ * @param {import("socket.io").Server} io
  */
 const initializeSocketIO = (io) => {
-  return io.on("connection", async (socket) => {
+  io.on("connection", async (socket) => {
+    console.log("WebSocket connected:", socket.id);
+
     try {
-      // Parse and verify the access token
-      const cookies = cookie.parse(socket.handshake.headers?.cookie || "");
-      let token = cookies?.accessToken || socket.handshake.auth?.token;
+      // Parse token from handshake
+      const token = socket.handshake.auth?.token;
 
-      if (!token) throw new ApiError(401, "Token missing in handshake");
+      if (!token) {
+        console.error("No token provided");
+        return socket.disconnect();
+      }
 
-      const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-      const user = await User.findById(decodedToken?._id).select(
-        "-password -refreshToken -emailVerificationToken -emailVerificationExpiry"
+      // Verify token and get user details
+      const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+      const user = await User.findById(decoded?._id).select(
+        "-password -refreshToken -emailVerificationToken"
       );
 
-      if (!user) throw new ApiError(401, "Unauthorized handshake. Invalid token");
+      if (!user) {
+        console.error("Invalid token");
+        return socket.disconnect();
+      }
 
-      // Mount the user object and join user’s room
+      // Attach user to socket
       socket.user = user;
+
+      // Join user-specific room
       socket.join(user._id.toString());
+      console.log(`User ${user._id} joined room`);
 
-      socket.emit(ChatEventEnum.CONNECTED_EVENT); // Notify the user is connected
-      console.log("User connected . userId: ", user._id.toString());
-
-      // Mount common events
-      mountJoinChatEvent(socket);
-      mountParticipantTypingEvent(socket);
-      mountParticipantStoppedTypingEvent(socket);
-
-      // *** New Message Status Events ***
-
-      // When a message is sent, broadcast 'sent' to the sender
-      socket.on(ChatEventEnum.MESSAGE_SENT_EVENT, (messageData) => {
-        const { chatId, messageId, recipientId } = messageData;
-
-        // Emit 'sent' status to the sender
-        socket.emit(ChatEventEnum.MESSAGE_STATUS_UPDATE, {
-          messageId,
-          status: "sent",
-        });
-
-        // Broadcast 'delivered' when recipient joins or becomes online
-        socket.to(recipientId).emit(ChatEventEnum.MESSAGE_STATUS_UPDATE, {
-          messageId,
-          status: "delivered",
-        });
+      // Notify frontend that the connection is established
+      socket.emit(ChatEventEnum.CONNECTED_EVENT, {
+        message: "Connected to WebSocket server",
       });
 
-      // When a message is seen, broadcast 'seen' to the sender
-      socket.on(ChatEventEnum.MESSAGE_SEEN_EVENT, (messageData) => {
-        const { chatId, messageId, recipientId } = messageData;
+      /**
+       * Handle `messageSent` event
+       * @param {object} messageData - { chatId, content, attachments }
+       */
+      socket.on(ChatEventEnum.MESSAGE_SENT_EVENT, async (messageData) => {
+        const { chatId, content, attachments } = messageData;
 
-        // Emit 'seen' status to the sender
-        socket.to(recipientId).emit(ChatEventEnum.MESSAGE_STATUS_UPDATE, {
-          messageId,
-          status: "seen",
+        // Save the message to the database
+        const message = await ChatMessage.create({
+          chat: chatId,
+          sender: user._id,
+          content,
+          attachments,
+        });
+
+        // Update the chat's last message
+        await Chat.findByIdAndUpdate(chatId, { lastMessage: message._id });
+
+        // Emit the message to the chat room
+        io.to(chatId).emit(ChatEventEnum.MESSAGE_RECEIVED_EVENT, {
+          message,
         });
       });
 
-      // Handle user disconnection
-      socket.on(ChatEventEnum.DISCONNECT_EVENT, () => {
-        console.log("User disconnected 🚫. userId: " + socket.user?._id);
-        if (socket.user?._id) socket.leave(socket.user._id);
+      /**
+       * Handle `joinChat` event
+       */
+      socket.on(ChatEventEnum.JOIN_CHAT_EVENT, (data) => {
+        const { chatId } = data;
+
+        // Join the chat room
+        socket.join(chatId);
+        console.log(`User ${user._id} joined chat room ${chatId}`);
       });
 
+      /**
+       * Handle `typing` event
+       */
+      socket.on(ChatEventEnum.TYPING_EVENT, (data) => {
+        const { chatId } = data;
+
+        // Notify all other users in the chat that this user is typing
+        socket.to(chatId).emit(ChatEventEnum.TYPING_EVENT, {
+          userId: user._id,
+        });
+      });
+
+      /**
+       * Handle `stopTyping` event
+       */
+      socket.on(ChatEventEnum.STOP_TYPING_EVENT, (data) => {
+        const { chatId } = data;
+
+        // Notify all other users in the chat that this user stopped typing
+        socket.to(chatId).emit(ChatEventEnum.STOP_TYPING_EVENT, {
+          userId: user._id,
+        });
+      });
+
+      /**
+       * Handle disconnect event
+       */
+      socket.on("disconnect", () => {
+        console.log(`User ${user._id} disconnected`);
+      });
     } catch (error) {
-      socket.emit(
-        ChatEventEnum.SOCKET_ERROR_EVENT,
-        error?.message || "Connection error"
-      );
+      console.error("WebSocket connection error:", error.message);
+      socket.disconnect();
     }
   });
 };
 
-/**
- * @description Utility function to emit socket events to a specific room.
- * @param {import("express").Request} req - The request object to access `io` instance
- * @param {string} roomId - The room ID where the event should be emitted
- * @param {AvailableChatEvents[0]} event - The event to emit
- * @param {any} payload - The data to send with the event
- */
-const emitSocketEvent = (req, roomId, event, payload) => {
-  const io = req.app.get("io");
-  console.log("Socket.io instance:", io);
-
-  if (!io) {
-    throw new Error("Socket.io instance not initialized");
-  }
-
-  io.in(roomId).emit(event, payload);
-};
-
-module.exports = { initializeSocketIO, emitSocketEvent };
+module.exports = { initializeSocketIO };

@@ -118,9 +118,11 @@ const getUserOrders = catchAsync(async (req, res) => {
 const getOrderById = catchAsync(async (req, res) => {
     const { orderId } = req.params;
     const order = await OrderService.getOrderById(orderId);
+
     if (!order) {
         return res.status(404).json({ statusCode: 404, message: CONSTANTS.ORDER_NOT_FOUND });
     }
+
     return res.status(200).json({
         statusCode: 200,
         _id: order._id,
@@ -133,15 +135,7 @@ const getOrderById = catchAsync(async (req, res) => {
         subtotal: order.subtotal,
         tax: order.tax,
         businessDetails: order.businessDetails,
-        items: order.items.map((item) => ({
-            itemId: item.item._id,
-            itemType: item.item.itemType,
-            productName: item.item.productName || item.item.dishName,
-            quantity: item.quantity,
-            price: item.price,
-            selectedSize: item.selectedSize || null,
-            selectedColor: item.selectedColor || null,
-        })),
+        items: order.items, // Properly mapped items array
         deliveryPartner: order.deliveryPartner,
         user: {
             userId: order.user._id,
@@ -217,7 +211,7 @@ const getOrdersByTypeAndStatus = catchAsync(async (req, res) => {
     const partnerId = req.user._id;
     const { itemType, orderStatus } = req.query;  // Accept itemType and orderStatus as query params
 
-    const validStatuses = ["pending", "accepted", "rejected", "ordered", "processing", "out_for_delivery", "pending_payment", "paid", "payment_failed", "delivered", "cancelled"];
+    const validStatuses = ["pending", "accepted", "rejected", "ordered", "processing", "out_for_delivery", "pending_payment", "paid", "payment_failed", "delivered", "cancelled", "completed"];
 
     // Check if the provided orderStatus is valid
     if (orderStatus && !validStatuses.includes(orderStatus)) {
@@ -276,23 +270,72 @@ const updateDeliveryPartner = catchAsync(async (req, res) => {
 const cancelOrder = catchAsync(async (req, res) => {
     const { orderId } = req.params;
     const { reason } = req.body;
-    const order = await OrderModel.findById(orderId);
-    if (!order) {
-        return res.status(404).json({ statusCode: 404, message: CONSTANTS.ORDER_NOT_FOUND });
-    }
-    if (order.status === 'delivered') {
-        return res.status(400).json({ statusCode: 400, message: CONSTANTS.CANCEL_AFTER_DELIVERED_ERROR });
-    }
-    order.status = 'cancelled';
-    order.cancellationReason = reason;
-    await order.save();
+
+    const order = await OrderService.cancelOrder(orderId, reason);
+
     return res.status(200).json({
         statusCode: 200,
-        message: CONSTANTS.ORDER_CANCELLED,
+        message: "Order cancelled successfully.",
+        _id: order._id,
         orderId: order.orderId,
-        status: order.status,
-        cancellationReason: order.cancellationReason
+        orderNumber: order.orderNumber,
+        orderStatus: order.orderStatus,
+        cancellationReason: order.cancellationReason,
+        cancellationDate: order.cancellationDate,
+        items: order.items, // Include enriched items data
     });
+});
+
+// Get list of completed bookings
+const getCompletedBookingsController = catchAsync(async (req, res) => {
+    const userId = req.user._id;
+    const bookings = await OrderService.getCompletedBookings(userId);
+
+    res.status(200).json({
+        statusCode: 200,
+        message: "Completed bookings fetched successfully.",
+        bookings,
+    });
+});
+
+// Rebook hotel room
+const rebookRoomOrder = catchAsync(async (req, res) => {
+    const { orderId } = req.params;
+    const { itemId, newCheckIn, newCheckOut, newGuestCount } = req.body;
+    const userId = req.user._id;
+
+    // Call service function
+    const rebookedOrder = await OrderService.rebookRoomOrder(
+        userId,
+        orderId,
+        itemId,
+        newCheckIn,
+        newCheckOut,
+        newGuestCount
+    );
+
+    // Return response
+    return res.status(201).json({
+        statusCode: 201,
+        message: 'Room rebooking created successfully.',
+        order: rebookedOrder,
+    });
+});
+
+// Download Invoice
+const generateInvoiceController = catchAsync(async (req, res) => {
+    const { orderId } = req.params;
+    const userId = req.user._id;
+
+    // Call the service to generate the PDF buffer
+    const pdfBuffer = await OrderService.generateInvoice(orderId, userId);
+
+    // Set headers for PDF response
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="invoice-${orderId}.pdf"`);
+
+    // Send the PDF buffer as the response
+    res.end(pdfBuffer);
 });
 
 // Track order status
@@ -666,16 +709,31 @@ const updateRefundStatusByAdmin = catchAsync(async (req, res) => {
     });
 });
 
-// Get Partner Transactions
-const getPartnerTransactionList = catchAsync(async (req, res) => {
-    const partnerId = req.user._id;
+// Get User and Partner Transactions
+const getTransactionHistoryForUserAndPartner = catchAsync(async (req, res) => {
     const { filter, page = 1, limit = 10 } = req.query;
+    const { type } = req.user; // `type` will be 'user' or 'partner' from authentication middleware
+    const userIdOrPartnerId = req.user._id;
 
     try {
-        const transactions = await OrderService.getPartnerTransactionList(partnerId, filter, parseInt(page), parseInt(limit));
-        res.status(200).json(transactions);
+        const transactions = await OrderService.getTransactionHistoryForUserAndPartner({
+            type,
+            id: userIdOrPartnerId,
+            filter,
+            page: parseInt(page, 10),
+            limit: parseInt(limit, 10),
+        });
+
+        res.status(200).json({
+            statusCode: 200,
+            message: `${type === 'partner' ? 'Partner' : 'User'} transaction history retrieved successfully`,
+            data: transactions,
+        });
     } catch (error) {
-        res.status(500).json({ statusCode: 500, message: error.message });
+        res.status(error.statusCode || 500).json({
+            statusCode: error.statusCode || 500,
+            message: error.message || 'Internal server error',
+        });
     }
 });
 
@@ -691,6 +749,9 @@ module.exports = {
     updatePartnerRequestStatus,
     updateDeliveryPartner,
     cancelOrder,
+    getCompletedBookingsController,
+    rebookRoomOrder,
+    generateInvoiceController,
     trackOrder,
     getAllOrdersAdmin,
     getOrdersByUserIdAdmin,
@@ -704,5 +765,5 @@ module.exports = {
     requestRefundOrExchange,
     processRefundOrExchangeDecision,
     updateRefundStatusByAdmin,
-    getPartnerTransactionList
+    getTransactionHistoryForUserAndPartner
 };

@@ -2,30 +2,24 @@ const { CartModel, ItemModel, UserModel } = require("../models");
 const CONSTANTS = require("../config/constant");
 
 // Add an item (food, product or checkout for rooms) to the cart
-const addToCart = async (
-  userId,
-  itemId,
-  quantity,
-  selectedSize,
-  selectedColor,
-  checkIn,
-  checkOut,
-  guestCount
-) => {
+const addToCart = async (userId, itemId, quantity, variantId, checkIn, checkOut, guestCount) => {
   const item = await ItemModel.findById(itemId);
   if (!item) {
+    console.error("Item not found:", itemId);
     throw new Error(CONSTANTS.ITEM_NOT_FOUND);
   }
 
-  // Validate dates for rooms
+  // Check for required room details
   if (item.itemType === "room") {
     if (!checkIn || !checkOut || !guestCount || guestCount <= 0) {
+      console.error("Missing room details:", { checkIn, checkOut, guestCount });
       throw new Error(CONSTANTS.CHECKIN_CHECKOUT_GUEST_REQUIRED);
     }
 
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
     const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize today's date to midnight
 
     if (checkInDate < today || checkOutDate < today) {
       throw new Error(CONSTANTS.INVALID_FUTURE_DATES);
@@ -36,16 +30,24 @@ const addToCart = async (
     }
   }
 
+  // Check for required variant ID for products
+  if (item.itemType === 'product' && !variantId) {
+    console.error("Missing variantId:", { variantId });
+    throw new Error("Variant ID must be provided for product items.");
+  }
+
   let cart = await CartModel.findOne({ user: userId });
   if (!cart) {
     cart = new CartModel({ user: userId, items: [] });
   }
 
-  const itemIndex = cart.items.findIndex(
-    (cartItem) => cartItem.item.toString() === itemId
+  // Find the item in the cart
+  const itemIndex = cart.items.findIndex(cartItem =>
+    cartItem.item.toString() === itemId &&
+    (cartItem.variantId ? cartItem.variantId.toString() === variantId : true) // Match variantId for products
   );
+
   if (itemIndex > -1) {
-    // Update existing item in cart
     if (item.itemType === "room") {
       cart.items[itemIndex].checkIn = checkIn;
       cart.items[itemIndex].checkOut = checkOut;
@@ -55,12 +57,10 @@ const addToCart = async (
       cart.items[itemIndex].quantity += quantity;
     }
   } else {
-    // Add new item to cart
     cart.items.push({
       item: itemId,
+      variantId: item.itemType === 'product' ? variantId : null, // Add variantId for products
       quantity: item.itemType === "room" ? 1 : quantity,
-      selectedSize,
-      selectedColor,
       checkIn: item.itemType === "room" ? checkIn : null,
       checkOut: item.itemType === "room" ? checkOut : null,
       guestCount: item.itemType === "room" ? guestCount : null,
@@ -80,6 +80,7 @@ const getCartByUser = async (userId) => {
   if (user.type === "partner") {
     throw new Error(CONSTANTS.PERMISSION_DENIED);
   }
+
   const cart = await CartModel.findOne({ user: userId }).populate({
     path: "items.item",
     populate: [
@@ -92,10 +93,15 @@ const getCartByUser = async (userId) => {
         select: "_id name",
       },
     ],
+  }).populate({
+    path: "items.variantId", // Populate variant details
+    select: "variantName size color", // Fetch required fields
   });
+
   if (!cart) {
     throw new Error(CONSTANTS.CART_NOT_FOUND);
   }
+
   const cartData = cart.toObject();
   cartData.items = cartData.items.map((item) => {
     const modifiedItem = {
@@ -107,6 +113,7 @@ const getCartByUser = async (userId) => {
         businessTypeId: item.item.businessType._id,
         businessTypeName: item.item.businessType.name,
       },
+      variantId: item.variantId, // Keep variant details under variantId
       guestCount: item.guestCount,
     };
 
@@ -116,6 +123,7 @@ const getCartByUser = async (userId) => {
 
     return modifiedItem;
   });
+
   return cartData;
 };
 
@@ -141,46 +149,46 @@ const removeFromCart = async (userId, cartItemId) => {
 
 // Update the quantity of a cart item
 const updateCartItem = async (userId, itemId, quantity) => {
-    const cart = await CartModel.findOne({ user: userId });
-    if (!cart) throw new Error("Cart not found.");
- 
-    // Match item by `cartItem.item`
-    const itemIndex = cart.items.findIndex(
-        (cartItem) => cartItem.item.toString() === itemId
+  const cart = await CartModel.findOne({ user: userId });
+  if (!cart) throw new Error("Cart not found.");
+
+  // Match item by `cartItem.item`
+  const itemIndex = cart.items.findIndex(
+    (cartItem) => cartItem.item.toString() === itemId
+  );
+
+  if (itemIndex === -1) throw new Error("Item not found in cart.");
+
+  const product = await ItemModel.findById(cart.items[itemIndex].item);
+  if (!product) throw new Error("Product not found.");
+  if (quantity <= 0) throw new Error("Invalid quantity.");
+
+  let newPrice;
+
+  if (product.itemType === "food") {
+    newPrice = product.dishPrice * quantity;
+  } else if (product.itemType === "room") {
+    newPrice = product.roomPrice * quantity;
+  } else if (product.itemType === "product") {
+    const variant = product.variants.find(
+      (v) =>
+        v.size === cart.items[itemIndex].selectedSize &&
+        v.color === cart.items[itemIndex].selectedColor
     );
- 
-    if (itemIndex === -1) throw new Error("Item not found in cart.");
- 
-    const product = await ItemModel.findById(cart.items[itemIndex].item);
-    if (!product) throw new Error("Product not found.");
-    if (quantity <= 0) throw new Error("Invalid quantity.");
- 
-    let newPrice;
- 
-    if (product.itemType === "food") {
-        newPrice = product.dishPrice * quantity;
-    } else if (product.itemType === "room") {
-        newPrice = product.roomPrice * quantity;
-    } else if (product.itemType === "product") {
-        const variant = product.variants.find(
-            (v) =>
-                v.size === cart.items[itemIndex].selectedSize &&
-                v.color === cart.items[itemIndex].selectedColor
-        );
-        if (!variant) throw new Error("Variant not found.");
-        newPrice = variant.productPrice * quantity;
-    } else {
-        throw new Error("Invalid item type.");
-    }
- 
-    if (isNaN(newPrice) || newPrice <= 0) throw new Error("Invalid price.");
-    const oldPrice = cart.items[itemIndex].price || 0;
-    cart.totalPrice = cart.totalPrice - oldPrice + newPrice;
-    cart.items[itemIndex].quantity = quantity;
-    cart.items[itemIndex].price = newPrice;
- 
-    await cart.save();
-    return cart;
+    if (!variant) throw new Error("Variant not found.");
+    newPrice = variant.productPrice * quantity;
+  } else {
+    throw new Error("Invalid item type.");
+  }
+
+  if (isNaN(newPrice) || newPrice <= 0) throw new Error("Invalid price.");
+  const oldPrice = cart.items[itemIndex].price || 0;
+  cart.totalPrice = cart.totalPrice - oldPrice + newPrice;
+  cart.items[itemIndex].quantity = quantity;
+  cart.items[itemIndex].price = newPrice;
+
+  await cart.save();
+  return cart;
 };
 
 // Clear the cart

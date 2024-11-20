@@ -1,22 +1,21 @@
 const catchAsync = require('../utils/catchAsync');
 const { CartService } = require('../services');
 const CONSTANTS = require("../config/constant");
-const mongoose = require('mongoose');
 
 // Add an item (food, product or checkout for rooms) to the cart
 const addToCart = catchAsync(async (req, res) => {
-    const { itemId, quantity, selectedSize, selectedColor, checkIn, checkOut, guestCount, deliveryAddress } = req.body;
+    const { itemId, quantity, variantId, checkIn, checkOut, guestCount } = req.body;
     const userId = req.user._id;
-    
-    if (!mongoose.isValidObjectId(itemId)) {
-        return res.status(400).json({ statusCode: 400, message: CONSTANTS.INVALID_ITEM_ID });
-    }
-
     try {
-        const cart = await CartService.addToCart(userId, itemId, quantity, selectedSize, selectedColor, checkIn, checkOut, guestCount, deliveryAddress);
+        const cart = await CartService.addToCart(userId, itemId, quantity, variantId, checkIn, checkOut, guestCount);
         return res.status(200).json({ statusCode: 200, message: CONSTANTS.ADDED_TO_CART, cart });
     } catch (error) {
-        return res.status(500).json({ statusCode: 500, message: 'An unexpected error occurred.', error: error.message });
+        console.error("Error in addToCart route:", error);
+        return res.status(500).json({
+            statusCode: 500,
+            message: 'An unexpected error occurred.',
+            error: error.message || error.toString()
+        });
     }
 });
 

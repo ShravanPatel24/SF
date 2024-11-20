@@ -7,11 +7,13 @@ const validate = require('../../middlewares/validate');
 const { itemsValidation } = require('../../validations');
 const { itemsController, ItemCategoryController } = require('../../controllers');
 
+// ==================== Guest User Routes ====================
 // Routes for guest users
 router.get('/guest/', itemsController.getAllItems); // Guest user - Get all items (products, food, rooms)
 router.get('/guest/search', itemsController.searchItems); // Guest user - Search items
 router.get('/guest/:itemId', itemsController.getItemById); // Guest user - Get item by ID
 
+// ==================== General Routes ====================
 // Route to get categories by type (product, food, room)
 router.get('/type/:categoryType', userAuth(), ItemCategoryController.getCategoriesByType);
 
@@ -19,7 +21,7 @@ router.get('/type/:categoryType', userAuth(), ItemCategoryController.getCategori
 router.get('/rooms/business/:businessId', userAuth(), validate(itemsValidation.getRoomsByBusinessId), itemsController.getRoomsByBusiness);
 // Route to get all menu under a specific restaurant (business)
 router.get('/foods/business/:businessId', userAuth(), validate(itemsValidation.getFoodByBusinessId), itemsController.getFoodByBusiness);
-// Route to get all product under a specific Clothing (business)
+// Route to get all products under a specific Clothing (business)
 router.get('/products/business/:businessId', userAuth(), validate(itemsValidation.getProductByBusinessId), itemsController.getProductByBusiness);
 
 router.post('/create', userAuth(), upload.any(), validate(itemsValidation.createItem), itemsController.createItem);

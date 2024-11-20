@@ -1,33 +1,25 @@
-const { OrderModel, DineOutModel, BusinessModel } = require("../models");
+const { OrderModel, DineOutModel } = require("../models");
 const CONSTANTS = require("../config/constant");
 const mongoose = require("mongoose");
 
 // Create a new order
-const createOrder = async (
-  userId,
-  cart,
-  paymentMethod,
-  orderNote,
-  deliveryAddress
-) => {
-  const customOrderId = Math.floor(Date.now() / 1000).toString();
-  const orderNumber = `#${customOrderId}`;
-
+const createOrder = async (userId, cart, paymentMethod, orderNote, deliveryAddress) => {
   if (!cart || cart.items.length === 0) {
     throw new Error(CONSTANTS.CART_EMPTY);
   }
 
-  // Get the partner and business ID
-  const firstItem = cart.items[0].item;
-  const partnerId = firstItem.partner._id;
+  const customOrderId = Math.floor(Date.now() / 1000).toString();
+  const orderNumber = `#${customOrderId}`;
 
-  // Find the business associated with the partner
-  const business = await BusinessModel.findOne({ partner: partnerId });
-  if (!business) {
-    throw new Error("Associated business not found for the partner.");
-  }
-
-  const businessId = business._id;
+  const items = cart.items.map(cartItem => ({
+    item: cartItem.item._id,
+    quantity: cartItem.quantity,
+    selectedSize: cartItem.selectedSize,
+    selectedColor: cartItem.selectedColor,
+    checkIn: cartItem.checkIn, // Transfer check-in date
+    checkOut: cartItem.checkOut, // Transfer check-out date
+    guestCount: cartItem.guestCount, // Transfer guest count
+  }));
 
   const transactionHistory = [
     {
@@ -40,20 +32,20 @@ const createOrder = async (
 
   const orderData = {
     user: userId,
-    partner: partnerId,
-    business: businessId,
-    items: cart.items,
+    partner: cart.items[0].item.partner._id,
+    business: cart.items[0].item.business._id,
+    items,
     totalPrice: cart.totalPrice,
     subtotal: cart.subtotal,
     tax: cart.tax,
     deliveryCharge: cart.deliveryCharge,
     commission: cart.commission,
-    paymentMethod: paymentMethod,
-    orderNote: orderNote,
+    paymentMethod,
+    orderNote,
     orderId: customOrderId,
-    orderNumber: orderNumber,
+    orderNumber,
     orderStatus: "pending",
-    transactionHistory: transactionHistory,
+    transactionHistory,
   };
 
   if (deliveryAddress) {
@@ -62,23 +54,6 @@ const createOrder = async (
 
   const order = new OrderModel(orderData);
   await order.save();
-
-  if (paymentMethod === "online") {
-    const paymentResult = await processOnlinePayment(order);
-    if (!paymentResult.success) {
-      order.orderStatus = "payment_failed";
-      await order.save();
-      throw new Error(CONSTANTS.PAYMENT_FAILED);
-    }
-
-    order.transactionHistory.push({
-      type: "Payment Completed",
-      date: new Date(),
-      amount: order.totalPrice,
-      status: "Completed",
-    });
-    await order.save();
-  }
 
   // Clear the cart after order creation
   cart.items = [];
@@ -174,31 +149,86 @@ const getOrderById = async (orderId) => {
     .populate("user", "_id name email phone")
     .populate({
       path: "items.item",
-      select: "itemType dishName productName",
-    })
-    .populate({
-      path: "business",
-      select: "businessName businessAddress",
+      populate: {
+        path: "business",
+        select: "businessName businessAddress",
+      },
+      select: "itemType roomName roomPrice roomDescription checkIn checkOut guest amenities images dishName productName business",
     });
 
   if (!order) throw new Error(CONSTANTS.ORDER_NOT_FOUND);
 
+  const items = order.items.map((item) => {
+    if (item.item) {
+      const { itemType } = item.item;
+
+      if (itemType === "room") {
+        const checkInDate = item.item.checkIn ? new Date(item.item.checkIn) : null;
+        const checkOutDate = item.item.checkOut ? new Date(item.item.checkOut) : null;
+        const nights = checkInDate && checkOutDate
+          ? Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24))
+          : 0;
+
+        return {
+          itemId: item.item._id,
+          itemType,
+          roomName: item.item.roomName,
+          roomDescription: item.item.roomDescription,
+          amenities: item.item.amenities || [],
+          checkIn: item.checkIn,
+          checkOut: item.checkOut,
+          guests: item.item.guest || item.quantity, // Fallback to quantity
+          nights,
+          roomPrice: item.item.roomPrice,
+          price: nights * (item.item.roomPrice || 0), // Total price calculation
+          images: item.item.images || [],
+        };
+      }
+
+      // Handle 'food' or 'product' items
+      return {
+        itemId: item.item._id,
+        itemType,
+        productName: item.item.productName || item.item.dishName,
+        quantity: item.quantity,
+        price: item.price,
+        selectedSize: item.selectedSize || null,
+        selectedColor: item.selectedColor || null,
+        images: item.item.images || [],
+      };
+    }
+
+    // Handle missing item scenario
+    return {
+      itemId: null,
+      itemType: null,
+      productName: null,
+      quantity: 0,
+      price: 0,
+      selectedSize: null,
+      selectedColor: null,
+      images: [],
+    };
+  });
+
   return {
     ...order.toObject(),
-    businessDetails: order.business
-      ? {
-        name: order.business.businessName,
-        address: [
-          order.business.businessAddress.street,
-          order.business.businessAddress.city,
-          order.business.businessAddress.state,
-          order.business.businessAddress.country,
-          order.business.businessAddress.postalCode,
+    items,
+    businessDetails: order.items
+      .filter((item) => item.item && item.item.business)
+      .map((item) => ({
+        itemType: item.item.itemType,
+        businessName: item.item.business.businessName,
+        businessAddress: [
+          item.item.business.businessAddress.street,
+          item.item.business.businessAddress.city,
+          item.item.business.businessAddress.state,
+          item.item.business.businessAddress.country,
+          item.item.business.businessAddress.postalCode,
         ]
           .filter(Boolean)
           .join(", "),
-      }
-      : null,
+      })),
     deliveryPartner: {
       name: order.deliveryPartner?.name || null,
       phone: order.deliveryPartner?.phone || null,
@@ -320,14 +350,315 @@ const updateDeliveryPartner = async (orderId, deliveryPartner) => {
 
 // Cancel an order
 const cancelOrder = async (orderId, reason) => {
-  const order = await OrderModel.findById(orderId);
+  const order = await OrderModel.findById(orderId).populate({
+    path: "items.item",
+    select: "itemType roomName roomDescription amenities images roomPrice",
+  });
+
   if (!order) {
-    throw new Error(CONSTANTS.ORDER_NOT_FOUND);
+    throw new Error("Order not found");
   }
-  order.status = "cancelled";
+
+  const today = new Date();
+
+  // Ensure the order can be cancelled
+  if (order.orderStatus !== "pending") {
+    throw new Error("Only pending orders can be cancelled.");
+  }
+
+  // Update order status and cancellation reason
+  order.orderStatus = "cancelled";
   order.cancellationReason = reason;
+  order.cancellationDate = today; // Add cancellation date
+
   await order.save();
-  return order;
+
+  // Prepare enriched items data
+  const items = order.items.map((item) => {
+    if (item.item) {
+      return {
+        itemId: item.item._id,
+        itemType: item.item.itemType,
+        roomName: item.item.roomName,
+        roomDescription: item.item.roomDescription,
+        amenities: item.item.amenities || [],
+        checkIn: item.checkIn, // Check-in from the order's item
+        checkOut: item.checkOut, // Check-out from the order's item
+        guests: item.guests || item.quantity, // Guests from the order's item
+        nights: Math.ceil(
+          (new Date(item.checkOut) - new Date(item.checkIn)) /
+          (1000 * 60 * 60 * 24)
+        ),
+        roomPrice: item.item.roomPrice,
+        price: Math.ceil(
+          (new Date(item.checkOut) - new Date(item.checkIn)) /
+          (1000 * 60 * 60 * 24) * item.item.roomPrice
+        ),
+        images: item.item.images || [],
+      };
+    }
+    return {};
+  });
+
+  return {
+    _id: order._id,
+    orderId: order.orderId,
+    orderNumber: order.orderNumber,
+    orderStatus: order.orderStatus,
+    cancellationReason: reason,
+    cancellationDate: today,
+    items,
+  };
+};
+
+// Update Complete Booking
+const updateCompletedBookings = async () => {
+  try {
+    const currentDate = new Date();
+
+    // Find all orders with checkOut date passed and not already completed
+    const updatedOrders = await OrderModel.updateMany(
+      {
+        "items.checkOut": { $lte: currentDate }, // Check-out date has passed
+        orderStatus: { $in: ["pending", "accepted"] }, // Only pending or accepted
+      },
+      {
+        $set: { orderStatus: "completed" }, // Update status to completed
+        $currentDate: { updatedAt: true }, // Update the updatedAt field
+      }
+    );
+
+    console.log(`Updated ${updatedOrders.modifiedCount} bookings to 'completed' status.`);
+  } catch (error) {
+    console.error("Error updating completed bookings:", error);
+  }
+};
+
+// Get list of completed bookings
+const getCompletedBookings = async (userId) => {
+  const completedBookings = await OrderModel.find({
+    user: userId, // Fetch bookings for the current user
+    orderStatus: "completed", // Only completed bookings
+  })
+    .populate({
+      path: "items.item",
+      select: "itemType roomName roomDescription roomPrice images amenities",
+    })
+    .populate("business", "businessName businessAddress")
+    .populate("user", "name email phone");
+
+  // Filter and map completed bookings to include user-specific checkIn and checkOut
+  return completedBookings.map((order) => ({
+    ...order.toObject(),
+    items: order.items.map((item) => {
+      const checkInDate = new Date(item.checkIn);
+      const checkOutDate = new Date(item.checkOut);
+
+      // Calculate total nights
+      const totalNights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
+
+      return {
+        itemId: item.item._id,
+        itemType: item.item.itemType,
+        roomName: item.item.roomName,
+        roomDescription: item.item.roomDescription,
+        amenities: item.item.amenities || [],
+        images: item.item.images || [],
+        roomPrice: item.item.roomPrice,
+        checkIn: item.checkIn,
+        checkOut: item.checkOut,
+        quantity: item.quantity, // Room quantity
+        totalNights,
+        guests: item.guestCount || item.quantity, // Use guestCount or fallback to quantity
+        totalPrice: totalNights * item.item.roomPrice * item.quantity, // Calculate total price
+      };
+    }),
+  }));
+};
+
+// Rebook hotel room
+const rebookRoomOrder = async (userId, orderId, itemId, newCheckIn, newCheckOut, newGuestCount) => {
+  // Fetch the original order
+  const originalOrder = await OrderModel.findById(orderId).populate("items.item");
+  if (!originalOrder) {
+    throw new Error("Order not found.");
+  }
+
+  // Ensure the order belongs to the user
+  if (originalOrder.user.toString() !== userId.toString()) {
+    throw new Error("Unauthorized access to order.");
+  }
+
+  // Find the specific room item
+  const roomItem = originalOrder.items.find(
+    (item) => item.item._id.toString() === itemId && item.item.itemType === "room"
+  );
+  if (!roomItem) {
+    throw new Error("Rebooking allowed only for valid room items.");
+  }
+
+  // Validate new check-in and check-out dates
+  if (!newCheckIn || !newCheckOut) {
+    throw new Error("New check-in and check-out dates are required.");
+  }
+  const checkInDate = new Date(newCheckIn);
+  const checkOutDate = new Date(newCheckOut);
+  if (checkInDate >= checkOutDate) {
+    throw new Error("Invalid check-in and check-out date order.");
+  }
+
+  // Calculate new nights and total price
+  const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
+  const newTotalPrice = nights * roomItem.item.roomPrice;
+
+  // Set a default delivery charge or reuse from the original order
+  const deliveryCharge = originalOrder.deliveryCharge || 0;
+
+  // Create the rebooking order
+  const customOrderId = Math.floor(Date.now() / 1000).toString();
+  const newOrderData = {
+    user: userId,
+    partner: originalOrder.partner,
+    business: originalOrder.business,
+    items: [
+      {
+        item: roomItem.item._id,
+        quantity: 1,
+        checkIn: newCheckIn,
+        checkOut: newCheckOut,
+        guestCount: newGuestCount || roomItem.guestCount,
+      },
+    ],
+    totalPrice: newTotalPrice + deliveryCharge,
+    subtotal: newTotalPrice,
+    tax: originalOrder.tax, // Reuse tax from the original order
+    commission: originalOrder.commission, // Reuse commission
+    deliveryCharge, // Include delivery charge
+    paymentMethod: originalOrder.paymentMethod,
+    orderStatus: "pending", // Start with 'pending' status for rebooked orders
+    orderId: customOrderId,
+    orderNumber: `#${customOrderId}`,
+    transactionHistory: [
+      {
+        type: "Rebooking Created",
+        date: new Date(),
+        amount: newTotalPrice,
+        status: "Pending",
+      },
+    ],
+  };
+
+  const newOrder = await OrderModel.create(newOrderData);
+
+  return {
+    _id: newOrder._id,
+    orderId: newOrder.orderId,
+    orderNumber: newOrder.orderNumber,
+    checkIn: newOrder.items[0].checkIn,
+    checkOut: newOrder.items[0].checkOut,
+    guestCount: newOrder.items[0].guestCount,
+    totalPrice: newOrder.totalPrice,
+    orderStatus: newOrder.orderStatus,
+  };
+};
+
+// Download Invoice
+const generateInvoice = async (orderId, userId) => {
+  const PDFDocument = require('pdfkit');
+  const { OrderModel } = require('../models');
+
+  // Fetch the order details
+  const order = await OrderModel.findById(orderId).populate('items.item user partner business');
+  if (!order) throw new Error('Order not found.');
+
+  // Ensure the order belongs to the user
+  if (order.user._id.toString() !== userId.toString()) {
+    throw new Error('Unauthorized access to this order.');
+  }
+
+  // Check for valid order status
+  const validStatuses = ['completed', 'delivered'];
+  if (
+    (order.items.some(item => item.item.itemType === 'room') && order.orderStatus !== 'completed') ||
+    (order.items.some(item => item.item.itemType === 'product') && order.orderStatus !== 'delivered') ||
+    (order.items.some(item => item.item.itemType === 'food') && order.orderStatus !== 'delivered')
+  ) {
+    throw new Error('Invalid status for invoice generation.');
+  }
+
+  // Create a new PDF document
+  const doc = new PDFDocument({ margin: 50 });
+  const buffers = [];
+  doc.on('data', buffers.push.bind(buffers));
+  doc.on('end', () => { });
+
+  // Header
+  doc.fontSize(18).font('Helvetica-Bold').text('Invoice', { align: 'center' });
+  doc.moveDown();
+
+  // Order Details
+  doc.fontSize(12).font('Helvetica-Bold').text('Order Details:');
+  doc.font('Helvetica').text(`Order ID: ${order.orderId}`);
+  doc.text(`Order Number: ${order.orderNumber}`);
+  doc.text(`Order Date: ${order.createdAt.toISOString().split('T')[0]}`);
+  doc.text(`Payment Method: ${order.paymentMethod}`);
+  doc.text(`Order Status: ${order.orderStatus}`);
+  doc.moveDown();
+
+  // User Details
+  doc.fontSize(12).font('Helvetica-Bold').text('User Details:');
+  doc.font('Helvetica').text(`Name: ${order.user.name}`);
+  doc.text(`Email: ${order.user.email}`);
+  doc.text(`Phone: ${order.user.phone}`);
+  doc.moveDown();
+
+  // Items Details
+  doc.fontSize(12).font('Helvetica-Bold').text('Order Items:');
+  order.items.forEach((item, index) => {
+    const itemType = item.item.itemType;
+    const itemName =
+      itemType === 'room'
+        ? item.item.roomName
+        : itemType === 'product'
+          ? item.item.productName
+          : item.item.dishName;
+
+    doc.font('Helvetica').text(`${index + 1}. ${itemName}`);
+    if (itemType === 'room') {
+      doc.text(`  - Check-In: ${item.checkIn ? new Date(item.checkIn).toDateString() : 'N/A'}`);
+      doc.text(`  - Check-Out: ${item.checkOut ? new Date(item.checkOut).toDateString() : 'N/A'}`);
+      doc.text(`  - Guests: ${item.guestCount || 'N/A'}`);
+    }
+    doc.text(`  - Quantity: ${item.quantity}`);
+    doc.text(`  - Price: ${item.price || 'N/A'}`);
+    doc.moveDown();
+  });
+
+  // Totals
+  doc.fontSize(12).font('Helvetica-Bold').text('Order Totals:');
+  doc.font('Helvetica').text(`Subtotal: ${order.subtotal}`);
+  doc.text(`Tax: ${order.tax}`);
+  doc.text(`Delivery Charge: ${order.deliveryCharge}`);
+  doc.text(`Total: ${order.totalPrice}`);
+  doc.moveDown();
+
+  // Footer
+  doc.fontSize(10).font('Helvetica-Bold').text('Thank you for your order!', { align: 'center' });
+  doc.font('Helvetica').text('Please retain this invoice for your records.', { align: 'center' });
+
+  // Finalize the PDF document
+  doc.end();
+
+  // Wait for the buffer to be populated
+  return new Promise((resolve, reject) => {
+    doc.on('end', () => {
+      resolve(Buffer.concat(buffers));
+    });
+
+    doc.on('error', (err) => {
+      reject(err);
+    });
+  });
 };
 
 // Track order status
@@ -569,18 +900,51 @@ const getHistoryByCategory = async (userId, category, status, page = 1, limit = 
 
   let aggregatePipeline = [];
 
+  const lookupAndProject = [
+    {
+      $lookup: {
+        from: "items",
+        localField: "items.item",
+        foreignField: "_id",
+        as: "itemDetails",
+      },
+    },
+    { $unwind: "$itemDetails" },
+    {
+      $lookup: {
+        from: "businesses",
+        localField: "itemDetails.business",
+        foreignField: "_id",
+        as: "businessDetails",
+      },
+    },
+    { $unwind: "$businessDetails" },
+    {
+      $project: {
+        createdAt: 1,
+        orderStatus: 1,
+        totalPrice: 1,
+        subtotal: 1,
+        tax: 1,
+        deliveryCharge: 1,
+        commission: 1,
+        items: 1,
+        "itemDetails.itemType": 1,
+        "itemDetails.dishName": 1,
+        "itemDetails.roomName": 1,
+        "itemDetails.productName": 1,
+        "itemDetails.images": 1,
+        "businessDetails.businessName": 1,
+        "businessDetails.businessAddress": 1,
+        "businessDetails.images": 1,
+      },
+    },
+  ];
+
   if (category === "restaurants") {
     aggregatePipeline = [
       { $match: matchCondition },
-      {
-        $lookup: {
-          from: "items",
-          localField: "items.item",
-          foreignField: "_id",
-          as: "itemDetails",
-        },
-      },
-      { $unwind: "$itemDetails" },
+      ...lookupAndProject,
       { $match: { "itemDetails.itemType": "food" } },
       { $sort: sort },
       {
@@ -596,15 +960,7 @@ const getHistoryByCategory = async (userId, category, status, page = 1, limit = 
   } else if (category === "hotels") {
     aggregatePipeline = [
       { $match: matchCondition },
-      {
-        $lookup: {
-          from: "items",
-          localField: "items.item",
-          foreignField: "_id",
-          as: "itemDetails",
-        },
-      },
-      { $unwind: "$itemDetails" },
+      ...lookupAndProject,
       { $match: { "itemDetails.itemType": "room" } },
       { $sort: sort },
       {
@@ -620,15 +976,7 @@ const getHistoryByCategory = async (userId, category, status, page = 1, limit = 
   } else if (category === "products") {
     aggregatePipeline = [
       { $match: matchCondition },
-      {
-        $lookup: {
-          from: "items",
-          localField: "items.item",
-          foreignField: "_id",
-          as: "itemDetails",
-        },
-      },
-      { $unwind: "$itemDetails" },
+      ...lookupAndProject,
       { $match: { "itemDetails.itemType": "product" } },
       { $sort: sort },
       {
@@ -643,7 +991,29 @@ const getHistoryByCategory = async (userId, category, status, page = 1, limit = 
     ];
   } else if (category === "dineout") {
     aggregatePipeline = [
-      { $match: matchCondition },
+      { $match: { user: userId } },
+      {
+        $lookup: {
+          from: "businesses",
+          localField: "business",
+          foreignField: "_id",
+          as: "businessDetails",
+        },
+      },
+      { $unwind: "$businessDetails" },
+      {
+        $project: {
+          createdAt: 1,
+          status: 1,
+          date: 1,
+          time: 1,
+          guests: 1,
+          dinnerType: 1,
+          "businessDetails.businessName": 1,
+          "businessDetails.businessAddress": 1,
+          "businessDetails.images": 1, // Retrieve business images
+        },
+      },
       { $sort: sort },
       {
         $facet: {
@@ -664,38 +1034,95 @@ const getHistoryByCategory = async (userId, category, status, page = 1, limit = 
   const totalDocs = results[0]?.metadata[0]?.totalDocs || 0;
   const totalPages = Math.ceil(totalDocs / limit);
 
+  const data = results[0]?.data || [];
+
   return {
     totalDocs,
     totalPages,
     page,
     limit,
-    data: results[0]?.data || [],
+    data,
   };
 };
 
 const getAllHistory = async (userId, sortOrder = "desc") => {
   const sort = { createdAt: sortOrder === "asc" ? 1 : -1 };
 
-  const orders = await OrderModel.find({ user: userId })
-    .populate({
-      path: "items.item",
-      select: "itemType dishName productName roomName",
-    })
-    .sort(sort);
+  try {
+    // Fetch orders
+    const orders = await OrderModel.find({ user: userId })
+      .populate({
+        path: "items.item",
+        select: "itemType dishName productName roomName images", // Include fields from Item
+      })
+      .populate({
+        path: "business",
+        select: "businessName businessAddress", // Populate businessName and businessAddress
+      })
+      .sort(sort);
 
-  const dineOutReservations = await DineOutModel.find({ user: userId }).sort(sort);
+    // Fetch dine-out reservations
+    const dineOutReservations = await DineOutModel.find({ user: userId })
+      .populate({
+        path: "business",
+        select: "businessName businessAddress bannerImages", // Include businessName, businessAddress, and images
+      })
+      .sort(sort);
 
-  const foodOrders = orders.filter((order) =>
-    order.items.some((item) => item.item?.itemType === "food")
-  );
-  const roomBookings = orders.filter((order) =>
-    order.items.some((item) => item.item?.itemType === "room")
-  );
-  const productOrders = orders.filter((order) =>
-    order.items.some((item) => item.item?.itemType === "product")
-  );
+    // Filter orders by item type
+    const foodOrders = orders.filter((order) =>
+      order.items.some((item) => item.item?.itemType === "food")
+    );
+    const roomBookings = orders.filter((order) =>
+      order.items.some((item) => item.item?.itemType === "room")
+    );
+    const productOrders = orders.filter((order) =>
+      order.items.some((item) => item.item?.itemType === "product")
+    );
 
-  return { foodOrders, roomBookings, productOrders, dineOutReservations };
+    // Map the response
+    return {
+      foodOrders: foodOrders.map((order) => ({
+        ...order.toObject(),
+        businessName: order.business?.businessName || null,
+        businessAddress: order.business?.businessAddress?.street || null, // Adjust based on schema
+        items: order.items.map((item) => ({
+          ...item,
+          image: item.item?.images?.[0] || null, // First image
+          name: item.item?.dishName || null, // Dish name for food
+        })),
+      })),
+      roomBookings: roomBookings.map((order) => ({
+        ...order.toObject(),
+        businessName: order.business?.businessName || null,
+        businessAddress: order.business?.businessAddress?.street || null,
+        items: order.items.map((item) => ({
+          ...item,
+          image: item.item?.images?.[0] || null,
+          name: item.item?.roomName || null, // Room name
+        })),
+      })),
+      productOrders: productOrders.map((order) => ({
+        ...order.toObject(),
+        businessName: order.business?.businessName || null,
+        businessAddress: order.business?.businessAddress?.street || null,
+        items: order.items.map((item) => ({
+          ...item,
+          image: item.item?.images?.[0] || null,
+          name: item.item?.productName || null, // Product name
+        })),
+      })),
+      dineOutReservations: dineOutReservations.map((reservation) => ({
+        ...reservation.toObject(),
+        businessName: reservation.business?.businessName || null,
+        businessAddress: reservation.business?.businessAddress?.street || null,
+        image: reservation.business?.bannerImages?.[0] || null, // First banner image
+      })),
+    };
+  } catch (error) {
+    console.error("Error fetching order history:", error);
+    throw new Error("Failed to fetch order history.");
+  }
 };
 
 const getTransactionHistoryByOrderId = async (orderId) => {
@@ -1220,86 +1647,76 @@ const updateExpiredRefundsToAdmin = async () => {
   );
 };
 
-// Get Partner Transactions
-const getPartnerTransactionList = async (
-  partnerId,
-  timeFilter,
-  page = 1,
-  limit = 10
-) => {
-  // Convert partnerId to ObjectId, ensuring it’s a string
-  const matchCondition = {
-    partner: new mongoose.Types.ObjectId(String(partnerId)),
-  };
+// Get User and Partner Transactions
+const getTransactionHistoryForUserAndPartner = async ({ type, id, filter, page = 1, limit = 10 }) => {
+  const matchCondition = {};
+
+  if (type === 'user') {
+    matchCondition.user = new mongoose.Types.ObjectId(id);
+  } else if (type === 'partner') {
+    matchCondition.partner = new mongoose.Types.ObjectId(id);
+  } else {
+    throw new Error('Invalid type. Must be either "user" or "partner".');
+  }
+
   const currentDate = new Date();
   let startDate;
 
-  // Set the date filter based on timeFilter
-  if (timeFilter === "month") {
+  // Set the date filter based on the filter parameter
+  if (filter === 'month') {
     startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-  } else if (timeFilter === "week") {
+  } else if (filter === 'week') {
     const startOfWeek = currentDate.getDate() - currentDate.getDay();
     startDate = new Date(currentDate.setDate(startOfWeek));
-  } else if (timeFilter === "year") {
+  } else if (filter === 'year') {
     startDate = new Date(currentDate.getFullYear(), 0, 1);
   }
 
-  // Add date filtering only if startDate is set
+  // Add date filtering if startDate is defined
   if (startDate) {
-    matchCondition["transactionHistory.date"] = {
-      $gte: startDate,
-      $lte: currentDate,
-    };
+    matchCondition['transactionHistory.date'] = { $gte: startDate, $lte: currentDate };
   }
 
-  // Aggregate transactions within the specified time range
-  const transactions = await OrderModel.aggregate([
+  // Aggregate transaction history
+  const aggregationPipeline = [
     { $match: matchCondition },
-    { $unwind: "$transactionHistory" },
+    { $unwind: '$transactionHistory' },
     {
       $match: startDate
-        ? { "transactionHistory.date": { $gte: startDate, $lte: currentDate } }
+        ? { 'transactionHistory.date': { $gte: startDate, $lte: currentDate } }
         : {},
     },
     {
       $project: {
+        transactionId: '$transactionHistory._id',
+        type: '$transactionHistory.type',
+        date: '$transactionHistory.date',
+        amount: '$transactionHistory.amount',
+        status: '$transactionHistory.status',
         orderId: 1,
-        transactionId: "$transactionHistory._id",
-        type: "$transactionHistory.type",
-        date: "$transactionHistory.date",
-        amount: "$transactionHistory.amount",
-        status: "$transactionHistory.status",
       },
     },
-    { $sort: { date: -1 } },
-  ]);
+    { $sort: { 'transactionHistory.date': -1 } }, // Sort by date descending
+  ];
 
-  // Pagination calculations
+  const transactions = await OrderModel.aggregate(aggregationPipeline);
+
+  // Pagination logic
   const totalDocs = transactions.length;
   const totalPages = Math.ceil(totalDocs / limit);
-  const currentPage = Math.min(page, totalPages); // Ensures current page does not exceed total pages
-  const skipIndex = (currentPage - 1) * limit;
-  const paginatedTransactions = transactions.slice(
-    skipIndex,
-    skipIndex + limit
-  );
+  const skipIndex = (page - 1) * limit;
+  const paginatedTransactions = transactions.slice(skipIndex, skipIndex + limit);
 
-  // Response structure
   return {
-    statusCode: 200,
-    message: CONSTANTS.LIST,
-    data: {
-      docs: paginatedTransactions,
-      totalDocs: totalDocs,
-      limit: limit,
-      totalPages: totalPages,
-      page: currentPage,
-      pagingCounter: skipIndex + 1,
-      hasPrevPage: currentPage > 1,
-      hasNextPage: currentPage < totalPages,
-      prevPage: currentPage > 1 ? currentPage - 1 : null,
-      nextPage: currentPage < totalPages ? currentPage + 1 : null,
-    },
+    docs: paginatedTransactions,
+    totalDocs,
+    totalPages,
+    page,
+    limit,
+    hasPrevPage: page > 1,
+    hasNextPage: page < totalPages,
+    prevPage: page > 1 ? page - 1 : null,
+    nextPage: page < totalPages ? page + 1 : null,
   };
 };
 
@@ -1316,6 +1733,10 @@ module.exports = {
   updatePartnerRequestStatus,
   updateDeliveryPartner,
   cancelOrder,
+  getCompletedBookings,
+  updateCompletedBookings,
+  rebookRoomOrder,
+  generateInvoice,
   trackOrder,
   queryOrder,
   getOrdersByUserIdAdmin,
@@ -1329,5 +1750,5 @@ module.exports = {
   requestRefundOrExchange,
   processRefundOrExchangeDecision,
   updateExpiredRefundsToAdmin,
-  getPartnerTransactionList,
+  getTransactionHistoryForUserAndPartner,
 };

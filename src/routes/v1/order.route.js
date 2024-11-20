@@ -5,18 +5,24 @@ const validate = require('../../middlewares/validate');
 const { orderValidation } = require('../../validations');
 const { orderController } = require('../../controllers');
 
-// --- Order History Routes ---
-
-router.get('/history/all', userAuth(), orderController.getAllHistory);
-router.get('/history/:category', userAuth(), orderController.getHistoryByCategory);
-
 // --- Order Management Routes ---
+// Rebook a room order
+router.post('/rebook/:orderId', userAuth(), orderController.rebookRoomOrder);
+
+// Get transaction history for user or partner
+router.get('/transactions', userAuth(), orderController.getTransactionHistoryForUserAndPartner);
 
 // Create a new order
 router.post('/create', userAuth(), validate(orderValidation.createOrderValidation), orderController.createOrder);
 
 // Get all orders for the current user
 router.get('/', userAuth(), orderController.getUserOrders);
+
+// Download invoice for an order
+router.get('/:orderId/download-invoice', userAuth(), orderController.generateInvoiceController);
+
+// Route to fetch the list of completed bookings
+router.get("/completed-bookings", userAuth(), orderController.getCompletedBookingsController);
 
 // Get order details by order ID
 router.get('/:orderId', userAuth(), validate(orderValidation.trackOrderValidation), orderController.getOrderById);
@@ -27,16 +33,16 @@ router.post('/cancel/:orderId', userAuth(), validate(orderValidation.cancelOrder
 // Track an order
 router.get('/track/:orderId', userAuth(), validate(orderValidation.trackOrderValidation), orderController.trackOrder);
 
-// --- Partner-Specific Routes ---
+// --- Order History Routes ---
+router.get('/history/all', userAuth(), orderController.getAllHistory);
+router.get('/history/:category', userAuth(), orderController.getHistoryByCategory);
 
+// --- Partner-Specific Routes ---
 // Update order status
 router.patch('/status/:orderId', userAuth(), validate(orderValidation.updateOrderStatusValidation), orderController.updateOrderStatus);
 
 // Add/update delivery partner details
 router.post('/:orderId/delivery-partner', userAuth('updateOrder'), orderController.updateDeliveryPartner);
-
-// Get transaction list for partner with filters by month, week, and year
-router.get('/partner/transactions', userAuth(), orderController.getPartnerTransactionList);
 
 // Get pending room requests for partner
 router.get('/partner/food-requests', userAuth(), orderController.getPendingFoodRequests);

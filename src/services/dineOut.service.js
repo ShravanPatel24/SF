@@ -33,11 +33,13 @@ const getDineOutRequestById = async (requestId) => {
     const request = await DineOutModel.findById(requestId)
         .populate('user', 'name email phone')
         .populate('partner', 'name')
-        .populate('business', 'businessName businessAddress openingDays openingTime closingTime')
+        .populate('business', 'businessName businessAddress openingDays openingTime closingTime images')
         .lean();
+
     if (!request) {
         throw { statusCode: 404, message: CONSTANTS.DINEOUT_NOT_FOUND };
     }
+
     return request;
 };
 

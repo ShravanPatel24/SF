@@ -54,6 +54,9 @@ app.options('*', cors());
 
 // jwt authentication
 app.use(passport.initialize());
+
+app.use(express.static("public")); // Serve frontend
+
 passport.use('jwt', jwtStrategy);
 
 // limit repeated failed requests to auth endpoints

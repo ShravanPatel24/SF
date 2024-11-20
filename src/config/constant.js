@@ -233,6 +233,8 @@ module.exports = {
     CANCEL_AFTER_DELIVERED_ERROR: 'Cannot cancel an order that has already been delivered.',
     ORDER_CANCELLED: 'Order Cancelled Succesfully.',
     UPDATE_STATUS_AFTER_DELIVERD_ERROR: 'Cannot update status of an order that has already been delivered or cancelled.',
+    UNAUTHORIZED_ORDER_ACCESS: 'You do not have permission to access this order.',
+    INVALID_STATUS_FOR_INVOICE: 'Invoice can only be generated for completed room bookings, delivered product items, or delivered food orders.',
 
     // TEMPLATES
     TEMPLATE_CREATE: "Template created successfully.",

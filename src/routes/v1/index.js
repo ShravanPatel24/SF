@@ -14,6 +14,7 @@ const templateRoute = require('./template.route')
 const AddressRoute = require('./address.route')
 const ChatRoute = require('./Chats/chat.route')
 const MessageRoute = require('./Chats/message.route')
+const VariantsRoute = require('./variants.route')
 
 const AdminAuthRoute = require("./admin/auth.route");
 const AdminStaffRoute = require("./admin/adminStaff.route");
@@ -44,6 +45,7 @@ const defaultRoutes = [
   { path: "/admin/roles", route: AdminRoleRoute },
   { path: "/admin/staff", route: AdminStaffRoute },
   { path: "/admin/settings", route: AdminSettingRoute },
+  { path: '/variants', route: VariantsRoute },
   { path: "/contact-us", route: ContactUsRoute },
   { path: "/faq", route: FAQRoute },
   { path: '/static-content', route: StaticContentRoute },

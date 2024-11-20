@@ -81,6 +81,7 @@
     "nodemailer": "^6.5.0",
     "passport": "^0.4.0",
     "passport-jwt": "^4.0.0",
+    "pdfkit": "^0.15.1",
     "pm2": "^4.1.2",
     "pug": "^3.0.2",
     "socket.io": "^4.8.1",

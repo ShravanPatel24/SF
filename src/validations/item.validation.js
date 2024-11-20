@@ -12,6 +12,7 @@ const createItem = {
         // Common fields for all item types (optional for room type) 
         parentCategory: Joi.string().custom(objectId).optional(),
         subCategory: Joi.string().custom(objectId).optional(),
+
         // Specific fields for food items
         dishName: Joi.string().when('itemType', { is: 'food', then: Joi.required() }),
         dishDescription: Joi.string().when('itemType', { is: 'food', then: Joi.required() }),
@@ -36,18 +37,17 @@ const createItem = {
         productDescription: Joi.string().when('itemType', { is: 'product', then: Joi.required() }),
         productDeliveryCharge: Joi.number().when('itemType', { is: 'product', then: Joi.required() }),
         productFeatures: Joi.array().items(Joi.string()).when('itemType', { is: 'product', then: Joi.optional() }),
+        nonReturnable: Joi.boolean().when('itemType', { is: 'product', then: Joi.optional() }),
         variants: Joi.array().items(
             Joi.object({
-                variantName: Joi.string().required(),
-                size: Joi.string().optional(),
-                color: Joi.string().optional(),
-                productPrice: Joi.number().required(),
-                nonReturnable: Joi.boolean().optional(),
-                image: Joi.string().optional(),
+                variantId: Joi.string().custom(objectId).required(), // Reference to admin-defined variant
+                productPrice: Joi.number().required(), // Price set by the partner
+                nonReturnable: Joi.boolean().optional(), // Non-returnable status
+                image: Joi.string().optional(), // Variant-specific image
             })
         ).when('itemType', { is: 'product', then: Joi.optional() }),
     }),
-};
+}
 
 const getItemById = {
     params: Joi.object().keys({
@@ -69,11 +69,12 @@ const getItemsByBusinessTypeId = {
 
 const getRoomsByBusinessId = {
     params: Joi.object().keys({
-        businessId: Joi.string().custom(objectId).required(),
+        businessId: Joi.string().custom(objectId).required(), // Validate businessId as a valid ObjectId
     }),
     query: Joi.object().keys({
-        page: Joi.number().optional(),
-        limit: Joi.number().optional(),
+        page: Joi.number().integer().min(1).optional(),       // Validate page as an optional positive integer
+        limit: Joi.number().integer().min(1).optional(),      // Validate limit as an optional positive integer
+        sortOrder: Joi.string().valid('asc', 'desc').optional() // Allow sortOrder with 'asc' or 'desc'
     }),
 };
 
@@ -84,6 +85,7 @@ const getFoodByBusinessId = {
     query: Joi.object().keys({
         page: Joi.number().optional(),
         limit: Joi.number().optional(),
+        sortOrder: Joi.string().valid('asc', 'desc').optional() // Validate sortOrder
     }),
 };
 
@@ -94,6 +96,7 @@ const getProductByBusinessId = {
     query: Joi.object().keys({
         page: Joi.number().optional(),
         limit: Joi.number().optional(),
+        sortOrder: Joi.string().valid('asc', 'desc').optional() // Allow only 'asc' or 'desc'
     }),
 };
 
@@ -132,14 +135,13 @@ const updateItem = {
             productDescription: Joi.string().optional(),
             productDeliveryCharge: Joi.number().optional(),
             productFeatures: Joi.array().items(Joi.string()).optional(),
+            nonReturnable: Joi.boolean().optional(),
             variants: Joi.array().items(
                 Joi.object({
-                    variantName: Joi.string().optional(),
-                    size: Joi.string().optional(),
-                    color: Joi.string().optional(),
-                    productPrice: Joi.number().optional(),
-                    nonReturnable: Joi.boolean().optional(),
-                    image: Joi.string().optional(),
+                    variantId: Joi.string().custom(objectId).optional(), // Admin-defined variant reference
+                    productPrice: Joi.number().optional(), // Price update
+                    nonReturnable: Joi.boolean().optional(), // Non-returnable status update
+                    image: Joi.string().optional(), // Image update for variants
                 })
             ).optional(),
         })

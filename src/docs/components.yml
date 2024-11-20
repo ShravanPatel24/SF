@@ -2198,6 +2198,697 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /admin/user/contact-us/summaries:
+    get:
+      summary: Get Contact Us Summaries
+      description: Fetch a list of Contact Us submissions with basic details for the admin.
+      tags:
+        - Admin User
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sortBy
+          in: query
+          description: Field to sort by. Use `field:(asc|desc)` format.
+          required: false
+          schema:
+            type: string
+            example: createdAt:desc
+        - name: limit
+          in: query
+          description: Maximum number of items per page.
+          required: false
+          schema:
+            type: integer
+            example: 10
+        - name: page
+          in: query
+          description: Page number for pagination.
+          required: false
+          schema:
+            type: integer
+            example: 1
+        - name: search
+          in: query
+          description: Search by name or email.
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by status (0 for inactive, 1 for active)
+          required: false
+          schema:
+            type: integer
+            enum: [0, 1]
+            example: 1
+        - name: userType
+          in: query
+          description: Filter by user type (`user` or `partner`).
+          required: false
+          schema:
+            type: string
+            enum: [user, partner]
+            example: user
+      responses:
+        "200":
+          description: List of contact submissions.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Contact summaries fetched successfully.
+                  data:
+                    type: object
+                    properties:
+                      summaries:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              example: 64651bfc88b7f84b885f279d
+                            name:
+                              type: string
+                              example: John Doe
+                            email:
+                              type: string
+                              example: john.doe@example.com
+                            status:
+                              type: string
+                              example: Open
+                            createdAt:
+                              type: string
+                              format: date-time
+                              example: 2024-11-17T12:00:00.000Z
+                      pagination:
+                        type: object
+                        properties:
+                          totalDocs:
+                            type: integer
+                            example: 2
+                          limit:
+                            type: integer
+                            example: 10
+                          page:
+                            type: integer
+                            example: 1
+                          totalPages:
+                            type: integer
+                            example: 1
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  message:
+                    type: string
+                    example: Unauthorized access.
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: Internal server error.
+
+  /admin/user/contact-us/details/{id}:
+    get:
+      summary: Get Contact Us Details
+      description: Fetch detailed information about a specific Contact Us submission.
+      tags:
+        - Admin User
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID of the Contact Us submission.
+          required: true
+          schema:
+            type: string
+            example: 64651bfc88b7f84b885f279d
+      responses:
+        "200":
+          description: Detailed information about the contact submission.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Contact details fetched successfully.
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: 64651bfc88b7f84b885f279d
+                      name:
+                        type: string
+                        example: John Doe
+                      email:
+                        type: string
+                        example: john.doe@example.com
+                      phone:
+                        type: string
+                        example: 1234567890
+                      status:
+                        type: string
+                        example: Open
+                      message:
+                        type: string
+                        example: I need help with my account.
+                      problemType:
+                        type: string
+                        example: Account Issue
+                      createdAt:
+                        type: string
+                        format: date-time
+                        example: 2024-11-17T12:00:00.000Z
+                      updatedAt:
+                        type: string
+                        format: date-time
+                        example: 2024-11-17T12:30:00.000Z
+        "404":
+          description: Contact submission not found.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: Contact not found.
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  message:
+                    type: string
+                    example: Unauthorized access.
+        "500":
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: Internal server error.
+
+  # Variants for admin
+  /variants/create:
+    post:
+      summary: Create a new variant
+      description: Add a new variant with attributes like name, size, color, and price.
+      tags:
+        - Variants
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Payload for creating a new variant
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                variantName:
+                  type: string
+                  example: "Red Medium"
+                size:
+                  type: string
+                  example: "Medium"
+                color:
+                  type: string
+                  example: "Red"
+
+      responses:
+        "201":
+          description: Successfully created variant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 201
+                  message:
+                    type: string
+                    example: Variant created successfully.
+                  data:
+                    type: object
+
+  /variants/list:
+    get:
+      summary: Get a list of variants
+      description: Retrieve a paginated list of variants with optional search, sorting, and filtering by status.
+      tags:
+        - Variants
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Number of results per page
+          required: false
+          schema:
+            type: integer
+            default: 10
+        - name: search
+          in: query
+          description: Search for variants by name, size, or color
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter variants by status (1 for active, 0 for inactive)
+          required: false
+          schema:
+            type: integer
+            enum: [0, 1]
+        - name: sortBy
+          in: query
+          description: Sort results by field (e.g., `productPrice:asc`, `variantName:desc`)
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successfully retrieved variants
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Variants retrieved successfully.
+                  data:
+                    type: object
+                    properties:
+                      docs:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                              example: "64f8a1c4b2d3e5f78901234"
+                            variantName:
+                              type: string
+                              example: "Red Large"
+                            size:
+                              type: string
+                              example: "Large"
+                            color:
+                              type: string
+                              example: "Red"
+                            status:
+                              type: integer
+                              example: 1
+                            isDelete:
+                              type: integer
+                              example: 1
+                            createdAt:
+                              type: string
+                              format: date-time
+                              example: "2024-11-19T03:42:52.105Z"
+                            updatedAt:
+                              type: string
+                              format: date-time
+                              example: "2024-11-19T03:42:52.105Z"
+                      totalDocs:
+                        type: integer
+                        example: 7
+                      limit:
+                        type: integer
+                        example: 10
+                      totalPages:
+                        type: integer
+                        example: 1
+                      page:
+                        type: integer
+                        example: 1
+                      pagingCounter:
+                        type: integer
+                        example: 1
+                      hasPrevPage:
+                        type: boolean
+                        example: false
+                      hasNextPage:
+                        type: boolean
+                        example: false
+                      prevPage:
+                        type: integer
+                        nullable: true
+                        example: null
+                      nextPage:
+                        type: integer
+                        nullable: true
+                        example: null
+
+  /variants/{variantId}:
+    get:
+      summary: Get variant by ID
+      description: Retrieve details of a specific variant by its ID.
+      tags:
+        - Variants
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: variantId
+          in: path
+          required: true
+          description: ID of the variant
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successfully retrieved variant details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Variant details retrieved successfully.
+                  data:
+                    type: object
+                    properties:
+                      _id:
+                        type: string
+                        example: "64f8a1c4b2d3e5f78901234"
+                      variantName:
+                        type: string
+                        example: "Red Large"
+                      size:
+                        type: string
+                        example: "Large"
+                      color:
+                        type: string
+                        example: "Red"
+                      productPrice:
+                      status:
+                        type: integer
+                        example: 1
+                      isDelete:
+                        type: integer
+                        example: 1
+                      createdAt:
+                        type: string
+                        format: date-time
+                        example: "2024-11-19T03:42:52.105Z"
+                      updatedAt:
+                        type: string
+                        format: date-time
+                        example: "2024-11-19T03:42:52.105Z"
+    patch:
+      summary: Update a variant
+      description: Update the details of a specific variant.
+      tags:
+        - Variants
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: variantId
+          in: path
+          required: true
+          description: ID of the variant to update
+          schema:
+            type: string
+      requestBody:
+        description: Update payload for the variant
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                variantName:
+                  type: string
+                  example: "Blue Large"
+                size:
+                  type: string
+                  example: "Large"
+                color:
+                  type: string
+                  example: "Blue"
+
+      responses:
+        "200":
+          description: Successfully updated variant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Variant updated successfully.
+                  data:
+                    type: object
+
+    delete:
+      summary: Delete a variant
+      description: Soft delete a variant by updating its `isDelete` field to 0.
+      tags:
+        - Variants
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: variantId
+          in: path
+          required: true
+          description: ID of the variant to delete
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successfully deleted variant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Variant deleted successfully.
+                  data:
+                    type: object
+
+  /variants/partner/list:
+    get:
+      summary: Get list of variants for partners
+      tags:
+        - Variants
+      description: Retrieve a paginated list of active variants (non-deleted) for partners. Partners can use these variants when creating items.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination
+          required: false
+          schema:
+            type: integer
+            example: 1
+        - name: limit
+          in: query
+          description: Number of records per page
+          required: false
+          schema:
+            type: integer
+            example: 10
+        - name: search
+          in: query
+          description: Search for variants by name, color, or size
+          required: false
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          description: Sort results by field (e.g., `variantName:asc` or `variantName:desc`)
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful retrieval of variants
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "Variants retrieved successfully for partner."
+                  data:
+                    type: object
+                    properties:
+                      docs:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                              description: Variant ID
+                              example: "673c295a3ee314afe80131d6"
+                            variantName:
+                              type: string
+                              description: Name of the variant
+                              example: "Medium"
+                            size:
+                              type: string
+                              description: Size of the variant
+                              example: "M"
+                            color:
+                              type: string
+                              description: Color of the variant
+                              example: "Red"
+                            status:
+                              type: integer
+                              description: Status of the variant (1 = Active, 0 = Inactive)
+                              example: 1
+                            isDelete:
+                              type: integer
+                              description: Whether the variant is deleted (1 = Active, 0 = Deleted)
+                              example: 1
+                            createdAt:
+                              type: string
+                              format: date-time
+                              description: Creation timestamp of the variant
+                              example: "2024-11-19T06:03:22.373Z"
+                            updatedAt:
+                              type: string
+                              format: date-time
+                              description: Last update timestamp of the variant
+                              example: "2024-11-19T06:03:22.373Z"
+                      totalDocs:
+                        type: integer
+                        description: Total number of variants
+                        example: 100
+                      limit:
+                        type: integer
+                        description: Number of records per page
+                        example: 10
+                      totalPages:
+                        type: integer
+                        description: Total number of pages
+                        example: 10
+                      page:
+                        type: integer
+                        description: Current page number
+                        example: 1
+                      pagingCounter:
+                        type: integer
+                        description: Starting number for the records on the current page
+                        example: 1
+                      hasPrevPage:
+                        type: boolean
+                        description: Whether there is a previous page
+                        example: false
+                      hasNextPage:
+                        type: boolean
+                        description: Whether there is a next page
+                        example: true
+                      prevPage:
+                        type: integer
+                        description: Previous page number (if available)
+                        example: null
+                      nextPage:
+                        type: integer
+                        description: Next page number (if available)
+                        example: 2
+        "401":
+          description: Unauthorized access
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  message:
+                    type: string
+                    example: "Unauthorized."
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: "Invalid request data."
+
   # Admin Staff
   /admin/staff/create:
     post:
@@ -3349,153 +4040,6 @@ paths:
                   $ref: "#/components/schemas/BusinessType"
         "401":
           $ref: "#/components/responses/Unauthorized"
-
-  # Chats
-  /chats:
-    get:
-      summary: Get all chats
-      tags:
-        - Chats
-      security:
-        - bearerAuth: []
-      responses:
-        200:
-          description: A list of all chats
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Chat"
-        401:
-          description: Unauthorized
-
-  /chats/users:
-    get:
-      summary: Search available users for chat
-      tags:
-        - Chats
-      security:
-        - bearerAuth: []
-      responses:
-        200:
-          description: A list of users
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/User"
-        401:
-          description: Unauthorized
-
-  /chats/c/{receiverId}:
-    post:
-      summary: Create or get a one-on-one chat
-      tags:
-        - Chats
-      parameters:
-        - in: path
-          name: receiverId
-          required: true
-          schema:
-            type: string
-          description: ID of the user to chat with
-      security:
-        - bearerAuth: []
-      responses:
-        200:
-          description: Existing chat returned
-        201:
-          description: New chat created
-        401:
-          description: Unauthorized
-        404:
-          description: User not found
-
-  /messages/{chatId}:
-    get:
-      summary: Get all messages in a chat
-      tags:
-        - Messages
-      parameters:
-        - in: path
-          name: chatId
-          required: true
-          schema:
-            type: string
-          description: ID of the chat
-      security:
-        - bearerAuth: []
-      responses:
-        200:
-          description: List of messages
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Message"
-
-    post:
-      summary: Send a message
-      tags:
-        - Messages
-      parameters:
-        - in: path
-          name: chatId
-          required: true
-          schema:
-            type: string
-          description: ID of the chat
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                content:
-                  type: string
-                attachments:
-                  type: array
-                  items:
-                    type: string
-                    format: binary
-      security:
-        - bearerAuth: []
-      responses:
-        201:
-          description: Message sent successfully
-        400:
-          description: Bad request
-        401:
-          description: Unauthorized
-
-  /messages/{chatId}/{messageId}:
-    delete:
-      summary: Delete a message
-      tags:
-        - Messages
-      parameters:
-        - in: path
-          name: chatId
-          required: true
-          schema:
-            type: string
-        - in: path
-          name: messageId
-          required: true
-          schema:
-            type: string
-      security:
-        - bearerAuth: []
-      responses:
-        200:
-          description: Message deleted successfully
-        401:
-          description: Unauthorized
-        404:
-          description: Message or chat not found
 
   # Users
   /user/auth/register:
@@ -4688,6 +5232,137 @@ paths:
         "400":
           description: Invalid request (e.g., missing required fields, invalid businessId)
 
+  /dine-out/user/{requestId}/details:
+    get:
+      tags:
+        - DineOut Request (User)
+      summary: Get Dine-out Details for a User
+      security:
+        - bearerAuth: []
+      description: Retrieve all details of a dine-out request, including images, for the user who made the request.
+      parameters:
+        - name: requestId
+          in: path
+          description: ID of the dine-out request to retrieve details
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Successfully retrieved dine-out request details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "Details"
+                  data:
+                    type: object
+                    properties:
+                      requestNumber:
+                        type: string
+                        example: "1234567890"
+                      status:
+                        type: string
+                        example: "Pending"
+                      user:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                            example: "John Doe"
+                          email:
+                            type: string
+                            example: "johndoe@example.com"
+                          phone:
+                            type: string
+                            example: "+1234567890"
+                      business:
+                        type: object
+                        properties:
+                          businessName:
+                            type: string
+                            example: "Namaaz Dining Points"
+                          businessAddress:
+                            type: string
+                            example: "123 Main Street, Senopati"
+                          openingDays:
+                            type: string
+                            example: "Monday-Saturday"
+                          openingTime:
+                            type: string
+                            example: "10:00 AM"
+                          closingTime:
+                            type: string
+                            example: "10:00 PM"
+                          images:
+                            type: array
+                            items:
+                              type: string
+                              example: "https://example.com/image1.jpg"
+                      dineOutDetails:
+                        type: object
+                        properties:
+                          reservationTime:
+                            type: string
+                            example: "2024-09-25 08:30 PM"
+                          guests:
+                            type: integer
+                            example: 10
+                          dinnerType:
+                            type: string
+                            example: "Dinner"
+                      partner:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                            example: "Partner Name"
+        401:
+          description: Unauthorized access
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  message:
+                    type: string
+                    example: "Permission Denied"
+        404:
+          description: Dine-out request not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: "Dine-out request not found"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: "An internal server error has occurred."
+
   # Cart
   /cart/add:
     post:
@@ -4727,14 +5402,9 @@ paths:
                   format: date
                   description: The check-out date for the room booking (required for rooms only)
                   example: 2024-11-22
-                selectedSize:
+                variantId:
                   type: string
-                  description: The size of the product (if applicable)
-                  example: M
-                selectedColor:
-                  type: string
-                  description: The color of the product (if applicable)
-                  example: Red
+                  description: The variantId of the product
       responses:
         "200":
           description: Item added to cart successfully
@@ -5138,6 +5808,17 @@ paths:
         - bearerAuth: []
       summary: Get all orders for the current user
       description: Retrieve all orders placed by the authenticated user, including all items and price details.
+      parameters:
+        - name: sortOrder
+          in: query
+          description: Sorting order for the orders. Use `asc` for ascending and `desc` for descending.
+          required: false
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            example: desc
       responses:
         "200":
           description: Orders retrieved successfully
@@ -5166,6 +5847,40 @@ paths:
       security:
         - bearerAuth: []
       summary: Get order details by ID
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          description: The ID of the order
+          schema:
+            type: string
+            example: 670ad27c5e1dd4288ee6cfc0
+      responses:
+        "200":
+          description: Order retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order:
+                    $ref: "#/components/schemas/Order"
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Order not found
+        "500":
+          description: Internal server error
+
+  /order/track/{orderId}:
+    get:
+      tags:
+        - Order
+      security:
+        - bearerAuth: []
+      summary: Track order by ID
       parameters:
         - name: orderId
           in: path
@@ -5242,6 +5957,209 @@ paths:
         "500":
           description: Internal server error
 
+  /order/completed-bookings:
+    get:
+      summary: Get Completed Hotel Bookings
+      description: Fetch a list of completed hotel bookings for the authenticated user.
+      tags:
+        - Order
+      security:
+        - bearerAuth: [] # Add your authentication mechanism
+      responses:
+        200:
+          description: A list of completed bookings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Completed bookings fetched successfully.
+                  bookings:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                          description: Order ID
+                          example: 673ce6cd6a2b0b85a2c5788f
+                        user:
+                          type: object
+                          description: Details of the user who booked the room
+                          properties:
+                            _id:
+                              type: string
+                              description: User ID
+                              example: 6708c7f129ca8a1d5d8268b8
+                            name:
+                              type: string
+                              example: sp banna
+                            email:
+                              type: string
+                              example: sp@gmail.com
+                            phone:
+                              type: string
+                              example: 8837772727
+                        business:
+                          type: object
+                          description: Hotel/business details
+                          properties:
+                            _id:
+                              type: string
+                              description: Business ID
+                              example: 67092f069ec6c55a15d0b4be
+                            businessName:
+                              type: string
+                              description: Name of the hotel
+                              example: Hilton
+                            businessAddress:
+                              type: object
+                              description: Address of the hotel
+                              properties:
+                                street:
+                                  type: string
+                                  example: 123 Business St
+                                city:
+                                  type: string
+                                  example: City
+                                state:
+                                  type: string
+                                  example: State
+                                country:
+                                  type: string
+                                  example: Country
+                                postalCode:
+                                  type: string
+                                  example: 12345
+                        items:
+                          type: array
+                          description: List of booked rooms
+                          items:
+                            type: object
+                            properties:
+                              itemId:
+                                type: string
+                                description: Room item ID
+                                example: 672c712ba1a40f804d63ef6a
+                              itemType:
+                                type: string
+                                example: room
+                              roomName:
+                                type: string
+                                example: Deluxe Room
+                              roomDescription:
+                                type: string
+                                example: Spacious room with sea view
+                              amenities:
+                                type: array
+                                items:
+                                  type: string
+                                  example: WiFi
+                              images:
+                                type: array
+                                items:
+                                  type: string
+                                  example: https://example.com/room-image.jpg
+                              roomPrice:
+                                type: number
+                                example: 150
+                              checkIn:
+                                type: string
+                                format: date-time
+                                example: 2024-11-21T00:00:00.000Z
+                              checkOut:
+                                type: string
+                                format: date-time
+                                example: 2024-11-23T00:00:00.000Z
+                              quantity:
+                                type: integer
+                                description: Number of rooms booked
+                                example: 1
+                              totalNights:
+                                type: integer
+                                description: Number of nights stayed
+                                example: 2
+                              guests:
+                                type: integer
+                                description: Number of guests
+                                example: 2
+                              totalPrice:
+                                type: number
+                                description: Total price for the booking
+                                example: 300
+                        totalPrice:
+                          type: number
+                          description: Total price of the order
+                          example: 396
+                        subtotal:
+                          type: number
+                          example: 300
+                        tax:
+                          type: number
+                          example: 90
+                        orderId:
+                          type: string
+                          example: 1732044493
+                        orderNumber:
+                          type: string
+                          example: "#1732044493"
+                        orderStatus:
+                          type: string
+                          example: completed
+                        paymentMethod:
+                          type: string
+                          example: cash
+                        transactionHistory:
+                          type: array
+                          description: List of transaction history
+                          items:
+                            type: object
+                            properties:
+                              type:
+                                type: string
+                                example: Order Placed
+                              date:
+                                type: string
+                                format: date-time
+                                example: 2024-11-19T19:28:13.372Z
+                              amount:
+                                type: number
+                                example: 396
+                              status:
+                                type: string
+                                example: Completed
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: Bad request.
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  message:
+                    type: string
+                    example: Unauthorized access.
+
   /order/status/{orderId}:
     patch:
       tags:
@@ -5291,6 +6209,133 @@ paths:
         "500":
           description: Internal server error
 
+  /order/rebook/{orderId}:
+    post:
+      tags:
+        - Order
+      summary: Rebook a room from a completed order
+      description: Allows the user to rebook a room from a previously completed order with new check-in, check-out dates, and guest count.
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          description: The ID of the order to rebook.
+          schema:
+            type: string
+            example: "673ce6cd6a2b0b85a2c5788f"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - itemId
+                - newCheckIn
+                - newCheckOut
+              properties:
+                itemId:
+                  type: string
+                  description: The ID of the room item to rebook.
+                  example: "672c712ba1a40f804d63ef6a"
+                newCheckIn:
+                  type: string
+                  format: date-time
+                  description: The new check-in date for the rebooking.
+                  example: "2024-12-01T14:00:00.000Z"
+                newCheckOut:
+                  type: string
+                  format: date-time
+                  description: The new check-out date for the rebooking.
+                  example: "2024-12-03T11:00:00.000Z"
+                newGuestCount:
+                  type: integer
+                  description: The number of guests for the rebooking.
+                  example: 2
+      responses:
+        "201":
+          description: Rebooking created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 201
+                  message:
+                    type: string
+                    example: "Room rebooking created successfully."
+                  order:
+                    type: object
+                    properties:
+                      _id:
+                        type: string
+                        example: "673ce6cd6a2b0b85a2c57890"
+                      orderId:
+                        type: string
+                        example: "1732044494"
+                      orderNumber:
+                        type: string
+                        example: "#1732044494"
+                      checkIn:
+                        type: string
+                        format: date-time
+                        example: "2024-12-01T14:00:00.000Z"
+                      checkOut:
+                        type: string
+                        format: date-time
+                        example: "2024-12-03T11:00:00.000Z"
+                      guestCount:
+                        type: integer
+                        example: 2
+                      totalPrice:
+                        type: number
+                        format: float
+                        example: 300.00
+                      orderStatus:
+                        type: string
+                        example: "pending"
+        "400":
+          description: Bad Request - Validation Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: "Validation Error"
+        "404":
+          description: Not Found - Order or Item not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: "Order not found."
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: "Internal Server Error"
+
   /order/partner/food-requests:
     get:
       tags:
@@ -5298,6 +6343,17 @@ paths:
       security:
         - bearerAuth: []
       summary: Get food orders requests for the partner
+      parameters:
+        - name: sortOrder
+          in: query
+          description: Sorting order for the orders. Use `asc` for ascending and `desc` for descending.
+          required: false
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            example: desc
       responses:
         "200":
           description: Orders request retrieved successfully
@@ -5326,6 +6382,17 @@ paths:
       security:
         - bearerAuth: []
       summary: Get product orders requests for the partner
+      parameters:
+        - name: sortOrder
+          in: query
+          description: Sorting order for the orders. Use `asc` for ascending and `desc` for descending.
+          required: false
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            example: desc
       responses:
         "200":
           description: Orders request retrieved successfully
@@ -5354,6 +6421,17 @@ paths:
       security:
         - bearerAuth: []
       summary: Get rooms requests for the partner
+      parameters:
+        - name: sortOrder
+          in: query
+          description: Sorting order for the orders. Use `asc` for ascending and `desc` for descending.
+          required: false
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            example: desc
       responses:
         "200":
           description: Orders request retrieved successfully
@@ -5552,6 +6630,7 @@ paths:
                 "payment_failed",
                 "delivered",
                 "cancelled",
+                "completed",
               ]
           required: false
           description: "Filter by order status. Optional parameter. Available options: 'Processing', 'Out for delivery', 'delivered', 'completed', 'canceled', 'rejected', 'accepted', 'Pending'."
@@ -6021,13 +7100,13 @@ paths:
         "500":
           description: Internal server error
 
-  /order/partner/transactions:
+  /order/transactions:
     get:
       tags:
         - Order
       security:
         - bearerAuth: []
-      summary: Get transaction list for the partner with filters and pagination
+      summary: Get transaction list for user or partner with filters and pagination
       parameters:
         - in: query
           name: filter
@@ -6060,7 +7139,7 @@ paths:
                     example: 200
                   message:
                     type: string
-                    example: "List retrieved successfully."
+                    example: "User transaction history retrieved successfully"
                   data:
                     type: object
                     properties:
@@ -6069,15 +7148,12 @@ paths:
                         items:
                           type: object
                           properties:
-                            _id:
-                              type: string
-                              example: "672c74923eb9872cfdf1e968"
-                            orderId:
-                              type: string
-                              example: "1730966674"
                             transactionId:
                               type: string
                               example: "672c74943eb9872cfdf1e96c"
+                            orderId:
+                              type: string
+                              example: "1730966674"
                             type:
                               type: string
                               example: "Payment Completed"
@@ -6123,12 +7199,56 @@ paths:
                         example: null
         "400":
           description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: "Invalid filter or request parameters."
         "401":
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  message:
+                    type: string
+                    example: "Authentication required."
         "404":
           description: Transactions not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: "No transactions found for the given filters."
         "500":
           description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: "Internal server error occurred."
 
   /order/history/{category}:
     get:
@@ -6149,7 +7269,6 @@ paths:
           required: false
           schema:
             type: string
-            example: completed
         - name: page
           in: query
           required: false
@@ -6162,6 +7281,16 @@ paths:
           schema:
             type: integer
             example: 10
+        - name: sortOrder
+          in: query
+          description: Sorting order for the orders. Use `asc` for ascending and `desc` for descending.
+          required: false
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            example: desc
       summary: Get orders history by category for the user
       responses:
         "200":
@@ -6240,6 +7369,16 @@ paths:
           schema:
             type: integer
             example: 10
+        - name: sortOrder
+          in: query
+          description: Sorting order for the orders. Use `asc` for ascending and `desc` for descending.
+          required: false
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            example: desc
       responses:
         "200":
           description: All orders history retrieved successfully
@@ -6281,6 +7420,70 @@ paths:
           description: Orders not found
         "500":
           description: Internal server error
+
+  /order/{orderId}/download-invoice:
+    get:
+      tags:
+        - Order
+      summary: Download Invoice
+      description: Generates and downloads an invoice for a specific order if the order is completed (room bookings) or delivered (products/food).
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          description: The unique identifier of the order for which the invoice is to be generated.
+          schema:
+            type: string
+            example: "673ce6cd6a2b0b85a2c5788f"
+      responses:
+        200:
+          description: PDF invoice generated and downloaded successfully.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        400:
+          description: Bad Request - Invalid request or order cannot be invoiced.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: "Order not eligible for invoice generation."
+        404:
+          description: Not Found - The order ID provided does not exist or cannot be found.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: "Order not found."
+        500:
+          description: Internal Server Error - An error occurred while generating the invoice.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: "An unexpected error occurred while generating the invoice."
+      security:
+        - bearerAuth: []
 
   # Partner
   /partner/auth/register:
@@ -7109,10 +8312,6 @@ paths:
                   type: string
                   description: Description of the product (product items only)
                   example: "Comfortable cotton t-shirt"
-                productPrice:
-                  type: number
-                  description: Price of the product (product items only)
-                  example: 25.99
                 productDeliveryCharge:
                   type: number
                   description: Delivery charge of the product (product items only)
@@ -7125,32 +8324,34 @@ paths:
                   type: string
                   description: Second product feature (product items only)
                   example: "Lightweight"
-                variants[0][variantName]:
+                nonReturnable:
+                  type: boolean
+                  description: Indicates if the product is non-returnable (applies to product items only)
+                  default: false
+                variants[0][variantId]:
                   type: string
-                  description: Name of the variant (e.g., Small, Medium, Large)
-                  example: "Medium"
-                variants[0][size]:
-                  type: string
-                  description: Size of the variant
-                  example: "M"
-                variants[0][color]:
-                  type: string
-                  description: Color of the variant
-                  example: "Red"
+                  description: The ID of the admin-defined variant (ObjectId)
+                  example: "61d0fe4f5311236168a109ca"
                 variants[0][productPrice]:
                   type: number
-                  description: Price of the variant
+                  description: Price for the variant (set by the partner)
                   example: 29.99
-                variants[0][nonReturnable]:
-                  type: boolean
-                  description: Indicates if the variant is non-returnable
-                  default: false
-                variants[0][variantImages]:
-                  type: array
-                  items:
-                    type: string
-                    format: binary
-                  description: Images specific to the variant
+                variants[0][variantImage]:
+                  type: string
+                  format: binary
+                  description: Image for the variant (uploaded by the partner)
+                variants[1][variantId]:
+                  type: string
+                  description: The ID of the admin-defined variant (ObjectId)
+                  example: "61d0fe4f5311236168a109ca"
+                variants[1][productPrice]:
+                  type: number
+                  description: Price for the variant (set by the partner)
+                  example: 29.99
+                variants[1][variantImage]:
+                  type: string
+                  format: binary
+                  description: Image for the variant (uploaded by the partner)
 
                 # Image upload
                 images:
@@ -7301,12 +8502,14 @@ paths:
                   example: "2024-11-05T11:00:00Z"
 
                 # Amenities as a flattened array
-                amenities:
-                  type: array
-                  description: List of amenities for the room
-                  items:
-                    type: string
-                  example: ["WiFi", "Air Conditioning", "Pool"]
+                amenities[0]:
+                  type: string
+                  description: First amenity
+                  example: "WiFi"
+                amenities[1]:
+                  type: string
+                  description: Second amenity
+                  example: "Air Conditioning"
 
                 # Fields for product items (optional)
                 productName:
@@ -7317,46 +8520,34 @@ paths:
                   type: string
                   description: Description of the product (product items only)
                   example: "Comfortable cotton t-shirt"
-                productPrice:
-                  type: number
-                  description: Price of the product (product items only)
-                  example: 25.99
                 productDeliveryCharge:
                   type: number
                   description: Delivery charge of the product (product items only)
                   example: 10.99
-                productFeatures:
-                  type: array
-                  description: List of features of the product (optional)
-                  items:
-                    type: string
-                  example: ["Eco-friendly", "Lightweight", "Machine washable"]
-                variants[0][variantName]:
+                productFeatures[0]:
                   type: string
-                  description: Name of the variant (e.g., Small, Medium, Large)
-                  example: "Medium"
-                variants[0][size]:
+                  description: First product feature (product items only)
+                  example: "Eco-friendly"
+                productFeatures[1]:
                   type: string
-                  description: Size of the variant
-                  example: "M"
-                variants[0][color]:
+                  description: Second product feature (product items only)
+                  example: "Lightweight"
+                nonReturnable:
+                  type: boolean
+                  description: Indicates if the product is non-returnable (applies to product items only)
+                  default: false
+                variants[0][variantId]:
                   type: string
-                  description: Color of the variant
-                  example: "Red"
+                  description: The ID of the admin-defined variant (ObjectId)
+                  example: "61d0fe4f5311236168a109ca"
                 variants[0][productPrice]:
                   type: number
-                  description: Price of the variant
+                  description: Price for the variant (set by the partner)
                   example: 29.99
-                variants[0][nonReturnable]:
-                  type: boolean
-                  description: Indicates if the variant is non-returnable
-                  default: false
-                variants[0][variantImages]:
-                  type: array
-                  items:
-                    type: string
-                    format: binary
-                  description: Images specific to the variant
+                variants[0][variantImage]:
+                  type: string
+                  format: binary
+                  description: Image for the variant (uploaded by the partner)
 
                 # Image upload
                 images:
@@ -7412,15 +8603,84 @@ paths:
           schema:
             type: string
           description: The ID of the business to retrieve rooms
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: The page number for pagination
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: The number of items per page
+        - name: sortOrder
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+          description: Sort rooms by their addition status (createdAt) in ascending or descending order
       responses:
         "200":
           description: List of rooms retrieved successfully
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Items"
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      docs:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                            roomName:
+                              type: string
+                            roomPrice:
+                              type: number
+                            images:
+                              type: array
+                              items:
+                                type: string
+                            businessName:
+                              type: string
+                            businessTypeName:
+                              type: string
+                            taxRate:
+                              type: number
+                            createdAt:
+                              type: string
+                              format: date-time
+                      totalDocs:
+                        type: integer
+                      limit:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      page:
+                        type: integer
+                      hasPrevPage:
+                        type: boolean
+                      hasNextPage:
+                        type: boolean
+                      prevPage:
+                        type: integer
+                        nullable: true
+                      nextPage:
+                        type: integer
+                        nullable: true
+                  message:
+                    type: string
+        "400":
+          description: Bad request, invalid parameters
         "404":
           description: Rooms not found
       security:
@@ -7437,18 +8697,91 @@ paths:
           required: true
           schema:
             type: string
-          description: The ID of the business to retrieve food menu
+          description: The ID of the business to retrieve the food menu
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: The page number for pagination
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: The number of items per page
+        - name: sortOrder
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+          description: Sort items by their addition status (createdAt) in ascending or descending order
       responses:
         "200":
           description: List of food menu retrieved successfully
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Items"
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      docs:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                            dishName:
+                              type: string
+                            dishDescription:
+                              type: string
+                            dishPrice:
+                              type: number
+                            foodDeliveryCharge:
+                              type: number
+                            available:
+                              type: boolean
+                            images:
+                              type: array
+                              items:
+                                type: string
+                            businessName:
+                              type: string
+                            businessTypeName:
+                              type: string
+                            createdAt:
+                              type: string
+                              format: date-time
+                      totalDocs:
+                        type: integer
+                      limit:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      page:
+                        type: integer
+                      hasPrevPage:
+                        type: boolean
+                      hasNextPage:
+                        type: boolean
+                      prevPage:
+                        type: integer
+                        nullable: true
+                      nextPage:
+                        type: integer
+                        nullable: true
+                  message:
+                    type: string
+        "400":
+          description: Bad request, invalid parameters
         "404":
-          description: food menu not found
+          description: Food menu not found
       security:
         - bearerAuth: []
 
@@ -7464,17 +8797,62 @@ paths:
           schema:
             type: string
           description: The ID of the business to retrieve products
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: The page number for pagination
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: The number of items per page
+        - name: sortOrder
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+          description: Sort items by their addition status (createdAt) in ascending or descending order
       responses:
         "200":
           description: List of products retrieved successfully
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Items"
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      docs:
+                        type: object
+                      totalDocs:
+                        type: integer
+                      limit:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      page:
+                        type: integer
+                      hasPrevPage:
+                        type: boolean
+                      hasNextPage:
+                        type: boolean
+                      prevPage:
+                        type: integer
+                        nullable: true
+                      nextPage:
+                        type: integer
+                        nullable: true
+                  message:
+                    type: string
         "404":
-          description: products not found
+          description: Products not found
       security:
         - bearerAuth: []
 
@@ -9722,7 +11100,7 @@ paths:
                 - email
                 - message
       security:
-        - basicAuth: []
+        - bearerAuth: []
       responses:
         "200":
           description: Successfully Post Contact
