@@ -15,6 +15,7 @@ const AddressRoute = require('./address.route')
 const ChatRoute = require('./Chats/chat.route')
 const MessageRoute = require('./Chats/message.route')
 const VariantsRoute = require('./variants.route')
+const InvoiceRoute = require('./invoice.route')
 
 const AdminAuthRoute = require("./admin/auth.route");
 const AdminStaffRoute = require("./admin/adminStaff.route");
@@ -62,6 +63,7 @@ const defaultRoutes = [
   { path: '/address', route: AddressRoute },
   { path: '/chats', route: ChatRoute },
   { path: '/messages', route: MessageRoute },
+  { path: '/invoice', route: InvoiceRoute },
 ];
 
 const devRoutes = [

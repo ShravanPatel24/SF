@@ -15,39 +15,62 @@ const createBusinessForPartner = async (
         if (!partner || partner.type !== "partner") {
             return { statusCode: 404, message: CONSTANTS.PARTNER_NOT_FOUND_MSG };
         }
+
         if (partner.name === businessName) {
             return { statusCode: 400, message: CONSTANTS.BUSINESS_AND_PARTNER_NAME_DUPLICATION };
         }
+
         const validBusinessType = await BusinessTypeModel.findById(businessType);
         if (!validBusinessType) {
             return { statusCode: 400, message: CONSTANTS.INVALID_BUSINESS_TYPE };
         }
-        // Convert timings
-        if (uniformTiming) {
-            uniformTiming.openingTime = moment(`2024-10-10 ${uniformTiming.openingTime}`, 'YYYY-MM-DD hh:mm A').toDate();
-            uniformTiming.closingTime = moment(`2024-10-10 ${uniformTiming.closingTime}`, 'YYYY-MM-DD hh:mm A').toDate();
+
+        // Validate table management
+        if (dineInStatus && tableManagement && Array.isArray(tableManagement)) {
+            tableManagement.forEach(table => {
+                if (!table.tableNumber || !table.seatingCapacity) {
+                    throw new Error("Each table must have a table number and seating capacity.");
+                }
+                table.status = "available"; // Ensure status is defaulted to 'available'
+            });
         }
-        if (daywiseTimings && daywiseTimings.length > 0) {
-            daywiseTimings = daywiseTimings.map(day => ({
-                ...day,
-                openingTime: moment(`2024-10-10 ${day.openingTime}`, 'YYYY-MM-DD hh:mm A').toDate(),
-                closingTime: moment(`2024-10-10 ${day.closingTime}`, 'YYYY-MM-DD hh:mm A').toDate(),
-            }));
-        }
+
+        // Directly store operatingDetails in UTC format
         if (operatingDetails && operatingDetails.length > 0) {
-            operatingDetails = operatingDetails.map(detail => ({
-                ...detail,
-                startTime: moment(`${detail.date}T${detail.startTime}`, 'YYYY-MM-DDTHH:mm:ssZ').toDate(),
-                endTime: moment(`${detail.date}T${detail.endTime}`, 'YYYY-MM-DDTHH:mm:ssZ').toDate(),
-            }));
+            operatingDetails.forEach(detail => {
+                if (!moment(detail.startTime, moment.ISO_8601, true).isValid() ||
+                    !moment(detail.endTime, moment.ISO_8601, true).isValid()) {
+                    throw new Error('Invalid startTime or endTime format. Use ISO 8601 UTC format.');
+                }
+            });
         }
+
+        // Create the business
         const business = new BusinessModel({
-            businessName, partner: partnerId, businessType, businessDescription, countryCode, mobile, email, businessAddress,
-            openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImages, galleryImages,
-            dineInStatus, operatingDetails, tableManagement
+            businessName,
+            partner: partnerId,
+            businessType,
+            businessDescription,
+            countryCode,
+            mobile,
+            email,
+            businessAddress,
+            openingDays,
+            openingTime,
+            closingTime,
+            sameTimeForAllDays,
+            uniformTiming,
+            daywiseTimings,
+            bannerImages,
+            galleryImages,
+            dineInStatus,
+            operatingDetails, // Directly store in UTC
+            tableManagement: dineInStatus ? tableManagement : [],
         });
+
         await business.save();
         await UserModel.findByIdAndUpdate(partnerId, { businessId: business._id });
+
         return { statusCode: 201, data: business };
     } catch (error) {
         console.error("Error creating business:", error);
@@ -448,10 +471,92 @@ const getDashboardCountsForPartner = async (partnerId) => {
             title: type,
             orderCounts: [],
             dineOutCounts: [],
+            availableTables: 0,
+            bookedTables: 0,
+            cancelledTables: 0,
             earnings: { total: 0, payout: 0 }
         };
     });
 
+    // Fetch available table counts
+    const availableTableCounts = await BusinessModel.aggregate([
+        {
+            $match: { partner: partnerId }
+        },
+        {
+            $unwind: "$tableManagement"
+        },
+        {
+            $match: { "tableManagement.status": "available" }
+        },
+        {
+            $group: {
+                _id: "$businessType",
+                availableCount: { $sum: 1 }
+            }
+        }
+    ]);
+
+    availableTableCounts.forEach(entry => {
+        const { _id: businessType, availableCount } = entry;
+        if (counts[businessType]) {
+            counts[businessType].availableTables = availableCount;
+        }
+    });
+
+    // Fetch booked table counts
+    const bookedTableCounts = await BusinessModel.aggregate([
+        {
+            $match: { partner: partnerId }
+        },
+        {
+            $unwind: "$tableManagement"
+        },
+        {
+            $match: { "tableManagement.status": "booked" }
+        },
+        {
+            $group: {
+                _id: "$businessType",
+                bookedCount: { $sum: 1 }
+            }
+        }
+    ]);
+
+    bookedTableCounts.forEach(entry => {
+        const { _id: businessType, bookedCount } = entry;
+        if (counts[businessType]) {
+            counts[businessType].bookedTables = bookedCount;
+        }
+    });
+
+    // Fetch cancelled table counts
+    const cancelledTableCounts = await BusinessModel.aggregate([
+        {
+            $match: { partner: partnerId }
+        },
+        {
+            $unwind: "$tableManagement"
+        },
+        {
+            $match: { "tableManagement.status": "cancelled" }
+        },
+        {
+            $group: {
+                _id: "$businessType",
+                cancelledCount: { $sum: 1 }
+            }
+        }
+    ]);
+
+    cancelledTableCounts.forEach(entry => {
+        const { _id: businessType, cancelledCount } = entry;
+        if (counts[businessType]) {
+            counts[businessType].cancelledTables = cancelledCount;
+        }
+    });
+
+    // Fetch order counts
     const orderCounts = await OrderModel.aggregate([
         {
             $match: {
@@ -492,6 +597,9 @@ const getDashboardCountsForPartner = async (partnerId) => {
                 title: businessType,
                 orderCounts: [],
                 dineOutCounts: [],
+                availableTables: 0,
+                bookedTables: 0,
+                cancelledTables: 0,
                 earnings: { total: 0, payout: 0 }
             };
         }
@@ -521,6 +629,7 @@ const getDashboardCountsForPartner = async (partnerId) => {
         countsForBusinessType.earnings.total += earnings;
     });
 
+    // Fetch dine-out counts
     const dineOutCounts = await DineOutModel.aggregate([
         {
             $match: {
@@ -548,7 +657,6 @@ const getDashboardCountsForPartner = async (partnerId) => {
         }
     ]);
 
-    // Define status mapping
     const statusMapping = {
         pending: "booking Requests",
         confirmed: "confirmed Requests",
@@ -567,11 +675,13 @@ const getDashboardCountsForPartner = async (partnerId) => {
                 title: businessType,
                 orderCounts: [],
                 dineOutCounts: [],
+                availableTables: 0,
+                bookedTables: 0,
+                cancelledTables: 0,
                 earnings: { total: 0, payout: 0 }
             };
         }
 
-        // Apply status mapping here
         const mappedTitle = statusMapping[status.toLowerCase()] || status.toLowerCase();
         counts[businessType].dineOutCounts.push({ title: mappedTitle, count });
     });
@@ -596,6 +706,9 @@ const getDashboardCountsForPartner = async (partnerId) => {
 
     return Object.values(counts).map(businessTypeCounts => ({
         title: businessTypeCounts.title,
+        availableTables: businessTypeCounts.availableTables,
+        bookedTables: businessTypeCounts.bookedTables,
+        cancelledTables: businessTypeCounts.cancelledTables,
         orderCounts: businessTypeCounts.orderCounts.map(order => ({
             ...order,
             searchKey: order.title
@@ -612,10 +725,19 @@ const getDashboardCountsForPartner = async (partnerId) => {
         })),
         earnings: businessTypeCounts.earnings
     }));
-}
+};
 
-const getOrderListByType = async (partnerId, type) => {
-    let query = { partner: partnerId };
+const getOrderListByType = async (partnerId, type, sort = "desc") => {
+    // Fetch all businesses associated with the partner
+    const businesses = await BusinessModel.find({ partner: partnerId }).select("_id businessName");
+
+    if (!businesses || businesses.length === 0) {
+        throw new Error("No businesses found for the partner.");
+    }
+
+    const businessIds = businesses.map(business => business._id);
+
+    let query = { business: { $in: businessIds } };
 
     switch (type) {
         // Food Orders
@@ -674,47 +796,144 @@ const getOrderListByType = async (partnerId, type) => {
 
         // Dine-Out Requests
         case "pendingDineOutRequests":
-            query = { partner: partnerId, status: "Pending" };
+            query = { business: { $in: businessIds }, status: "Pending" };
             return await DineOutModel.find(query)
-                .populate('user', 'name')
-                .populate('business', 'businessName')
+                .populate("user", "name")
+                .populate("business", "businessName")
                 .exec();
         case "acceptedDineOutRequests":
-            query = { partner: partnerId, status: "Accepted" };
+            query = { business: { $in: businessIds }, status: "Accepted" };
             return await DineOutModel.find(query)
-                .populate('user', 'name')
-                .populate('business', 'businessName')
+                .populate("user", "name")
+                .populate("business", "businessName")
                 .exec();
         case "rejectedDineOutRequests":
-            query = { partner: partnerId, status: "Rejected" };
+            query = { business: { $in: businessIds }, status: "Rejected" };
             return await DineOutModel.find(query)
-                .populate('user', 'name')
-                .populate('business', 'businessName')
+                .populate("user", "name")
+                .populate("business", "businessName")
                 .exec();
         case "completedDineOutRequests":
-            query = { partner: partnerId, status: "Completed" };
+            query = { business: { $in: businessIds }, status: "Completed" };
             return await DineOutModel.find(query)
-                .populate('user', 'name')
-                .populate('business', 'businessName')
+                .populate("user", "name")
+                .populate("business", "businessName")
                 .exec();
         case "cancelledDineOutRequests":
-            query = { partner: partnerId, status: "Cancelled" };
+            query = { business: { $in: businessIds }, status: "Cancelled" };
             return await DineOutModel.find(query)
-                .populate('user', 'name')
-                .populate('business', 'businessName')
+                .populate("user", "name")
+                .populate("business", "businessName")
                 .exec();
 
-        // Available Tables (Assuming a separate table or collection handles table management)
+        // Available Tables
         case "availableTables":
-            query = { partner: partnerId, "tableManagement.status": "available" };
-            break;
+            const businessesWithAvailableTables = await BusinessModel.aggregate([
+                {
+                    $match: { partner: new ObjectId(partnerId) }
+                },
+                {
+                    $unwind: "$tableManagement"
+                },
+                {
+                    $match: { "tableManagement.status": "available" }
+                },
+                {
+                    $group: {
+                        _id: "$_id",
+                        businessName: { $first: "$businessName" },
+                        availableTables: {
+                            $push: {
+                                tableNumber: "$tableManagement.tableNumber",
+                                seatingCapacity: "$tableManagement.seatingCapacity",
+                                status: "$tableManagement.status"
+                            }
+                        }
+                    }
+                }
+            ]);
+
+            return businessesWithAvailableTables.map(business => ({
+                businessId: business._id,
+                businessName: business.businessName,
+                tables: business.availableTables
+            }));
+
+        // Booked Tables
+        case "bookedTables":
+            const businessesWithBookedTables = await BusinessModel.aggregate([
+                {
+                    $match: { partner: new ObjectId(partnerId) }
+                },
+                {
+                    $unwind: "$tableManagement"
+                },
+                {
+                    $match: { "tableManagement.status": "booked" }
+                },
+                {
+                    $group: {
+                        _id: "$_id",
+                        businessName: { $first: "$businessName" },
+                        bookedTables: {
+                            $push: {
+                                tableNumber: "$tableManagement.tableNumber",
+                                seatingCapacity: "$tableManagement.seatingCapacity",
+                                status: "$tableManagement.status"
+                            }
+                        }
+                    }
+                }
+            ]);
+
+            return businessesWithBookedTables.map(business => ({
+                businessId: business._id,
+                businessName: business.businessName,
+                tables: business.bookedTables
+            }));
+
+        // Cancelled Tables
+        case "cancelledTables":
+            const businessesWithCancelledTables = await BusinessModel.aggregate([
+                {
+                    $match: { partner: new ObjectId(partnerId) }
+                },
+                {
+                    $unwind: "$tableManagement"
+                },
+                {
+                    $match: { "tableManagement.status": "cancelled" }
+                },
+                {
+                    $group: {
+                        _id: "$_id",
+                        businessName: { $first: "$businessName" },
+                        cancelledTables: {
+                            $push: {
+                                tableNumber: "$tableManagement.tableNumber",
+                                seatingCapacity: "$tableManagement.seatingCapacity",
+                                status: "$tableManagement.status"
+                            }
+                        }
+                    }
+                }
+            ]);
+
+            return businessesWithCancelledTables.map(business => ({
+                businessId: business._id,
+                businessName: business.businessName,
+                tables: business.cancelledTables
+            }));
 
         default:
             throw new Error("Invalid type for order list retrieval.");
     }
 
+    // Determine sort order
+    const sortOrder = sort === "asc" ? 1 : -1;
+
     // Fetch Food, Hotel, and Product Orders using OrderModel with itemType matching
-    const orders = await OrderModel.find(query).populate({
+    const orders = await OrderModel.find(query).sort({ createdAt: sortOrder }).populate({
         path: "items.item",
         match: {
             itemType: type.includes("Food") ? "food" :
@@ -734,9 +953,23 @@ const getOrderListByType = async (partnerId, type) => {
 };
 
 // Get all businesses for guests
-const getAllBusinesses = async () => {
-    // const condition = { isDelete: 1, status: 1 };
-    const businesses = await BusinessModel.find();
+const getAllBusinesses = async (businessType) => {
+    let condition = {};
+
+    // If businessType is provided, filter by the ObjectId of the BusinessType
+    if (businessType) {
+        const businessTypeDocument = await BusinessTypeModel.findOne({ name: businessType });
+        if (businessTypeDocument) {
+            // Filter by the ObjectId of the businessType
+            condition.businessType = businessTypeDocument._id;
+        } else {
+            // If no matching businessType is found, throw an error or return empty result
+            throw new Error("Invalid businessType provided.");
+        }
+    }
+
+    // Fetch businesses based on the condition
+    const businesses = await BusinessModel.find(condition);
     return businesses;
 };
 
@@ -752,5 +985,5 @@ module.exports = {
     findNearbyHotelsWithRooms,
     getDashboardCountsForPartner,
     getOrderListByType,
-    getAllBusinesses
+    getAllBusinesses,
 }

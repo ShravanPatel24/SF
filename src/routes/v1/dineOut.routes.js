@@ -12,5 +12,6 @@ router.get('/business/:businessId', userAuth(), validate(dineOutValidation.getDi
 router.get('/request/:requestId', userAuth(), dineOutController.getDineOutRequestById);
 router.get('/user/:requestId/details', userAuth(), dineOutController.getDineOutDetailsForUser);
 router.patch('/confirm/:requestId', userAuth(), validate(dineOutValidation.updateDineOutRequestStatus), dineOutController.updateDineOutRequestStatus);
+router.patch('/cancel/:requestId', userAuth(), dineOutController.cancelDineOutRequest);
 
 module.exports = router;

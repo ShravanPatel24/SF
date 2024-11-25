@@ -1023,6 +1023,34 @@ const getAboutUs = async (userId) => {
   return partner;
 };
 
+// Setting Screen
+/**
+ * Service to get privacy settings of a user
+ * @param {ObjectId} userId - ID of the user
+ * @returns {Object} - User privacy settings
+ */
+const getPrivacySettings = async (userId) => {
+  const user = await UserModel.findById(userId, 'isPublic privacySettings');
+  if (!user) {
+    throw new Error('User not found');
+  }
+  return user;
+};
+
+/**
+ * Service to update privacy settings of a user
+ * @param {ObjectId} userId - ID of the user
+ * @param {Object} updates - Privacy settings to update
+ * @returns {Object} - Updated user document
+ */
+const updatePrivacySettings = async (userId, updates) => {
+  const updatedUser = await UserModel.findByIdAndUpdate(userId, updates, { new: true });
+  if (!updatedUser) {
+    throw new Error('User not found');
+  }
+  return updatedUser;
+};
+
 module.exports = {
   adminResetPassword,
   createUser,
@@ -1047,5 +1075,7 @@ module.exports = {
   followUser,
   unfollowUser,
   addOrUpdateAboutUs,
-  getAboutUs
+  getAboutUs,
+  getPrivacySettings,
+  updatePrivacySettings
 };

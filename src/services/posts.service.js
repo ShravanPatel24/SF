@@ -1,4 +1,4 @@
-const { PostModel, PostCommentModel, PostLikeModel } = require('../models');
+const { PostModel, PostCommentModel, PostLikeModel, FollowModel } = require('../models');
 const { s3Service } = require('../services');
 const CONSTANTS = require('../config/constant');
 
@@ -43,36 +43,39 @@ const createPost = async (userId, caption, type, files) => {
 };
 
 // Fetch all posts
-const getAllPosts = async (page = 1, limit = 10, search = '') => {
+const getAllPosts = async (page = 1, limit = 10, search = '', currentUserId) => {
     const options = {
         page,
         limit,
         populate: [
-            { path: 'userId', select: 'name profilePhoto' },
+            { path: 'userId', select: 'name profilePhoto privacySettings isPublic' },
             { path: 'likeCount' },
-            { path: 'commentCount' }
+            { path: 'commentCount' },
         ],
         sort: { createdAt: -1 },
     };
+
     const query = search ? { caption: { $regex: search, $options: 'i' } } : {};
+
     const posts = await PostModel.paginate(query, options);
-    // Fetch comments and likes for each post
-    const postsWithDetails = await Promise.all(
+
+    // Apply privacy filtering
+    const filteredPosts = await Promise.all(
         posts.docs.map(async (post) => {
-            const comments = await PostCommentModel.find({ postId: post._id })
-                .populate('postedBy', 'name profilePhoto')
-                .exec();
-            const likes = await PostLikeModel.find({ postId: post._id })
-                .populate('userId', 'name profilePhoto')
-                .exec();
-            return {
-                ...post.toObject(),
-                comments,
-                likes,
-            };
+            const postOwner = post.userId;
+            if (postOwner.isPublic) return post; // Public profile
+
+            // Check privacy for current user
+            const privacy = postOwner.privacySettings.message; // Example: 'Friends', 'No One', 'All'
+            if (privacy === 'Friends') {
+                const isFollower = await FollowModel.exists({ follower: currentUserId, following: postOwner._id });
+                return isFollower ? post : null;
+            }
+            return null; // Default deny
         })
     );
-    return { ...posts, docs: postsWithDetails };
+
+    return { ...posts, docs: filteredPosts.filter(Boolean) };
 };
 
 // Fetch a post by ID
@@ -188,8 +191,28 @@ const deletePost = async (id) => {
 
 // Add a like
 const addLike = async (postId, userId) => {
+    const post = await PostModel.findById(postId).populate('userId', 'privacySettings isPublic');
+    if (!post) throw new Error('Post not found.');
+
+    const postOwner = post.userId;
+
+    // Check privacy settings
+    const privacy = postOwner.privacySettings.likes;
+
+    if (privacy === 'No One') {
+        throw new Error('You are not allowed to like this post.');
+    }
+
+    if (privacy === 'Friends') {
+        const isFriend = await FollowModel.exists({ follower: userId, following: postOwner._id });
+        if (!isFriend) {
+            throw new Error('You are not allowed to like this post.');
+        }
+    }
+
+    // Proceed with liking if allowed
     const existingLike = await PostLikeModel.findOne({ postId, userId });
-    if (existingLike) { throw new Error(CONSTANTS.ALREADY_LIKED_POST) }
+    if (existingLike) throw new Error('You have already liked this post.');
     const like = new PostLikeModel({ postId, userId });
     await like.save();
 };
@@ -203,6 +226,26 @@ const removeLike = async (postId, userId) => {
 
 // Add a comment
 const addComment = async (postId, text, userId) => {
+    const post = await PostModel.findById(postId).populate('userId', 'privacySettings isPublic');
+    if (!post) throw new Error('Post not found.');
+
+    const postOwner = post.userId;
+
+    // Check privacy settings
+    const privacy = postOwner.privacySettings.comments;
+
+    if (privacy === 'No One') {
+        throw new Error('You are not allowed to comment on this post.');
+    }
+
+    if (privacy === 'Friends') {
+        const isFriend = await FollowModel.exists({ follower: userId, following: postOwner._id });
+        if (!isFriend) {
+            throw new Error('You are not allowed to comment on this post.');
+        }
+    }
+
+    // Proceed with adding comment if allowed
     const comment = new PostCommentModel({ postId, text, postedBy: userId });
     await comment.save();
 };

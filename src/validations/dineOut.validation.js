@@ -9,11 +9,9 @@ const createDineOutRequest = {
         businessId: Joi.string().custom(objectId).required().messages({
             'any.required': 'Business ID is required.',
         }),
-        date: Joi.string().required().messages({
-            'string.empty': 'Date is required.',
-        }),
-        time: Joi.string().required().messages({
-            'string.empty': 'Time is required.',
+        dateTime: Joi.date().iso().required().messages({
+            'date.base': 'DateTime must be a valid ISO date.',
+            'any.required': 'DateTime is required.',
         }),
         guests: Joi.number().integer().min(1).required().messages({
             'number.base': 'Guests must be a number.',

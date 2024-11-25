@@ -128,21 +128,19 @@ const getCartByUser = async (userId) => {
 };
 
 // Remove an item from the cart
-const removeFromCart = async (userId, cartItemId) => {
+const removeFromCart = async (userId, itemId) => {
   const cart = await CartModel.findOne({ user: userId });
   if (!cart) throw new Error(CONSTANTS.CART_NOT_FOUND);
-
   if (cart.items.length === 0) {
     throw new Error(CONSTANTS.CART_EMPTY_MSG);
   }
   const itemIndex = cart.items.findIndex(
-    (cartItem) => cartItem._id.toString() === cartItemId
+    (cartItem) => cartItem.item.toString() === itemId
   );
   if (itemIndex === -1) throw new Error(CONSTANTS.ITEM_NOT_FOUND);
   const itemPrice = cart.items[itemIndex].price || 0;
   cart.totalPrice -= itemPrice;
   cart.items.splice(itemIndex, 1);
-
   await cart.save();
   return cart;
 };

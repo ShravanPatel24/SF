@@ -134,6 +134,8 @@ const getOrderById = catchAsync(async (req, res) => {
         totalPrice: order.totalPrice,
         subtotal: order.subtotal,
         tax: order.tax,
+        deliveryCharge: order.deliveryCharge, // Include delivery charge
+        commission: order.commission, // Include commission
         businessDetails: order.businessDetails,
         items: order.items, // Properly mapped items array
         deliveryPartner: order.deliveryPartner,
@@ -322,22 +324,6 @@ const rebookRoomOrder = catchAsync(async (req, res) => {
     });
 });
 
-// Download Invoice
-const generateInvoiceController = catchAsync(async (req, res) => {
-    const { orderId } = req.params;
-    const userId = req.user._id;
-
-    // Call the service to generate the PDF buffer
-    const pdfBuffer = await OrderService.generateInvoice(orderId, userId);
-
-    // Set headers for PDF response
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="invoice-${orderId}.pdf"`);
-
-    // Send the PDF buffer as the response
-    res.end(pdfBuffer);
-});
-
 // Track order status
 const trackOrder = catchAsync(async (req, res) => {
     const { orderId } = req.params;
@@ -348,6 +334,29 @@ const trackOrder = catchAsync(async (req, res) => {
     return res.status(200).json({
         statusCode: 200,
         data: order
+    });
+});
+
+// Reorder Function for Food and Product
+const reorderItems = catchAsync(async (req, res) => {
+    const { orderId } = req.params; // Original order ID
+    const { itemIds, quantities, newDeliveryAddress } = req.body; // Items to reorder
+    const userId = req.user._id; // Authenticated user
+
+    // Call the service function to reorder
+    const reorderedOrder = await OrderService.reorderItems(
+        userId,
+        orderId,
+        itemIds,
+        quantities,
+        newDeliveryAddress
+    );
+
+    // Return the reordered order details
+    return res.status(201).json({
+        statusCode: 201,
+        message: 'Items reordered successfully.',
+        order: reorderedOrder,
     });
 });
 
@@ -751,8 +760,8 @@ module.exports = {
     cancelOrder,
     getCompletedBookingsController,
     rebookRoomOrder,
-    generateInvoiceController,
     trackOrder,
+    reorderItems,
     getAllOrdersAdmin,
     getOrdersByUserIdAdmin,
     getOrdersByPartnerId,

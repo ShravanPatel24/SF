@@ -5,6 +5,7 @@ const { basicAuth, userAuth } = require('../../middlewares');
 const validate = require('../../middlewares/validate');
 const { userValidation } = require('../../validations');
 const { userController } = require('../../controllers');
+const { canAccessUser } = require('../../middlewares/privacyCheck');
 
 const router = express.Router();
 
@@ -21,6 +22,9 @@ router.post('/auth/verify-email-otp', basicAuth(), validate(userValidation.verif
 router.patch('/auth/:id/about-us', basicAuth(), validate(userValidation.updateAboutUs), userController.addOrUpdateAboutUs);
 router.get('/auth/:id/about-us', basicAuth(), validate(userValidation.getAboutUs), userController.getAboutUs);
 
+router.get('/settings/privacy', userAuth(), userController.getPrivacySettings);
+router.patch('/settings/privacy', userAuth(), userController.updatePrivacySettings);
+
 // Password routes
 router
     .route('/change-password')
@@ -35,7 +39,7 @@ router
         ]),
         validate(userValidation.updateUser),
         userController.updateById)
-    .get(userAuth('updateProfile'), userController.getById)
+    .get(userAuth('updateProfile'), canAccessUser, userController.getById)
     .delete(userAuth('deleteUser'), userController.deleteUser);
 router.delete('/:id/profile-image', userAuth(), userController.deleteProfileImage);
 
@@ -44,11 +48,11 @@ router.patch('/update-email', userController.updateUserEmail);
 router.patch('/update-phone', userController.updateUserPhone);
 
 // Follow and unfollow routes
-router.get('/lists', userAuth(), userController.getUserListsToFollow);
+router.get('/lists', userAuth(), canAccessUser, userController.getUserListsToFollow);
 router.post('/follow/:followingId', userAuth('followUser'), userController.followUser);
 router.post('/unfollow/:followingId', userAuth('unfollowUser'), userController.unfollowUser);
-router.get('/:userId/followers', userAuth(), userController.getFollowers);
-router.get('/:userId/following', userAuth(), userController.getFollowing);
+router.get('/:userId/followers', userAuth(), canAccessUser, userController.getFollowers);
+router.get('/:userId/following', userAuth(), canAccessUser, userController.getFollowing);
 
 // Follow Request Approval and Rejection Routes
 router.get('/follow-requests', userAuth(), userController.getFollowRequests);

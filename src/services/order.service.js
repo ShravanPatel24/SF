@@ -1,6 +1,7 @@
 const { OrderModel, DineOutModel } = require("../models");
 const CONSTANTS = require("../config/constant");
 const mongoose = require("mongoose");
+const moment = require("moment");
 
 // Create a new order
 const createOrder = async (userId, cart, paymentMethod, orderNote, deliveryAddress) => {
@@ -149,11 +150,17 @@ const getOrderById = async (orderId) => {
     .populate("user", "_id name email phone")
     .populate({
       path: "items.item",
-      populate: {
-        path: "business",
-        select: "businessName businessAddress",
-      },
-      select: "itemType roomName roomPrice roomDescription checkIn checkOut guest amenities images dishName productName business",
+      populate: [
+        {
+          path: "business",
+          select: "businessName businessAddress",
+        },
+        {
+          path: "variants.variantId",
+          select: "name size color price image",
+        },
+      ],
+      select: "itemType roomName roomPrice roomDescription checkIn checkOut guest amenities images dishName productName productDescription dishDescription business variant",
     });
 
   if (!order) throw new Error(CONSTANTS.ORDER_NOT_FOUND);
@@ -177,27 +184,47 @@ const getOrderById = async (orderId) => {
           amenities: item.item.amenities || [],
           checkIn: item.checkIn,
           checkOut: item.checkOut,
-          guests: item.item.guest || item.quantity, // Fallback to quantity
+          guests: item.item.guest || item.quantity,
           nights,
           roomPrice: item.item.roomPrice,
-          price: nights * (item.item.roomPrice || 0), // Total price calculation
+          price: nights * (item.item.roomPrice || 0),
           images: item.item.images || [],
         };
       }
 
-      // Handle 'food' or 'product' items
+      if (itemType === "food") {
+        return {
+          itemId: item.item._id,
+          itemType,
+          dishName: item.item.dishName,
+          dishDescription: item.item.dishDescription || null,
+          quantity: item.quantity,
+          price: item.price,
+          images: item.item.images || [],
+        };
+      }
+
+      // Handle product items
       return {
         itemId: item.item._id,
         itemType,
-        productName: item.item.productName || item.item.dishName,
+        productName: item.item.productName,
+        productDescription: item.item.productDescription,
         quantity: item.quantity,
         price: item.price,
-        selectedSize: item.selectedSize || null,
-        selectedColor: item.selectedColor || null,
         images: item.item.images || [],
+        variants: item.item.variants
+          .filter(variant => variant.variantId)
+          .map((variant) => ({
+            variantId: variant.variantId?._id,
+            name: variant.variantId?.name,
+            size: variant.variantId?.size,
+            color: variant.variantId?.color,
+            price: variant.productPrice,
+            image: variant.image || variant.variantId?.image || null,
+          })),
       };
     }
-
     // Handle missing item scenario
     return {
       itemId: null,
@@ -207,6 +234,7 @@ const getOrderById = async (orderId) => {
       price: 0,
       selectedSize: null,
       selectedColor: null,
+      variants: [],
       images: [],
     };
   });
@@ -214,6 +242,8 @@ const getOrderById = async (orderId) => {
   return {
     ...order.toObject(),
     items,
+    deliveryCharge: order.deliveryCharge || 0, // Add deliveryCharge
+    commission: order.commission || 0, // Add commission
     businessDetails: order.items
       .filter((item) => item.item && item.item.business)
       .map((item) => ({
@@ -246,10 +276,11 @@ const getPendingFoodRequests = async (partnerId, sortOrder = "desc") => {
     .sort(sort)
     .populate({
       path: "items.item",
-      select: "itemType dishPrice", // Include fields you need from Item model
+      select: "itemType dishName dishPrice dishDescription", // Include name and description
       match: { itemType: "food" },
     });
 
+  // Filter to ensure orders contain at least one valid item
   return orders.filter((order) => order.items.some((item) => item.item));
 };
 
@@ -262,7 +293,7 @@ const getPendingRoomRequests = async (partnerId, sortOrder = "desc") => {
     .sort(sort)
     .populate({
       path: "items.item",
-      select: "itemType roomPrice", // Include fields you need from Item model
+      select: "itemType roomName roomPrice roomDescription", // Include fields you need from Item model
       match: { itemType: "room" }, // Filter items by room type
     });
 
@@ -278,7 +309,7 @@ const getPendingProductRequests = async (partnerId, sortOrder = "desc") => {
     .sort(sort)
     .populate({
       path: "items.item",
-      select: "itemType productName productPrice",
+      select: "itemType productName productPrice productDescription",
     });
 
   return orders.filter((order) =>
@@ -562,103 +593,88 @@ const rebookRoomOrder = async (userId, orderId, itemId, newCheckIn, newCheckOut,
   };
 };
 
-// Download Invoice
-const generateInvoice = async (orderId, userId) => {
-  const PDFDocument = require('pdfkit');
-  const { OrderModel } = require('../models');
-
-  // Fetch the order details
-  const order = await OrderModel.findById(orderId).populate('items.item user partner business');
-  if (!order) throw new Error('Order not found.');
+// Reorder Function for Food and Product
+const reorderItems = async (userId, orderId, itemIds, quantities, newDeliveryAddress) => {
+  // Fetch the original order
+  const originalOrder = await OrderModel.findById(orderId).populate("items.item");
+  if (!originalOrder) {
+    throw new Error("Order not found.");
+  }
 
   // Ensure the order belongs to the user
-  if (order.user._id.toString() !== userId.toString()) {
-    throw new Error('Unauthorized access to this order.');
+  if (originalOrder.user.toString() !== userId.toString()) {
+    throw new Error("Unauthorized access to order.");
   }
 
-  // Check for valid order status
-  const validStatuses = ['completed', 'delivered'];
-  if (
-    (order.items.some(item => item.item.itemType === 'room') && order.orderStatus !== 'completed') ||
-    (order.items.some(item => item.item.itemType === 'product') && order.orderStatus !== 'delivered') ||
-    (order.items.some(item => item.item.itemType === 'food') && order.orderStatus !== 'delivered')
-  ) {
-    throw new Error('Invalid status for invoice generation.');
+  // Filter the items to be reordered
+  const itemsToReorder = originalOrder.items.filter(item =>
+    itemIds.includes(item.item._id.toString()) &&
+    (item.item.itemType === 'food' || item.item.itemType === 'product')
+  );
+
+  if (itemsToReorder.length === 0) {
+    throw new Error("No valid items found for reorder.");
   }
 
-  // Create a new PDF document
-  const doc = new PDFDocument({ margin: 50 });
-  const buffers = [];
-  doc.on('data', buffers.push.bind(buffers));
-  doc.on('end', () => { });
-
-  // Header
-  doc.fontSize(18).font('Helvetica-Bold').text('Invoice', { align: 'center' });
-  doc.moveDown();
-
-  // Order Details
-  doc.fontSize(12).font('Helvetica-Bold').text('Order Details:');
-  doc.font('Helvetica').text(`Order ID: ${order.orderId}`);
-  doc.text(`Order Number: ${order.orderNumber}`);
-  doc.text(`Order Date: ${order.createdAt.toISOString().split('T')[0]}`);
-  doc.text(`Payment Method: ${order.paymentMethod}`);
-  doc.text(`Order Status: ${order.orderStatus}`);
-  doc.moveDown();
-
-  // User Details
-  doc.fontSize(12).font('Helvetica-Bold').text('User Details:');
-  doc.font('Helvetica').text(`Name: ${order.user.name}`);
-  doc.text(`Email: ${order.user.email}`);
-  doc.text(`Phone: ${order.user.phone}`);
-  doc.moveDown();
-
-  // Items Details
-  doc.fontSize(12).font('Helvetica-Bold').text('Order Items:');
-  order.items.forEach((item, index) => {
-    const itemType = item.item.itemType;
-    const itemName =
-      itemType === 'room'
-        ? item.item.roomName
-        : itemType === 'product'
-          ? item.item.productName
-          : item.item.dishName;
-
-    doc.font('Helvetica').text(`${index + 1}. ${itemName}`);
-    if (itemType === 'room') {
-      doc.text(`  - Check-In: ${item.checkIn ? new Date(item.checkIn).toDateString() : 'N/A'}`);
-      doc.text(`  - Check-Out: ${item.checkOut ? new Date(item.checkOut).toDateString() : 'N/A'}`);
-      doc.text(`  - Guests: ${item.guestCount || 'N/A'}`);
-    }
-    doc.text(`  - Quantity: ${item.quantity}`);
-    doc.text(`  - Price: ${item.price || 'N/A'}`);
-    doc.moveDown();
+  // Map items for the new order
+  const reorderedItems = itemsToReorder.map(item => {
+    const quantity = quantities[item.item._id.toString()] || item.quantity; // Use new or original quantity
+    return {
+      item: item.item._id,
+      quantity,
+      selectedSize: item.selectedSize || null,
+      selectedColor: item.selectedColor || null,
+    };
   });
 
-  // Totals
-  doc.fontSize(12).font('Helvetica-Bold').text('Order Totals:');
-  doc.font('Helvetica').text(`Subtotal: ${order.subtotal}`);
-  doc.text(`Tax: ${order.tax}`);
-  doc.text(`Delivery Charge: ${order.deliveryCharge}`);
-  doc.text(`Total: ${order.totalPrice}`);
-  doc.moveDown();
+  // Calculate the total price for the reordered items
+  const totalPrice = reorderedItems.reduce((total, item) => {
+    const itemDetails = itemsToReorder.find(i => i.item._id.toString() === item.item.toString());
+    const price =
+      (itemDetails.item.variants?.find(
+        v => v.size === item.selectedSize && v.color === item.selectedColor
+      )?.productPrice || itemDetails.item.dishPrice || 0) * item.quantity;
+    return total + price;
+  }, 0);
 
-  // Footer
-  doc.fontSize(10).font('Helvetica-Bold').text('Thank you for your order!', { align: 'center' });
-  doc.font('Helvetica').text('Please retain this invoice for your records.', { align: 'center' });
+  // Include delivery charge if applicable
+  const deliveryCharge = originalOrder.deliveryCharge || 0;
 
-  // Finalize the PDF document
-  doc.end();
-
-  // Wait for the buffer to be populated
-  return new Promise((resolve, reject) => {
-    doc.on('end', () => {
-      resolve(Buffer.concat(buffers));
-    });
-
-    doc.on('error', (err) => {
-      reject(err);
-    });
+  // Create a new order for the reordered items
+  const customOrderId = Math.floor(Date.now() / 1000).toString();
+  const reorderedOrder = await OrderModel.create({
+    user: userId,
+    partner: originalOrder.partner,
+    business: originalOrder.business,
+    items: reorderedItems,
+    totalPrice: totalPrice + deliveryCharge,
+    subtotal: totalPrice,
+    tax: originalOrder.tax, // Reuse tax from the original order
+    commission: originalOrder.commission, // Reuse commission
+    deliveryCharge, // Include delivery charge
+    deliveryAddress: newDeliveryAddress || originalOrder.deliveryAddress, // Use new or original address
+    paymentMethod: originalOrder.paymentMethod,
+    orderStatus: "pending", // Start with 'pending' status for reordered items
+    orderId: customOrderId,
+    orderNumber: `#${customOrderId}`,
+    transactionHistory: [
+      {
+        type: "Reorder Created",
+        date: new Date(),
+        amount: totalPrice,
+        status: "Pending",
+      },
+    ],
   });
+
+  return {
+    _id: reorderedOrder._id,
+    orderId: reorderedOrder.orderId,
+    orderNumber: reorderedOrder.orderNumber,
+    totalPrice: reorderedOrder.totalPrice,
+    deliveryAddress: reorderedOrder.deliveryAddress,
+    orderStatus: reorderedOrder.orderStatus,
+  };
 };
 
 // Track order status
@@ -1351,7 +1367,8 @@ const getPartnerRefunds = async (
       $project: {
         refundId: "$refundDetails._id",
         transactionId: "$transactionHistory._id",
-        createdAt: "$refundDetails.requestedDate",
+        createdAt: "$refundDetails.requestedDate", // Request date for refund
+        refundDate: "$refundDetails.processedDate", // Refund date (added here)
         userName: "$userDetails.name",
         orderId: "$orderId",
         status: "$refundDetails.status",
@@ -1736,8 +1753,8 @@ module.exports = {
   getCompletedBookings,
   updateCompletedBookings,
   rebookRoomOrder,
-  generateInvoice,
   trackOrder,
+  reorderItems,
   queryOrder,
   getOrdersByUserIdAdmin,
   getOrdersByPartnerId,

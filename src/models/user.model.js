@@ -76,6 +76,12 @@ const userSchema = new mongoose.Schema(
       ],
       default: "English",
     },
+    isPublic: { type: Boolean, default: true }, // Account Visibility
+    privacySettings: {
+      message: { type: String, enum: ['Friends', 'No One', 'All'], default: 'All' },
+      comments: { type: String, enum: ['Friends', 'No One', 'All'], default: 'All' },
+      likes: { type: String, enum: ['Friends', 'No One', 'All'], default: 'All' }
+    },
     status: { type: Number, default: 1 }, //0 is Inactive, 1 is Active
     isDelete: { type: Number, default: 1 }, //0 is delete, 1 is Active
     lastLogin: {

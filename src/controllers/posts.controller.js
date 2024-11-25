@@ -120,12 +120,25 @@ const deletePost = catchAsync(async (req, res) => {
 const likePost = catchAsync(async (req, res) => {
     const { user } = req;
     const { postId } = req.params;
-    if (!user || !user._id) { return res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: CONSTANTS.NO_TOKEN }) }
+
+    if (!user || !user._id) {
+        return res.status(CONSTANTS.BAD_REQUEST).json({
+            statusCode: CONSTANTS.BAD_REQUEST,
+            message: CONSTANTS.NO_TOKEN,
+        });
+    }
+
     try {
         await PostsService.addLike(postId, user._id);
-        res.status(CONSTANTS.SUCCESSFUL).json({ statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.LIKE_SUCCESS });
+        res.status(CONSTANTS.SUCCESSFUL).json({
+            statusCode: CONSTANTS.SUCCESSFUL,
+            message: CONSTANTS.LIKE_SUCCESS,
+        });
     } catch (error) {
-        res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: error.message });
+        res.status(CONSTANTS.BAD_REQUEST).json({
+            statusCode: CONSTANTS.BAD_REQUEST,
+            message: error.message,
+        });
     }
 });
 

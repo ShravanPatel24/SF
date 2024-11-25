@@ -121,15 +121,15 @@ const getItemById = async (itemId) => {
     const taxRate = item.parentCategory ? item.parentCategory.tax : item.subCategory ? item.subCategory.tax : 0;
 
     // Map variants if the item is a product
-    const variants = item.itemType === 'product' 
+    const variants = item.itemType === 'product'
         ? item.variants.map(variant => ({
-              variantId: variant.variantId?._id,
-              variantName: variant.variantId?.variantName || null,
-              size: variant.variantId?.size || null,
-              color: variant.variantId?.color || null,
-              productPrice: variant.productPrice,
-              image: variant.image || null,
-          }))
+            variantId: variant.variantId?._id,
+            variantName: variant.variantId?.variantName || null,
+            size: variant.variantId?.size || null,
+            color: variant.variantId?.color || null,
+            productPrice: variant.productPrice,
+            image: variant.image || null,
+        }))
         : undefined;
 
     return {
@@ -243,38 +243,61 @@ const getRoomsByBusiness = async (businessId, page = 1, limit = 10, sortOrder = 
 const getFoodByBusiness = async (businessId, page = 1, limit = 10, sortOrder = 'desc') => {
     const skip = (page - 1) * limit;
 
-    // Check if the businessId is valid
-    const business = await BusinessModel.findById(businessId);
+    // Fetch business details
+    const business = await BusinessModel.findById(businessId).select(
+        'businessName businessDescription businessAddress mobile email'
+    );
     if (!business) {
         throw new Error('Invalid business ID');
     }
 
+    // Format the address
+    const address = business.businessAddress
+        ? `${business.businessAddress.street}, ${business.businessAddress.city}, ${business.businessAddress.state}, ${business.businessAddress.country}, ${business.businessAddress.postalCode}`
+        : 'No address available';
+
+    // Format the contact
+    // const contact = business.mobile && business.email
+    //     ? `Phone: ${business.mobile}, Email: ${business.email}`
+    //     : 'No contact available';
+
     // Determine sort order
     const sort = { createdAt: sortOrder === 'desc' ? -1 : 1 };
 
-    // Fetch food items with sorting and populating related fields
+    // Fetch food items
     const foods = await ItemModel.find({
         business: businessId,
-        itemType: 'food'
+        itemType: 'food',
     })
-        .populate('parentCategory', 'categoryName tax') // Populate parent category name and tax
-        .populate('subCategory', 'categoryName') // Populate subcategory name
-        .select('dishName dishDescription dishPrice foodDeliveryCharge available images createdAt') // Include required fields
-        .populate('business', 'businessName') // Populate business name
-        .populate('businessType', 'name') // Populate business type name
-        .sort(sort) // Apply sorting by creation time
+        .populate('parentCategory', 'categoryName')
+        .populate('subCategory', 'categoryName')
+        .select('dishName dishDescription dishPrice foodDeliveryCharge available images createdAt parentCategory subCategory')
+        .sort(sort)
         .skip(skip)
         .limit(limit)
         .exec();
 
     const totalDocs = await ItemModel.countDocuments({
         business: businessId,
-        itemType: 'food'
+        itemType: 'food',
     });
 
-    // Structure the response
-    return {
-        docs: foods.map(item => ({
+    // Group items by parent category and subcategory
+    const groupedData = foods.reduce((result, item) => {
+        const parentCategoryName = item.parentCategory?.categoryName || 'Uncategorized';
+        const subCategoryName = item.subCategory?.categoryName || 'Uncategorized';
+
+        if (!result[parentCategoryName]) {
+            result[parentCategoryName] = [];
+        }
+
+        let subCategory = result[parentCategoryName].find(sub => sub[subCategoryName]);
+        if (!subCategory) {
+            subCategory = { [subCategoryName]: [] };
+            result[parentCategoryName].push(subCategory);
+        }
+
+        subCategory[subCategoryName].push({
             _id: item._id,
             dishName: item.dishName,
             dishDescription: item.dishDescription,
@@ -282,10 +305,21 @@ const getFoodByBusiness = async (businessId, page = 1, limit = 10, sortOrder = '
             foodDeliveryCharge: item.foodDeliveryCharge,
             available: item.available,
             images: item.images,
-            businessName: item.business ? item.business.businessName : 'Unknown',
-            businessTypeName: item.businessType ? item.businessType.name : 'Unknown',
-            createdAt: item.createdAt // Include creation time
-        })),
+            createdAt: item.createdAt,
+        });
+
+        return result;
+    }, {});
+
+    // Return response
+    return {
+        businessDetails: {
+            name: business.businessName,
+            description: business.businessDescription || 'No description available',
+            address,
+            // contact,
+        },
+        categories: groupedData,
         totalDocs,
         limit,
         totalPages: Math.ceil(totalDocs / limit),
@@ -297,7 +331,6 @@ const getFoodByBusiness = async (businessId, page = 1, limit = 10, sortOrder = '
         nextPage: page * limit < totalDocs ? page + 1 : null,
     };
 };
-
 
 // Get all rooms by business ID
 const getProductByBusiness = async (businessId, page = 1, limit = 10, sortOrder = 'desc') => {

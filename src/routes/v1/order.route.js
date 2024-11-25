@@ -9,6 +9,9 @@ const { orderController } = require('../../controllers');
 // Rebook a room order
 router.post('/rebook/:orderId', userAuth(), orderController.rebookRoomOrder);
 
+// Reorder food or product items
+router.post('/reorder/:orderId', userAuth(), orderController.reorderItems);
+
 // Get transaction history for user or partner
 router.get('/transactions', userAuth(), orderController.getTransactionHistoryForUserAndPartner);
 
@@ -17,9 +20,6 @@ router.post('/create', userAuth(), validate(orderValidation.createOrderValidatio
 
 // Get all orders for the current user
 router.get('/', userAuth(), orderController.getUserOrders);
-
-// Download invoice for an order
-router.get('/:orderId/download-invoice', userAuth(), orderController.generateInvoiceController);
 
 // Route to fetch the list of completed bookings
 router.get("/completed-bookings", userAuth(), orderController.getCompletedBookingsController);

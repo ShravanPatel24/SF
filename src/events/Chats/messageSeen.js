@@ -1,4 +1,6 @@
-const handleMessageSeen = (socket, onlineUsers, rawData) => {
+const ChatMessage = require("../../models/Chats/message.model");
+
+const handleMessageSeen = async (socket, onlineUsers, rawData) => {
     let parsedData;
     try {
         parsedData = typeof rawData === "string" ? JSON.parse(rawData) : rawData;
@@ -17,11 +19,21 @@ const handleMessageSeen = (socket, onlineUsers, rawData) => {
 
     console.log(`Message ${messageId} seen by ${to}`);
 
-    const recipientSocket = onlineUsers.get(to);
-    if (recipientSocket) {
-        socket.to(recipientSocket).emit("message-seen", { messageId });
-    } else {
-        console.log(`Recipient ${to} is not online.`);
+    try {
+        const message = await ChatMessage.findByIdAndUpdate(
+            messageId,
+            { status: "seen" },
+            { new: true }
+        );
+
+        if (!message) {
+            console.log(`Message with ID ${messageId} not found.`);
+            return;
+        }
+
+        console.log(`Message ${messageId} status updated to seen.`);
+    } catch (error) {
+        console.error("Error updating message status:", error.message);
     }
 };
 

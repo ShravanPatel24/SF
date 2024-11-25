@@ -466,6 +466,55 @@ const getAboutUs = catchAsync(async (req, res) => {
   }
 });
 
+// Setting Screen
+const getPrivacySettings = catchAsync(async (req, res) => {
+  try {
+    const userId = req.user._id; // Extract userId from middleware
+    const user = await UserService.getPrivacySettings(userId);
+    res.status(200).json({
+      statusCode: 200,
+      message: 'Privacy settings retrieved successfully',
+      data: user,
+    });
+  } catch (error) {
+    res.status(404).json({ statusCode: 404, message: error.message });
+  }
+});
+
+const updatePrivacySettings = catchAsync(async (req, res) => {
+  try {
+    const userId = req.user._id; // Extract userId from middleware
+    const { isPublic, privacySettings } = req.body;
+
+    // Ensure at least one field is being updated
+    if (!req.body.hasOwnProperty('isPublic') && !privacySettings) {
+      return res.status(400).json({ statusCode: 400, message: 'Nothing to update' });
+    }
+
+    const updates = {};
+    if (req.body.hasOwnProperty('isPublic')) updates.isPublic = isPublic;
+    if (privacySettings) {
+      updates.privacySettings = { ...privacySettings };
+    }
+
+    const updatedUser = await UserModel.findByIdAndUpdate(userId, updates, { new: true });
+
+    if (!updatedUser) {
+      return res.status(404).json({ statusCode: 404, message: 'User not found' });
+    }
+
+    res.status(200).json({
+      statusCode: 200,
+      message: 'Privacy settings updated successfully',
+      data: updatedUser,
+    });
+  } catch (error) {
+    console.error("Update Privacy Settings Error: ", error); // Log the error
+    res.status(500).json({ statusCode: 500, message: "Server error", error });
+  }
+
+});
+
 module.exports = {
   verifyMobileOtpToken,
   resendOTP,
@@ -497,5 +546,7 @@ module.exports = {
   rejectFollowRequest,
   getFollowers,
   getFollowing,
-  getAboutUs
+  getAboutUs,
+  getPrivacySettings,
+  updatePrivacySettings
 };

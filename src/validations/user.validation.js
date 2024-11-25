@@ -100,7 +100,9 @@ const updateUser = {
         }),
         galleryImages: Joi.any().optional().messages({
             'any.required': 'Gallery images are required.'
-        })
+        }),
+        status: Joi.allow('').allow(null),
+        isDelete: Joi.number().allow('').allow(null),
     })
 };
 

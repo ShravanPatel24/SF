@@ -3,28 +3,59 @@ const CONSTANTS = require('../config/constant');
 const moment = require('moment');
 
 // Check Time Slot Availability
-const checkTimeSlotAvailability = async (businessId, date, time) => {
+const checkTimeSlotAvailability = async (businessId, dateTime) => {
     const business = await BusinessModel.findById(businessId);
-    if (!business || !business.dineInStatus) { throw new Error('Business not found or dine-in is not available') }
-    const operatingDetail = business.operatingDetails.find(detail => detail.date === date);
-    if (!operatingDetail) { throw new Error('The business is not operating on the selected date.') }
-    const requestedDateTime = moment(`${date}T${time}`, 'YYYY-MM-DDTHH:mm:ssZ');  // Requested time
-    const startTime = moment(operatingDetail.startTime).utc(); // Convert start time from DB to UTC
-    const endTime = moment(operatingDetail.endTime).utc();     // Convert end time from DB to UTC
-    if (requestedDateTime.isBefore(startTime) || requestedDateTime.isAfter(endTime)) { throw new Error('Selected time slot is not available.') }
+    if (!business || !business.dineInStatus) {
+        throw new Error('Business not found or dine-in is not available');
+    }
+
+    // Parse date and time from the incoming dateTime
+    const requestedDate = moment.utc(dateTime).format('YYYY-MM-DD');
+
+    // Find operating details for the requested date
+    const operatingDetail = business.operatingDetails.find(detail => detail.date === requestedDate);
+    if (!operatingDetail) {
+        throw new Error('The business is not operating on the selected date.');
+    }
+
+    // Check if the requested time is within operating hours
+    const isWithinOperatingHours = moment.utc(dateTime).isBetween(
+        moment.utc(operatingDetail.startTime),
+        moment.utc(operatingDetail.endTime),
+        null,
+        '[)'
+    );
+    if (!isWithinOperatingHours) {
+        throw new Error('Selected time slot is not within operating hours.');
+    }
+
+    // Check for exact conflicting time slots
+    const conflictingRequests = await DineOutModel.findOne({
+        business: businessId,
+        dateTime: dateTime, // Only check the specific time slot
+        status: { $in: ['Pending', 'Accepted'] },
+    });
+
+    if (conflictingRequests) {
+        throw new Error('The selected time slot is already booked.');
+    }
+
     return true;
 };
 
 // Create a dine-out request
 const createDineOutRequest = async (data) => {
     try {
-        const requestNumber = Math.floor(Date.now() / 1000).toString();
-        const newRequestData = { ...data, requestNumber, user: data.user };
-        const newRequest = new DineOutModel(newRequestData);
+        const requestNumber = Math.floor(Date.now() / 1000).toString(); // Generate a unique request number
+        const newRequest = new DineOutModel({
+            ...data,
+            requestNumber,
+        });
+
         await newRequest.save();
         return newRequest;
     } catch (error) {
-        throw new Error(CONSTANTS.INTERNAL_SERVER_ERROR_MSG + ': ' + error.message);
+        throw new Error('Error creating dine-out request: ' + error.message);
     }
 };
 

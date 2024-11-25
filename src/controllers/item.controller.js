@@ -83,7 +83,7 @@ const getFoodByBusiness = catchAsync(async (req, res) => {
     const { businessId } = req.params;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-    const sortOrder = req.query.sortOrder || 'desc'; // Sort order (default: descending)
+    const sortOrder = req.query.sortOrder || 'desc';
 
     try {
         const result = await ItemService.getFoodByBusiness(businessId, page, limit, sortOrder);
@@ -93,6 +93,7 @@ const getFoodByBusiness = catchAsync(async (req, res) => {
             message: 'Menu retrieved successfully.',
         });
     } catch (error) {
+        console.error('Error in getFoodByBusiness:', error);
         res.status(400).json({ statusCode: 400, message: error.message });
     }
 });

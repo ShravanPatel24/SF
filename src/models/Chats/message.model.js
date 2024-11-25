@@ -6,15 +6,22 @@ const chatMessageSchema = new Schema(
     sender: {
       type: Schema.Types.ObjectId,
       ref: "User",
+      required: true,
     },
     content: {
       type: String,
+      default: "", // Text message content
     },
     attachments: {
       type: [
         {
-          url: String,
-          localPath: String,
+          url: String, // Public URL of the attachment
+          localPath: String, // Local file path (optional for reference)
+          type: {
+            type: String,
+            enum: ["image", "video", "document", "audio"], // Attachment type
+            required: true,
+          },
         },
       ],
       default: [],
@@ -22,6 +29,7 @@ const chatMessageSchema = new Schema(
     chat: {
       type: Schema.Types.ObjectId,
       ref: "Chat",
+      required: true,
     },
     status: {
       type: String,
@@ -32,6 +40,4 @@ const chatMessageSchema = new Schema(
   { timestamps: true }
 );
 
-const Message = mongoose.model('Message', chatMessageSchema);
-
-module.exports = Message;
+module.exports = mongoose.model('ChatMessage', chatMessageSchema);

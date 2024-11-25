@@ -3,23 +3,41 @@ const pick = require("../utils/pick");
 const { BusinessService } = require("../services");
 const CONSTANTS = require("../config/constant");
 const { s3Service } = require('../services');
+const { BusinessTypeModel, BusinessModel } = require("../models");
+const mongoose = require("mongoose");
 
 const createBusinessForPartner = catchAsync(async (req, res) => {
     const partnerId = req.user._id;
     const { businessName, businessType, businessDescription, countryCode, mobile, email, businessAddress, openingDays,
         openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, dineInStatus, operatingDetails, tableManagement
     } = req.body;
+
     const bannerFiles = req.files.bannerImages || [];
     const galleryFiles = req.files.galleryImages || [];
+
+    // Upload images to S3
     const bannerImageUrls = await BusinessService.uploadBusinessImages(bannerFiles, "bannerImages");
     const galleryImageUrls = await BusinessService.uploadBusinessImages(galleryFiles, "galleryImages");
+
+    // Pass data directly to the service
     const result = await BusinessService.createBusinessForPartner(
         partnerId, businessName, businessType, businessDescription, countryCode, mobile, email, businessAddress, openingDays,
         openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImageUrls, galleryImageUrls,
         dineInStatus, operatingDetails, tableManagement
     );
-    if (result.statusCode !== 201) { return res.status(result.statusCode).json({ statusCode: result.statusCode, message: result.message }) }
-    res.status(result.statusCode).json({ statusCode: result.statusCode, message: CONSTANTS.CREATED, business: result.data });
+
+    if (result.statusCode !== 201) {
+        return res.status(result.statusCode).json({
+            statusCode: result.statusCode,
+            message: result.message
+        });
+    }
+
+    res.status(result.statusCode).json({
+        statusCode: result.statusCode,
+        message: CONSTANTS.CREATED,
+        business: result.data
+    });
 });
 
 const getBusinessById = catchAsync(async (req, res) => {
@@ -249,10 +267,10 @@ const getDashboardCounts = catchAsync(async (req, res) => {
 
 const getOrderListByType = catchAsync(async (req, res) => {
     const partnerId = req.user._id;
-    const { type } = req.query;
+    const { type, sort } = req.query;
 
     try {
-        const orders = await BusinessService.getOrderListByType(partnerId, type);
+        const orders = await BusinessService.getOrderListByType(partnerId, type, sort);
 
         res.status(CONSTANTS.SUCCESSFUL).json({
             statusCode: CONSTANTS.SUCCESSFUL,
@@ -263,7 +281,7 @@ const getOrderListByType = catchAsync(async (req, res) => {
         const errorMessage = error.message === "Invalid type for order list retrieval."
             ? "Invalid type provided. Please provide a valid order list type."
             : error.message;
-        
+
         res.status(CONSTANTS.BAD_REQUEST).json({
             statusCode: CONSTANTS.BAD_REQUEST,
             message: errorMessage
@@ -274,10 +292,48 @@ const getOrderListByType = catchAsync(async (req, res) => {
 // Get all businesses for guests
 const getAllBusinesses = catchAsync(async (req, res) => {
     try {
-        const businesses = await BusinessService.getAllBusinesses();
-        res.status(CONSTANTS.SUCCESSFUL).json({ statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.LIST, data: businesses, });
+        let { businessType, businessTypeId } = req.query;
+        let condition = {};
+
+        // If businessTypeId (ObjectId) is provided
+        if (businessTypeId) {
+            // Check if businessTypeId is a valid ObjectId
+            if (!mongoose.Types.ObjectId.isValid(businessTypeId)) {
+                return res.status(CONSTANTS.BAD_REQUEST).json({
+                    statusCode: CONSTANTS.BAD_REQUEST,
+                    message: "Invalid businessTypeId format.",
+                });
+            }
+            // Convert to ObjectId and add to condition
+            condition.businessType = new mongoose.Types.ObjectId(businessTypeId);
+        }
+
+        // If businessType (name) is provided
+        if (businessType) {
+            // Look up businessType by name to get the ObjectId
+            const businessTypeRecord = await BusinessTypeModel.findOne({ name: businessType });
+            if (businessTypeRecord) {
+                condition.businessType = businessTypeRecord._id;
+            } else {
+                return res.status(CONSTANTS.NOT_FOUND).json({
+                    statusCode: CONSTANTS.NOT_FOUND,
+                    message: `Business type "${businessType}" not found.`,
+                });
+            }
+        }
+
+        // Fetch businesses based on the condition (either businessTypeId or businessType name)
+        const businesses = await BusinessModel.find(condition);
+        res.status(CONSTANTS.SUCCESSFUL).json({
+            statusCode: CONSTANTS.SUCCESSFUL,
+            message: CONSTANTS.LIST,
+            data: businesses,
+        });
     } catch (error) {
-        res.status(CONSTANTS.BAD_REQUEST).json({ statusCode: CONSTANTS.BAD_REQUEST, message: error.message });
+        res.status(CONSTANTS.BAD_REQUEST).json({
+            statusCode: CONSTANTS.BAD_REQUEST,
+            message: error.message,
+        });
     }
 });
 
@@ -293,5 +349,5 @@ module.exports = {
     getHotelsNearUser,
     getDashboardCounts,
     getOrderListByType,
-    getAllBusinesses
+    getAllBusinesses,
 };
