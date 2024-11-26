@@ -456,275 +456,181 @@ const findNearbyHotelsWithRooms = async (latitude, longitude, radiusInKm, checkI
 // Get Partner Dashboard count
 const getDashboardCountsForPartner = async (partnerId) => {
     const partner = await UserModel.findById(partnerId);
-    if (!partner || !partner.businessType) {
-        throw new Error(CONSTANTS.PARTNER_NOT_FOUND_MSG);
-    }
+    if (!partner) throw new Error(CONSTANTS.PARTNER_NOT_FOUND_MSG);
 
-    const businessTypes = Array.isArray(partner.businessType) ? partner.businessType : [partner.businessType];
+    // Get today's start and end timestamps
     const todayStart = moment().utc().startOf('day').toDate();
     const todayEnd = moment().utc().endOf('day').toDate();
 
-    // Initialize counts based on partner's business types with earnings and payout set to 0 by default
+    // Step 1: Get distinct business types for the partner
+    const businessTypesFromBusinesses = await BusinessModel.distinct("businessType", {
+        partner: new mongoose.Types.ObjectId(partnerId),
+    });
+
+    const allBusinessTypes = [...new Set(businessTypesFromBusinesses.map(id => id.toString()))];
+
     const counts = {};
-    businessTypes.forEach(type => {
+    allBusinessTypes.forEach(type => {
         counts[type] = {
-            title: type,
+            title: "Unknown Type",
             orderCounts: [],
             dineOutCounts: [],
             availableTables: 0,
             bookedTables: 0,
             cancelledTables: 0,
-            earnings: { total: 0, payout: 0 }
+            earnings: { total: 0, payout: 0 },
         };
     });
 
-    // Fetch available table counts
+    // Step 2: Fetch available table counts
     const availableTableCounts = await BusinessModel.aggregate([
-        {
-            $match: { partner: partnerId }
-        },
-        {
-            $unwind: "$tableManagement"
-        },
-        {
-            $match: { "tableManagement.status": "available" }
-        },
-        {
-            $group: {
-                _id: "$businessType",
-                availableCount: { $sum: 1 }
-            }
-        }
+        { $match: { partner: new mongoose.Types.ObjectId(partnerId) } },
+        { $unwind: "$tableManagement" },
+        { $match: { "tableManagement.status": "available" } },
+        { $group: { _id: "$businessType", availableCount: { $sum: 1 } } },
     ]);
 
-    availableTableCounts.forEach(entry => {
-        const { _id: businessType, availableCount } = entry;
-        if (counts[businessType]) {
-            counts[businessType].availableTables = availableCount;
+    availableTableCounts.forEach(({ _id: businessType, availableCount }) => {
+        if (counts[businessType.toString()]) {
+            counts[businessType.toString()].availableTables = availableCount;
         }
     });
 
-    // Fetch booked table counts
+    // Step 3: Fetch booked table counts
     const bookedTableCounts = await BusinessModel.aggregate([
-        {
-            $match: { partner: partnerId }
-        },
-        {
-            $unwind: "$tableManagement"
-        },
-        {
-            $match: { "tableManagement.status": "booked" }
-        },
-        {
-            $group: {
-                _id: "$businessType",
-                bookedCount: { $sum: 1 }
-            }
-        }
+        { $match: { partner: new mongoose.Types.ObjectId(partnerId) } },
+        { $unwind: "$tableManagement" },
+        { $match: { "tableManagement.status": "booked" } },
+        { $group: { _id: "$businessType", bookedCount: { $sum: 1 } } },
     ]);
 
-    bookedTableCounts.forEach(entry => {
-        const { _id: businessType, bookedCount } = entry;
-        if (counts[businessType]) {
-            counts[businessType].bookedTables = bookedCount;
+    bookedTableCounts.forEach(({ _id: businessType, bookedCount }) => {
+        if (counts[businessType.toString()]) {
+            counts[businessType.toString()].bookedTables = bookedCount;
         }
     });
 
-    // Fetch cancelled table counts
+    // Step 4: Fetch canceled table counts
     const cancelledTableCounts = await BusinessModel.aggregate([
-        {
-            $match: { partner: partnerId }
-        },
-        {
-            $unwind: "$tableManagement"
-        },
-        {
-            $match: { "tableManagement.status": "cancelled" }
-        },
-        {
-            $group: {
-                _id: "$businessType",
-                cancelledCount: { $sum: 1 }
-            }
-        }
+        { $match: { partner: new mongoose.Types.ObjectId(partnerId) } },
+        { $unwind: "$tableManagement" },
+        { $match: { "tableManagement.status": "cancelled" } },
+        { $group: { _id: "$businessType", cancelledCount: { $sum: 1 } } },
     ]);
 
-    cancelledTableCounts.forEach(entry => {
-        const { _id: businessType, cancelledCount } = entry;
-        if (counts[businessType]) {
-            counts[businessType].cancelledTables = cancelledCount;
+    cancelledTableCounts.forEach(({ _id: businessType, cancelledCount }) => {
+        if (counts[businessType.toString()]) {
+            counts[businessType.toString()].cancelledTables = cancelledCount;
         }
     });
 
-    // Fetch order counts
+    // Step 5: Fetch dine-out counts
+    const dineOutCounts = await DineOutModel.aggregate([
+        {
+            $match: {
+                partner: new mongoose.Types.ObjectId(partnerId),
+                createdAt: { $gte: todayStart, $lte: todayEnd },
+            },
+        },
+        {
+            $lookup: {
+                from: "businesses",
+                localField: "business",
+                foreignField: "_id",
+                as: "businessDetails",
+            },
+        },
+        { $unwind: "$businessDetails" },
+        {
+            $group: {
+                _id: { status: "$status", businessType: "$businessDetails.businessType" },
+                count: { $sum: 1 },
+            },
+        },
+    ]);
+
+    dineOutCounts.forEach(({ _id, count }) => {
+        const { status, businessType } = _id;
+        const typeKey = businessType.toString();
+        if (!counts[typeKey]) return;
+
+        const statusMapping = {
+            pending: "Pending Requests",
+            accepted: "Accepted Requests",
+            rejected: "Rejected Requests",
+            cancelled: "Cancelled Requests",
+        };
+
+        const title = statusMapping[status.toLowerCase()] || status;
+        counts[typeKey].dineOutCounts.push({ title, count });
+    });
+
+    // Step 6: Fetch order counts and earnings
     const orderCounts = await OrderModel.aggregate([
         {
             $match: {
-                partner: partnerId,
-                createdAt: { $gte: todayStart, $lte: todayEnd }
-            }
+                partner: new mongoose.Types.ObjectId(partnerId),
+                createdAt: { $gte: todayStart, $lte: todayEnd },
+            },
         },
         { $unwind: "$items" },
         {
             $lookup: {
-                from: 'items',
-                localField: 'items.item',
-                foreignField: '_id',
-                as: 'itemDetails'
-            }
+                from: "items",
+                localField: "items.item",
+                foreignField: "_id",
+                as: "itemDetails",
+            },
         },
         { $unwind: "$itemDetails" },
         {
             $group: {
                 _id: {
                     status: "$orderStatus",
-                    itemType: "$itemDetails.itemType",
-                    businessType: "$itemDetails.businessType"
+                    businessType: "$itemDetails.businessType",
                 },
                 count: { $sum: 1 },
-                earnings: { $sum: "$totalPrice" }
-            }
-        }
+                earnings: { $sum: "$totalPrice" },
+            },
+        },
     ]);
 
-    orderCounts.forEach(entry => {
-        const { status, itemType, businessType } = entry._id;
-        const count = entry.count;
-        const earnings = entry.earnings || 0;
+    orderCounts.forEach(({ _id, count, earnings }) => {
+        const { status, businessType } = _id;
+        const typeKey = businessType.toString();
+        if (!counts[typeKey]) return;
 
-        if (!counts[businessType]) {
-            counts[businessType] = {
-                title: businessType,
-                orderCounts: [],
-                dineOutCounts: [],
-                availableTables: 0,
-                bookedTables: 0,
-                cancelledTables: 0,
-                earnings: { total: 0, payout: 0 }
-            };
-        }
+        const statusMapping = {
+            pending: "Pending Orders",
+            confirmed: "Confirmed Orders",
+            delivered: "Delivered Orders",
+            cancelled: "Cancelled Orders",
+        };
 
-        const countsForBusinessType = counts[businessType];
-
-        if (itemType === 'product') {
-            if (status === 'pending') countsForBusinessType.orderCounts.push({ title: 'current Product Orders', count });
-            if (status === 'confirmed') countsForBusinessType.orderCounts.push({ title: 'confirmed Product Orders', count });
-            if (status === 'accepted') countsForBusinessType.orderCounts.push({ title: 'accepted Product Orders', count });
-            if (status === 'rejected') countsForBusinessType.orderCounts.push({ title: 'rejected Product Orders', count });
-            if (status === 'delivered') countsForBusinessType.orderCounts.push({ title: 'delivered Product Orders', count });
-            if (status === 'cancelled') countsForBusinessType.orderCounts.push({ title: 'cancelled Product Orders', count });
-        } else if (itemType === 'food') {
-            if (status === 'pending') countsForBusinessType.orderCounts.push({ title: 'current Food Orders', count });
-            if (status === 'confirmed') countsForBusinessType.orderCounts.push({ title: 'confirmed Food Orders', count });
-            if (status === 'accepted') countsForBusinessType.orderCounts.push({ title: 'accepted Food Orders', count });
-            if (status === 'rejected') countsForBusinessType.orderCounts.push({ title: 'rejected Food Orders', count });
-            if (status === 'delivered') countsForBusinessType.orderCounts.push({ title: 'delivered Food Orders', count });
-            if (status === 'cancelled') countsForBusinessType.orderCounts.push({ title: 'cancelled Food Orders', count });
-        } else if (itemType === 'room') {
-            if (status === 'pending') countsForBusinessType.orderCounts.push({ title: 'current Room Bookings', count });
-            if (status === 'confirmed') countsForBusinessType.orderCounts.push({ title: 'confirmed Room Bookings', count });
-            if (status === 'accepted') countsForBusinessType.orderCounts.push({ title: 'accepted Room Bookings', count });
-            if (status === 'rejected') countsForBusinessType.orderCounts.push({ title: 'rejected Room Bookings', count });
-        }
-        countsForBusinessType.earnings.total += earnings;
+        const title = statusMapping[status.toLowerCase()] || status;
+        counts[typeKey].orderCounts.push({ title, count });
+        counts[typeKey].earnings.total += earnings || 0;
     });
 
-    // Fetch dine-out counts
-    const dineOutCounts = await DineOutModel.aggregate([
-        {
-            $match: {
-                partner: partnerId,
-                createdAt: { $gte: todayStart, $lte: todayEnd }
-            }
-        },
-        {
-            $lookup: {
-                from: 'businesses',  // Replace with the actual collection name for Business
-                localField: 'business',
-                foreignField: '_id',
-                as: 'businessDetails'
-            }
-        },
-        { $unwind: '$businessDetails' },
-        {
-            $group: {
-                _id: {
-                    status: "$status",
-                    businessType: "$businessDetails.businessType"
-                },
-                count: { $sum: 1 }
-            }
-        }
-    ]);
-
-    const statusMapping = {
-        pending: "booking Requests",
-        confirmed: "confirmed Requests",
-        accepted: "accepted Requests",
-        rejected: "rejected Requests",
-        completed: "completed Requests",
-        cancelled: "cancelled Requests"
-    };
-
-    dineOutCounts.forEach(entry => {
-        const { status, businessType } = entry._id;
-        const count = entry.count;
-
-        if (!counts[businessType]) {
-            counts[businessType] = {
-                title: businessType,
-                orderCounts: [],
-                dineOutCounts: [],
-                availableTables: 0,
-                bookedTables: 0,
-                cancelledTables: 0,
-                earnings: { total: 0, payout: 0 }
-            };
-        }
-
-        const mappedTitle = statusMapping[status.toLowerCase()] || status.toLowerCase();
-        counts[businessType].dineOutCounts.push({ title: mappedTitle, count });
-    });
-
-    // Retrieve names for business types
+    // Step 7: Map business type names
     const businessTypeNames = await BusinessTypeModel.find({
-        _id: { $in: Object.keys(counts) }
-    }).select('_id name');
+        _id: { $in: allBusinessTypes.map(id => new mongoose.Types.ObjectId(id)) },
+    }).select("_id name");
 
     businessTypeNames.forEach(({ _id, name }) => {
-        if (counts[_id]) {
-            counts[_id].title = name;
+        if (counts[_id.toString()]) {
+            counts[_id.toString()].title = name;
         }
     });
 
-    // Set default title for any remaining IDs without a name
+    // Step 8: Default title for unmatched types
     Object.keys(counts).forEach(key => {
-        if (typeof counts[key].title === 'object') {  // If the title is still an ObjectId
-            counts[key].title = "Business Type";
+        if (counts[key].title === "Unknown Type") {
+            counts[key].title = `Unknown Type (${key})`;
         }
     });
 
-    return Object.values(counts).map(businessTypeCounts => ({
-        title: businessTypeCounts.title,
-        availableTables: businessTypeCounts.availableTables,
-        bookedTables: businessTypeCounts.bookedTables,
-        cancelledTables: businessTypeCounts.cancelledTables,
-        orderCounts: businessTypeCounts.orderCounts.map(order => ({
-            ...order,
-            searchKey: order.title
-                .toLowerCase()
-                .replace(/\s(.)/g, match => match.toUpperCase())  // Capitalize each word except the first
-                .replace(/\s+/g, '')  // Remove spaces
-        })),
-        dineOutCounts: businessTypeCounts.dineOutCounts.map(dineOut => ({
-            ...dineOut,
-            searchKey: dineOut.title
-                .toLowerCase()
-                .replace(/\s(.)/g, match => match.toUpperCase())  // Capitalize each word except the first
-                .replace(/\s+/g, '')  // Remove spaces
-        })),
-        earnings: businessTypeCounts.earnings
-    }));
+    return Object.values(counts);
 };
 
 const getOrderListByType = async (partnerId, type, sort = "desc") => {
@@ -745,8 +651,6 @@ const getOrderListByType = async (partnerId, type, sort = "desc") => {
             query.orderStatus = "pending";
             break;
         case "confirmedFoodOrders":
-            query.orderStatus = "accepted";
-            break;
         case "acceptedFoodOrders":
             query.orderStatus = "accepted";
             break;
@@ -765,8 +669,6 @@ const getOrderListByType = async (partnerId, type, sort = "desc") => {
             query.orderStatus = "pending";
             break;
         case "confirmedRoomBookings":
-            query.orderStatus = "accepted";
-            break;
         case "acceptedRoomBookings":
             query.orderStatus = "accepted";
             break;
@@ -779,8 +681,6 @@ const getOrderListByType = async (partnerId, type, sort = "desc") => {
             query.orderStatus = "pending";
             break;
         case "confirmedProductOrders":
-            query.orderStatus = "accepted";
-            break;
         case "acceptedProductOrders":
             query.orderStatus = "accepted";
             break;
@@ -828,102 +728,63 @@ const getOrderListByType = async (partnerId, type, sort = "desc") => {
 
         // Available Tables
         case "availableTables":
-            const businessesWithAvailableTables = await BusinessModel.aggregate([
-                {
-                    $match: { partner: new ObjectId(partnerId) }
-                },
-                {
-                    $unwind: "$tableManagement"
-                },
-                {
-                    $match: { "tableManagement.status": "available" }
-                },
+            return await BusinessModel.aggregate([
+                { $match: { partner: new mongoose.Types.ObjectId(partnerId) } },
+                { $unwind: "$tableManagement" },
+                { $match: { "tableManagement.status": "available" } },
                 {
                     $group: {
                         _id: "$_id",
                         businessName: { $first: "$businessName" },
-                        availableTables: {
+                        tables: {
                             $push: {
                                 tableNumber: "$tableManagement.tableNumber",
                                 seatingCapacity: "$tableManagement.seatingCapacity",
-                                status: "$tableManagement.status"
-                            }
-                        }
-                    }
-                }
+                            },
+                        },
+                    },
+                },
             ]);
-
-            return businessesWithAvailableTables.map(business => ({
-                businessId: business._id,
-                businessName: business.businessName,
-                tables: business.availableTables
-            }));
 
         // Booked Tables
         case "bookedTables":
-            const businessesWithBookedTables = await BusinessModel.aggregate([
-                {
-                    $match: { partner: new ObjectId(partnerId) }
-                },
-                {
-                    $unwind: "$tableManagement"
-                },
-                {
-                    $match: { "tableManagement.status": "booked" }
-                },
+            return await BusinessModel.aggregate([
+                { $match: { partner: new mongoose.Types.ObjectId(partnerId) } },
+                { $unwind: "$tableManagement" },
+                { $match: { "tableManagement.status": "booked" } },
                 {
                     $group: {
                         _id: "$_id",
                         businessName: { $first: "$businessName" },
-                        bookedTables: {
+                        tables: {
                             $push: {
                                 tableNumber: "$tableManagement.tableNumber",
                                 seatingCapacity: "$tableManagement.seatingCapacity",
-                                status: "$tableManagement.status"
-                            }
-                        }
-                    }
-                }
+                            },
+                        },
+                    },
+                },
             ]);
-
-            return businessesWithBookedTables.map(business => ({
-                businessId: business._id,
-                businessName: business.businessName,
-                tables: business.bookedTables
-            }));
 
         // Cancelled Tables
         case "cancelledTables":
-            const businessesWithCancelledTables = await BusinessModel.aggregate([
-                {
-                    $match: { partner: new ObjectId(partnerId) }
-                },
-                {
-                    $unwind: "$tableManagement"
-                },
-                {
-                    $match: { "tableManagement.status": "cancelled" }
-                },
+            return await BusinessModel.aggregate([
+                { $match: { partner: new mongoose.Types.ObjectId(partnerId) } },
+                { $unwind: "$tableManagement" },
+                { $match: { "tableManagement.status": "cancelled" } },
                 {
                     $group: {
                         _id: "$_id",
                         businessName: { $first: "$businessName" },
-                        cancelledTables: {
+                        tables: {
                             $push: {
                                 tableNumber: "$tableManagement.tableNumber",
                                 seatingCapacity: "$tableManagement.seatingCapacity",
-                                status: "$tableManagement.status"
-                            }
-                        }
-                    }
-                }
+                            },
+                        },
+                    },
+                },
             ]);
-
-            return businessesWithCancelledTables.map(business => ({
-                businessId: business._id,
-                businessName: business.businessName,
-                tables: business.cancelledTables
-            }));
 
         default:
             throw new Error("Invalid type for order list retrieval.");
@@ -932,22 +793,36 @@ const getOrderListByType = async (partnerId, type, sort = "desc") => {
     // Determine sort order
     const sortOrder = sort === "asc" ? 1 : -1;
 
-    // Fetch Food, Hotel, and Product Orders using OrderModel with itemType matching
-    const orders = await OrderModel.find(query).sort({ createdAt: sortOrder }).populate({
-        path: "items.item",
-        match: {
-            itemType: type.includes("Food") ? "food" :
-                type.includes("Hotel") ? "room" :
-                    type.includes("DineOut") ? null : // No need to filter for DineOut
-                        "product"
-        },
-        select: "-__v" // Adjust fields as needed
-    }).exec();
+    // Fetch orders and populate items
+    const orders = await OrderModel.find(query)
+        .sort({ createdAt: sortOrder })
+        .populate({
+            path: "items.item",
+            select: "itemType roomName roomType", // Select only necessary fields
+        })
+        .lean() // Convert Mongoose documents to plain JavaScript objects
+        .exec();
 
-    // Filter to include only entries with populated items (for orders with items)
-    const filteredOrders = orders.filter(order =>
-        order.items.some(item => item.item) || type.includes("DineOut") || type.includes("Table")
-    );
+    // Determine the target item type based on the request type
+    let targetItemType = null;
+    if (type.includes("Room")) targetItemType = "room";
+    else if (type.includes("Food")) targetItemType = "food";
+    else if (type.includes("Product")) targetItemType = "product";
+
+    // Filter orders based on the populated item's itemType
+    const filteredOrders = orders.map(order => ({
+        ...order,
+        items: order.items
+            .filter(item => item.item && item.item.itemType === targetItemType)
+            .map(item => ({
+                id: item._id,
+                roomName: item.item.roomName || null,
+                itemType: item.item.itemType || null,
+                guestCount: item.quantity || 0,
+                checkIn: item.checkIn || null,
+                checkOut: item.checkOut || null,
+            })),
+    }));
 
     return filteredOrders;
 };
@@ -985,5 +860,5 @@ module.exports = {
     findNearbyHotelsWithRooms,
     getDashboardCountsForPartner,
     getOrderListByType,
-    getAllBusinesses,
+    getAllBusinesses
 }

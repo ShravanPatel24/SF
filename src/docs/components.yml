@@ -10131,10 +10131,10 @@ paths:
               - cancelledFoodOrders
 
               # Hotel-specific types
-              - currentHotelBookings
-              - confirmedHotelBookings
-              - acceptedHotelBookings
-              - rejectedHotelBookings
+              - currentRoomBookings
+              - confirmedRoomBookings
+              - acceptedRoomBookings
+              - rejectedRoomBookings
 
               # Product-specific types
               - currentProductOrders
@@ -10965,6 +10965,25 @@ paths:
                   $ref: "#/components/schemas/Business"
         "404":
           description: No businesses found matching the filter.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /business/guest/{businessId}:
+    get:
+      summary: Get Business Details By Id
+      tags:
+        - Guest User
+      parameters:
+        - name: businessId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: found
+        "404":
+          description: not found
         "401":
           $ref: "#/components/responses/Unauthorized"
 

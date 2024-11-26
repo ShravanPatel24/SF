@@ -8,6 +8,7 @@ const logger = require("./config/logger");
 // Import Chat event handlers
 const handleAddUser = require("./events/Chats/addUser");
 const handleSendMsg = require("./events/Chats/sendMsg");
+const handleGetChats = require("./events/Chats/getChats");
 const handleTyping = require("./events/Chats/typing");
 const handleStopTyping = require("./events/Chats/stopTyping");
 const handleMessageDelivered = require("./events/Chats/messageDelivered");
@@ -15,6 +16,7 @@ const handleMessageSeen = require("./events/Chats/messageSeen");
 const handleNotifyUser = require("./events/Chats/notifyUser");
 const handlePingPong = require("./events/Chats/pingPong");
 const handleDisconnect = require("./events/Chats/disconnectEvent");
+const onlineStatus = require("./events/Chats/onlineStatus");
 
 // Import Video/Audio calling event handlers
 const createOffer = require("./events/VideoAudioCalling/createOffer");
@@ -50,7 +52,7 @@ mongoose
         credentials: true,
       },
       transports: ["websocket", "polling"],
-    });    
+    });
 
     // Global online users map
     global.onlineUsers = new Map();
@@ -64,11 +66,14 @@ mongoose
       // Register Chat event handlers
       socket.on("add-user", (data) => handleAddUser(socket, global.onlineUsers, data));
       socket.on("send-msg", (data) => handleSendMsg(socket, global.onlineUsers, data));
+      socket.on("get-chats", (data) => handleGetChats(socket, data));
       socket.on("typing", (data) => handleTyping(socket, global.onlineUsers, data));
       socket.on("stop-typing", (data) => handleStopTyping(socket, global.onlineUsers, data));
       socket.on("message-delivered", (data) => handleMessageDelivered(socket, global.onlineUsers, data));
       socket.on("message-seen", (data) => handleMessageSeen(socket, global.onlineUsers, data));
       socket.on("notify-user", (data) => handleNotifyUser(socket, global.onlineUsers, data));
+
+      onlineStatus(socket, global.onlineUsers);
       handlePingPong(socket); // Ping-Pong is a listener, not an emitter
 
       // Register Video/Audio calling event handlers

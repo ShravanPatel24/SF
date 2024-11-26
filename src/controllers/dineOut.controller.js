@@ -272,25 +272,9 @@ const updateDineOutRequestStatus = catchAsync(async (req, res) => {
             });
         }
 
-        // Check if the status is already "Accepted"
-        if (dineOutRequest.status === 'Accepted' && status === 'Accepted') {
-            return res.status(CONSTANTS.BAD_REQUEST).json({
-                statusCode: CONSTANTS.BAD_REQUEST,
-                message: 'This dine-out request has already been accepted.',
-            });
-        }
-
-        // Check if the status is already "Accepted" and the new status is "Rejected"
-        if (dineOutRequest.status === 'Accepted' && status === 'Rejected') {
-            return res.status(CONSTANTS.BAD_REQUEST).json({
-                statusCode: CONSTANTS.BAD_REQUEST,
-                message: CONSTANTS.REJECT_AFTER_ACCEPTED,
-            });
-        }
-
         let bookingId = null;
         if (status === 'Accepted') {
-            bookingId = Math.floor(Date.now() / 1000).toString();
+            bookingId = Math.floor(Date.now() / 1000).toString(); // Generate a booking ID
         }
 
         const updatedRequest = await DineOutRequestService.updateDineOutRequestStatus(requestId, status, bookingId);
@@ -304,30 +288,41 @@ const updateDineOutRequestStatus = catchAsync(async (req, res) => {
                 });
             }
 
-            const reservationTime = dineOutRequest.dateTime;
-
-            // Update table status to "booked" in tableManagement array
-            const tableToUpdate = business.tableManagement.find(
-                table => table.tableNumber === dineOutRequest.tableNumber
+            // Find the first available table
+            const availableTable = business.tableManagement.find(
+                table => table.status === 'available'
             );
-            if (tableToUpdate) {
-                tableToUpdate.status = 'booked'; // Set status to booked
-                await business.save(); // Save the business with the updated table status
-            }
 
-            return res.status(CONSTANTS.SUCCESSFUL).json({
-                statusCode: CONSTANTS.SUCCESSFUL,
-                message: CONSTANTS.DINEOUT_REQUEST_ACCEPTED,
-                bookingId,
-                reservationTime,
-                businessDetails: {
-                    businessName: business.businessName,
-                    address: business.businessAddress,
-                    openingDays: business.openingDays,
-                    openingTime: business.openingTime,
-                    closingTime: business.closingTime,
-                },
-            });
+            if (availableTable) {
+                // Assign the table number to the dine-out request
+                dineOutRequest.tableNumber = availableTable.tableNumber;
+
+                // Save the updated dine-out request
+                await dineOutRequest.save();  // Save the updated dine-out request with the assigned table number
+
+                // Update the table status to "booked"
+                availableTable.status = 'booked';
+                await business.save();  // Save the updated table status
+
+                return res.status(CONSTANTS.SUCCESSFUL).json({
+                    statusCode: CONSTANTS.SUCCESSFUL,
+                    message: CONSTANTS.DINEOUT_REQUEST_ACCEPTED,
+                    bookingId,
+                    businessDetails: {
+                        businessName: business.businessName,
+                        address: business.businessAddress,
+                        openingDays: business.openingDays,
+                        openingTime: business.openingTime,
+                        closingTime: business.closingTime,
+                    },
+                    tableAssigned: availableTable.tableNumber, // Send back the assigned table number
+                });
+            } else {
+                return res.status(CONSTANTS.BAD_REQUEST).json({
+                    statusCode: CONSTANTS.BAD_REQUEST,
+                    message: "No available tables to book.",
+                });
+            }
         }
 
         if (status === 'Rejected') {
@@ -359,15 +354,15 @@ const cancelDineOutRequest = catchAsync(async (req, res) => {
             });
         }
 
-        // Check if the user owns this booking
-        if (dineOutRequest.user._id.toString() !== req.user._id.toString()) {
+        // Ensure that the user owns this booking
+        if (dineOutRequest.user._id.toString() !== req.user._id.toString() && dineOutRequest.partner._id.toString() !== req.user._id.toString()) {
             return res.status(CONSTANTS.UNAUTHORIZED).json({
                 statusCode: CONSTANTS.UNAUTHORIZED,
                 message: CONSTANTS.PERMISSION_DENIED,
             });
         }
 
-        // Only allow cancellation for "Pending" or "Accepted" requests
+        // Check if the request can be canceled (must be in Pending or Accepted status)
         if (!['Pending', 'Accepted'].includes(dineOutRequest.status)) {
             return res.status(CONSTANTS.BAD_REQUEST).json({
                 statusCode: CONSTANTS.BAD_REQUEST,
@@ -375,46 +370,34 @@ const cancelDineOutRequest = catchAsync(async (req, res) => {
             });
         }
 
-        // Update the status to "Cancelled"
-        const updatedRequest = await DineOutRequestService.updateDineOutRequestStatus(requestId, 'Cancelled');
+        // Update the dine-out request status to 'Cancelled'
+        await DineOutRequestService.updateDineOutRequestStatus(requestId, 'Cancelled');
 
-        // Beautified response
-        const response = {
+        // If a table was assigned, update its status to 'cancelled'
+        if (dineOutRequest.tableNumber) {
+            const business = await BusinessModel.findById(dineOutRequest.business);
+            if (!business) {
+                return res.status(CONSTANTS.NOT_FOUND).json({
+                    statusCode: CONSTANTS.NOT_FOUND,
+                    message: CONSTANTS.BUSINESS_NOT_FOUND,
+                });
+            }
+
+            // Find the table assigned to this request
+            const tableToUpdate = business.tableManagement.find(table => table.tableNumber === dineOutRequest.tableNumber);
+            if (tableToUpdate) {
+                // Update table status to 'cancelled'
+                tableToUpdate.status = 'cancelled';  // Mark it as cancelled
+                await business.save();  // Save the updated table status
+            }
+        }
+
+        // Return success message
+        res.status(CONSTANTS.SUCCESSFUL).json({
             statusCode: CONSTANTS.SUCCESSFUL,
             message: 'Dine-out request has been successfully cancelled.',
-            request: {
-                requestId: updatedRequest._id,
-                requestNumber: updatedRequest.requestNumber,
-                status: updatedRequest.status,
-                user: {
-                    userId: dineOutRequest.user._id,
-                    name: dineOutRequest.user.name,
-                    email: dineOutRequest.user.email,
-                    phone: dineOutRequest.user.phone,
-                },
-                partner: {
-                    partnerId: dineOutRequest.partner._id,
-                    name: dineOutRequest.partner.name,
-                },
-                business: {
-                    businessId: dineOutRequest.business._id,
-                    businessName: dineOutRequest.business.businessName,
-                    address: dineOutRequest.business.businessAddress,
-                    operatingDetails: dineOutRequest.business.operatingDetails || [],
-                },
-                dineOutDetails: {
-                    date: dineOutRequest.date,
-                    time: dineOutRequest.time,
-                    guests: dineOutRequest.guests,
-                    dinnerType: dineOutRequest.dinnerType,
-                },
-                bookingId: updatedRequest.bookingId || null,
-                createdAt: updatedRequest.createdAt,
-                updatedAt: updatedRequest.updatedAt,
-            },
-        };
-
-        return res.status(CONSTANTS.SUCCESSFUL).json(response);
+            requestId: dineOutRequest._id,
+        });
     } catch (error) {
         console.error('Error during cancellation:', error.message);
         return res.status(CONSTANTS.INTERNAL_SERVER_ERROR).json({

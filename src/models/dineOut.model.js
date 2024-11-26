@@ -10,9 +10,11 @@ const dineOutRequestSchema = new mongoose.Schema({
     status: { type: String, enum: ['Pending', 'Accepted', 'Rejected'], default: 'Pending' },
     bookingId: { type: String, default: null },
     requestNumber: { type: String, required: true },
+    tableNumber: { type: String, default: null },
 }, {
     timestamps: true
 });
 
 const DineOutRequest = mongoose.model('DineOutRequest', dineOutRequestSchema);
+
 module.exports = DineOutRequest;

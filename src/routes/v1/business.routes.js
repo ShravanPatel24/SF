@@ -11,6 +11,7 @@ const router = express.Router();
 // Existing routes
 router.get('/hotels/nearby', businessController.getHotelsNearUser);
 router.get('/guest', businessController.getAllBusinesses);
+router.get('/guest/:businessId', businessController.getBusinessByIdForGuest);
 router.get('/near', validate(businessValidation.getBusinessesNearUser), businessController.getBusinessesNearUser);
 
 // Partner's business routes

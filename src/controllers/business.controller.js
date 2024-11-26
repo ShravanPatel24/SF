@@ -337,6 +337,42 @@ const getAllBusinesses = catchAsync(async (req, res) => {
     }
 });
 
+const getBusinessByIdForGuest = catchAsync(async (req, res) => {
+    const { businessId } = req.params;
+
+    try {
+        // Validate businessId
+        if (!mongoose.Types.ObjectId.isValid(businessId)) {
+            return res.status(CONSTANTS.BAD_REQUEST).json({
+                statusCode: CONSTANTS.BAD_REQUEST,
+                message: "Invalid businessId format.",
+            });
+        }
+
+        // Fetch the business details
+        const business = await BusinessService.getBusinessById(businessId);
+
+        // If no business is found
+        if (!business) {
+            return res.status(CONSTANTS.NOT_FOUND).json({
+                statusCode: CONSTANTS.NOT_FOUND,
+                message: CONSTANTS.BUSINESS_NOT_FOUND,
+            });
+        }
+
+        res.status(CONSTANTS.SUCCESSFUL).json({
+            statusCode: CONSTANTS.SUCCESSFUL,
+            message: CONSTANTS.FETCHED,
+            data: business,
+        });
+    } catch (error) {
+        res.status(CONSTANTS.BAD_REQUEST).json({
+            statusCode: CONSTANTS.BAD_REQUEST,
+            message: error.message,
+        });
+    }
+});
+
 module.exports = {
     getBusinessesForPartner,
     updateBusiness,
@@ -350,4 +386,5 @@ module.exports = {
     getDashboardCounts,
     getOrderListByType,
     getAllBusinesses,
+    getBusinessByIdForGuest
 };
