@@ -143,7 +143,20 @@ const deleteItem = catchAsync(async (req, res) => {
 // Get all items (products, food, rooms) for guest users
 const getAllItems = catchAsync(async (req, res) => {
     try {
-        const items = await ItemService.getAllItems(); // Implement this in your service
+        const { itemType } = req.query;
+
+        // Validate itemType if provided
+        const validItemTypes = ['product', 'food', 'room'];
+        if (itemType && !validItemTypes.includes(itemType)) {
+            return res.status(400).json({
+                statusCode: 400,
+                message: `Invalid itemType. Valid values are: ${validItemTypes.join(', ')}.`,
+            });
+        }
+
+        // Call the service function with the itemType filter
+        const items = await ItemService.getAllItems(itemType);
+
         res.status(200).json({ statusCode: 200, data: items });
     } catch (error) {
         res.status(400).json({ statusCode: 400, message: error.message });

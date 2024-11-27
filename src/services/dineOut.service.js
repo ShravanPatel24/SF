@@ -73,19 +73,19 @@ const getDineOutRequestById = async (requestId) => {
     return request;
 };
 
-// Get all dine-out requests for a specific business
 const getDineOutRequestsForBusiness = async (businessId) => {
     try {
         const requests = await DineOutModel.find({ business: businessId })
-            .populate('user', 'name email')
-            .populate('partner', 'name')
-            .sort({ createdAt: -1 });
+            .populate('user', 'name email') // Populate user details
+            .populate('partner', 'name')   // Populate partner details
+            .populate('business', 'businessName businessAddress') // Populate business details
+            .sort({ createdAt: -1 })
+            .select('requestNumber status dateTime dinnerType guests'); // Select specific fields
         return requests;
     } catch (error) {
         throw new Error(CONSTANTS.INTERNAL_SERVER_ERROR_MSG + ': ' + error.message);
     }
 };
-
 // Update the dine-out request status (Accept or Reject)
 const updateDineOutRequestStatus = async (requestId, status, bookingId = null) => {
     try {

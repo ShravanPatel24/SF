@@ -52,5 +52,6 @@ router.delete(
     validate(businessTypeValidation.deleteById),
     businessTypeController.deleteById
 );
+router.get('/list/active', businessTypeController.getActiveBusinessTypes);
 
 module.exports = router;

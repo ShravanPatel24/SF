@@ -4,7 +4,7 @@ const { toJSON } = require("./plugins");
 const mongoosePaginate = require("mongoose-paginate-v2");
 
 const businessTypeSchema = new Schema({
-  name: { type: String, required: true },
+  name: { type: String, required: true, unique: true },
   isProduct: { type: Boolean, default: false },
   status: { type: Number, default: 1 }, //0 is Inactive, 1 is Active
   isDelete: { type: Number, default: 1 }, //0 is delete, 1 is Active
@@ -14,6 +14,9 @@ const businessTypeSchema = new Schema({
     timestamps: true,
   }
 );
+
+// Ensure case-insensitive uniqueness for the name field
+businessTypeSchema.index({ name: 1 }, { unique: true, collation: { locale: 'en', strength: 2 } });
 
 businessTypeSchema.set("toObject", { virtuals: true });
 businessTypeSchema.set("toJSON", { virtuals: true });

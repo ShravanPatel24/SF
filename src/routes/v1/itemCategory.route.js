@@ -4,6 +4,8 @@ const { adminAuth } = require('../../middlewares');
 
 const router = express.Router();
 
+router.get('/category/active', adminAuth(), ItemCategoryController.getActiveCategories);
+
 // Route to get the tax rate for a specific category
 router.get('/:categoryId/tax', adminAuth(), ItemCategoryController.getCategoryTax);
 
@@ -16,6 +18,9 @@ router.post('/create', adminAuth('create'), ItemCategoryController.createCategor
 // Route to get categories by type (product, food, room)
 router.get('/type/:categoryType', adminAuth(), ItemCategoryController.getCategoriesByType);
 
+// Route to get categories by business type
+router.get('/:businessTypeId', adminAuth(), ItemCategoryController.getCategoriesByBusinessType);
+
 // Route to get subcategories by parent category
 router.get('/subcategories/:parentCategoryId', adminAuth(), ItemCategoryController.getSubcategoriesByParent);
 
@@ -27,5 +32,6 @@ router.delete('/delete/:categoryId', adminAuth(), ItemCategoryController.deleteC
 
 // Route to get category details by ID
 router.get('/category/:categoryId', adminAuth(), ItemCategoryController.getCategoryById);
+
 
 module.exports = router;

@@ -1,6 +1,6 @@
 const { BusinessTypeModel } = require('../models');
-const { s3Service } = require('../services');
 const CONSTANT = require('../config/constant');
+const pluralize = require('pluralize');
 
 /**
  * Create a Record
@@ -8,10 +8,28 @@ const CONSTANT = require('../config/constant');
  * @returns {Promise<Record>}
  */
 const create = async (requestBody) => {
-    if (requestBody.name && await BusinessTypeModel.isFieldValueTaken('name', requestBody.name)) {
-        return { data: {}, code: CONSTANT.BAD_REQUEST, message: `Business Type ${requestBody.name} already exists.` };
+    // Normalize the name to singular form and lowercase for consistency
+    const normalizedName = pluralize.singular(requestBody.name.trim().toLowerCase());
+
+    // Check for existing business type with a normalized name
+    const existingBusinessType = await BusinessTypeModel.findOne({
+        name: { $regex: `^${normalizedName}$`, $options: 'i' }, // Case-insensitive match
+    });
+
+    if (existingBusinessType) {
+        return {
+            data: {},
+            code: CONSTANT.BAD_REQUEST,
+            message: `Business Type "${requestBody.name}" already exists (similar to "${existingBusinessType.name}").`,
+        };
     }
-    const data = await BusinessTypeModel.create(requestBody);
+
+    // Create the new business type
+    const data = await BusinessTypeModel.create({
+        ...requestBody,
+        name: normalizedName, // Store the normalized name
+    });
+
     return { data, code: CONSTANT.SUCCESSFUL, message: CONSTANT.CREATED };
 };
 
@@ -179,11 +197,23 @@ const getListWithoutPagination = async (options) => {
     return Industry;
 };
 
+const getActiveBusinessTypes = async () => {
+    const condition = {
+        $and: [
+            { isDelete: 1 }, // Not deleted
+            { status: 1 },   // Active
+        ],
+    };
+    const businessTypes = await BusinessTypeModel.find(condition).sort({ createdAt: -1 });
+    return businessTypes;
+};
+
 module.exports = {
     create,
     queries,
     getById,
     updateById,
     deleteById,
-    getListWithoutPagination
+    getListWithoutPagination,
+    getActiveBusinessTypes
 };

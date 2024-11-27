@@ -482,49 +482,27 @@ const getDashboardCountsForPartner = async (partnerId) => {
         };
     });
 
-    // Step 2: Fetch available table counts
-    const availableTableCounts = await BusinessModel.aggregate([
-        { $match: { partner: new mongoose.Types.ObjectId(partnerId) } },
-        { $unwind: "$tableManagement" },
-        { $match: { "tableManagement.status": "available" } },
-        { $group: { _id: "$businessType", availableCount: { $sum: 1 } } },
-    ]);
+    // Step 2: Fetch available, booked, and cancelled table counts
+    const tableStatuses = ["available", "booked", "cancelled"];
+    for (const status of tableStatuses) {
+        const tableCounts = await BusinessModel.aggregate([
+            { $match: { partner: new mongoose.Types.ObjectId(partnerId) } },
+            { $unwind: "$tableManagement" },
+            { $match: { "tableManagement.status": status } },
+            { $group: { _id: "$businessType", count: { $sum: 1 } } },
+        ]);
 
-    availableTableCounts.forEach(({ _id: businessType, availableCount }) => {
-        if (counts[businessType.toString()]) {
-            counts[businessType.toString()].availableTables = availableCount;
-        }
-    });
+        tableCounts.forEach(({ _id: businessType, count }) => {
+            const typeKey = businessType.toString();
+            if (!counts[typeKey]) return;
 
-    // Step 3: Fetch booked table counts
-    const bookedTableCounts = await BusinessModel.aggregate([
-        { $match: { partner: new mongoose.Types.ObjectId(partnerId) } },
-        { $unwind: "$tableManagement" },
-        { $match: { "tableManagement.status": "booked" } },
-        { $group: { _id: "$businessType", bookedCount: { $sum: 1 } } },
-    ]);
+            if (status === "available") counts[typeKey].availableTables = count;
+            else if (status === "booked") counts[typeKey].bookedTables = count;
+            else if (status === "cancelled") counts[typeKey].cancelledTables = count;
+        });
+    }
 
-    bookedTableCounts.forEach(({ _id: businessType, bookedCount }) => {
-        if (counts[businessType.toString()]) {
-            counts[businessType.toString()].bookedTables = bookedCount;
-        }
-    });
-
-    // Step 4: Fetch canceled table counts
-    const cancelledTableCounts = await BusinessModel.aggregate([
-        { $match: { partner: new mongoose.Types.ObjectId(partnerId) } },
-        { $unwind: "$tableManagement" },
-        { $match: { "tableManagement.status": "cancelled" } },
-        { $group: { _id: "$businessType", cancelledCount: { $sum: 1 } } },
-    ]);
-
-    cancelledTableCounts.forEach(({ _id: businessType, cancelledCount }) => {
-        if (counts[businessType.toString()]) {
-            counts[businessType.toString()].cancelledTables = cancelledCount;
-        }
-    });
-
-    // Step 5: Fetch dine-out counts
+    // Step 3: Fetch dine-out counts
     const dineOutCounts = await DineOutModel.aggregate([
         {
             $match: {
@@ -549,23 +527,25 @@ const getDashboardCountsForPartner = async (partnerId) => {
         },
     ]);
 
+    const dineOutSearchKeys = {
+        pending: "pendingDineOutRequests",
+        accepted: "acceptedDineOutRequests",
+        rejected: "rejectedDineOutRequests",
+        cancelled: "cancelledDineOutRequests",
+    };
+
     dineOutCounts.forEach(({ _id, count }) => {
         const { status, businessType } = _id;
         const typeKey = businessType.toString();
         if (!counts[typeKey]) return;
 
-        const statusMapping = {
-            pending: "Pending Requests",
-            accepted: "Accepted Requests",
-            rejected: "Rejected Requests",
-            cancelled: "Cancelled Requests",
-        };
-
-        const title = statusMapping[status.toLowerCase()] || status;
-        counts[typeKey].dineOutCounts.push({ title, count });
+        const searchKey = dineOutSearchKeys[status.toLowerCase()];
+        if (searchKey) {
+            counts[typeKey].dineOutCounts.push({ title: `${status} Requests`, count, searchKey });
+        }
     });
 
-    // Step 6: Fetch order counts and earnings
+    // Step 4: Fetch order counts and earnings
     const orderCounts = await OrderModel.aggregate([
         {
             $match: {
@@ -588,6 +568,7 @@ const getDashboardCountsForPartner = async (partnerId) => {
                 _id: {
                     status: "$orderStatus",
                     businessType: "$itemDetails.businessType",
+                    itemType: "$itemDetails.itemType",
                 },
                 count: { $sum: 1 },
                 earnings: { $sum: "$totalPrice" },
@@ -595,24 +576,41 @@ const getDashboardCountsForPartner = async (partnerId) => {
         },
     ]);
 
+    const orderSearchKeys = {
+        food: {
+            pending: "currentFoodOrders",
+            accepted: "acceptedFoodOrders",
+            rejected: "rejectedFoodOrders",
+            delivered: "deliveredFoodOrders",
+            cancelled: "cancelledFoodOrders",
+        },
+        room: {
+            pending: "currentRoomBookings",
+            accepted: "acceptedRoomBookings",
+            rejected: "rejectedRoomBookings",
+        },
+        product: {
+            pending: "currentProductOrders",
+            accepted: "acceptedProductOrders",
+            rejected: "rejectedProductOrders",
+            delivered: "deliveredProductOrders",
+            cancelled: "cancelledProductOrders",
+        },
+    };
+
     orderCounts.forEach(({ _id, count, earnings }) => {
-        const { status, businessType } = _id;
+        const { status, businessType, itemType } = _id;
         const typeKey = businessType.toString();
         if (!counts[typeKey]) return;
 
-        const statusMapping = {
-            pending: "Pending Orders",
-            confirmed: "Confirmed Orders",
-            delivered: "Delivered Orders",
-            cancelled: "Cancelled Orders",
-        };
-
-        const title = statusMapping[status.toLowerCase()] || status;
-        counts[typeKey].orderCounts.push({ title, count });
+        const searchKey = orderSearchKeys[itemType]?.[status.toLowerCase()];
+        if (searchKey) {
+            counts[typeKey].orderCounts.push({ title: `${status} Orders`, count, searchKey });
+        }
         counts[typeKey].earnings.total += earnings || 0;
     });
 
-    // Step 7: Map business type names
+    // Step 5: Map business type names
     const businessTypeNames = await BusinessTypeModel.find({
         _id: { $in: allBusinessTypes.map(id => new mongoose.Types.ObjectId(id)) },
     }).select("_id name");
@@ -620,13 +618,7 @@ const getDashboardCountsForPartner = async (partnerId) => {
     businessTypeNames.forEach(({ _id, name }) => {
         if (counts[_id.toString()]) {
             counts[_id.toString()].title = name;
-        }
-    });
-
-    // Step 8: Default title for unmatched types
-    Object.keys(counts).forEach(key => {
-        if (counts[key].title === "Unknown Type") {
-            counts[key].title = `Unknown Type (${key})`;
+            counts[_id.toString()].searchKey = name.toLowerCase().replace(/\s+/g, "");
         }
     });
 
@@ -793,40 +785,48 @@ const getOrderListByType = async (partnerId, type, sort = "desc") => {
     // Determine sort order
     const sortOrder = sort === "asc" ? 1 : -1;
 
-    // Fetch orders and populate items
+    // Fetch orders
     const orders = await OrderModel.find(query)
         .sort({ createdAt: sortOrder })
         .populate({
             path: "items.item",
-            select: "itemType roomName roomType", // Select only necessary fields
+            select: `
+            itemType 
+            dishName dishDescription dishPrice 
+            roomName roomDescription roomPrice roomCapacity amenities 
+            productName productDescription productFeatures productDeliveryCharge variants
+        `,
         })
-        .lean() // Convert Mongoose documents to plain JavaScript objects
+        .lean()
         .exec();
 
-    // Determine the target item type based on the request type
-    let targetItemType = null;
-    if (type.includes("Room")) targetItemType = "room";
-    else if (type.includes("Food")) targetItemType = "food";
-    else if (type.includes("Product")) targetItemType = "product";
-
-    // Filter orders based on the populated item's itemType
+    // Determine target item type
+    const targetItemType =
+        type.includes("Room") ? "room" :
+            type.includes("Food") ? "food" :
+                type.includes("Product") ? "product" : null;
+    // Filter orders based on item type
     const filteredOrders = orders.map(order => ({
         ...order,
         items: order.items
             .filter(item => item.item && item.item.itemType === targetItemType)
             .map(item => ({
                 id: item._id,
-                roomName: item.item.roomName || null,
-                itemType: item.item.itemType || null,
-                guestCount: item.quantity || 0,
-                checkIn: item.checkIn || null,
-                checkOut: item.checkOut || null,
+                name: item.item.dishName || item.item.roomName || item.item.productName || null,
+                description: item.item.dishDescription || item.item.roomDescription || item.item.productDescription || null,
+                type: item.item.itemType,
+                price: item.item.dishPrice || item.item.roomPrice || (item.item.variants?.[0]?.productPrice || null),
+                features: item.item.productFeatures || null,
+                deliveryCharge: item.item.foodDeliveryCharge || item.item.productDeliveryCharge || null,
+                quantity: item.quantity,
+                guestCount: item.item.itemType === 'room' ? item.quantity : undefined,
+                checkIn: item.item.itemType === 'room' ? item.checkIn : undefined,
+                checkOut: item.item.itemType === 'room' ? item.checkOut : undefined,
+                amenities: item.item.itemType === 'room' ? item.item.amenities : undefined,
             })),
     }));
-
     return filteredOrders;
 };
-
 // Get all businesses for guests
 const getAllBusinesses = async (businessType) => {
     let condition = {};
@@ -861,4 +861,4 @@ module.exports = {
     getDashboardCountsForPartner,
     getOrderListByType,
     getAllBusinesses
-}
+};

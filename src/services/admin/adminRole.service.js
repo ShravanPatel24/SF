@@ -10,8 +10,12 @@ const createRole = async (roleBody) => {
         const role = await AdminRoles.create(roleBody);
         return role;
     } catch (error) {
-        console.error("Error while creating role:", error)
-        throw new Error(CONSTANTS.ROLE_CREATION_FAILED);
+        if (error.code === 11000) {
+            // Handle duplicate key error
+            throw new Error(`Role "${roleBody.name}" already exists.`);
+        }
+        console.error("Error while creating role:", error);
+        throw new Error("Failed to create role.");
     }
 };
 
@@ -107,10 +111,15 @@ const deleteRoleById = async (roleId) => {
  */
 const queryRolesWithoutPagination = async (options) => {
     try {
-        const condition = { $and: [{ company: options.companyId, isDelete: 1 }] };
+        const condition = {
+            $and: [
+                { company: options.companyId, isDelete: 1 },
+                ...(options.status !== undefined ? [{ status: options.status }] : []),
+            ],
+        };
         if (options.searchBy) {
             condition.$and.push({
-                $or: [{ name: { $regex: `.*${options.searchBy}.*`, $options: 'si' } }]
+                $or: [{ name: { $regex: `.*${options.searchBy}.*`, $options: 'si' } }],
             });
         }
         const roles = await AdminRoles.find(condition);

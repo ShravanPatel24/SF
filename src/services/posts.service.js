@@ -59,17 +59,80 @@ const getAllPosts = async (page = 1, limit = 10, search = '', currentUserId) => 
 
     const posts = await PostModel.paginate(query, options);
 
-    // Apply privacy filtering
+    // Apply privacy filtering and populate likes and comments
     const filteredPosts = await Promise.all(
         posts.docs.map(async (post) => {
             const postOwner = post.userId;
-            if (postOwner.isPublic) return post; // Public profile
+            if (postOwner.isPublic) {
+                const comments = await PostCommentModel.find({ postId: post._id })
+                    .populate('postedBy', 'name profilePhoto')
+                    .exec();
+                const likes = await PostLikeModel.find({ postId: post._id })
+                    .populate('userId', 'name profilePhoto')
+                    .exec();
+
+                // Map _id to id and remove _id from the response
+                const cleanedPost = {
+                    ...post.toObject(),
+                    id: post._id,
+                    comments: comments.map((comment) => ({
+                        ...comment.toObject(),
+                        id: comment._id,
+                        postedBy: {
+                            ...comment.postedBy.toObject(),
+                            id: comment.postedBy._id,
+                        },
+                    })),
+                    likes: likes.map((like) => ({
+                        ...like.toObject(),
+                        id: like._id,
+                        userId: {
+                            ...like.userId.toObject(),
+                            id: like.userId._id,
+                        },
+                    })),
+                };
+
+                delete cleanedPost._id; // Remove _id
+                return cleanedPost;
+            }
 
             // Check privacy for current user
             const privacy = postOwner.privacySettings.message; // Example: 'Friends', 'No One', 'All'
             if (privacy === 'Friends') {
                 const isFollower = await FollowModel.exists({ follower: currentUserId, following: postOwner._id });
-                return isFollower ? post : null;
+                if (isFollower) {
+                    const comments = await PostCommentModel.find({ postId: post._id })
+                        .populate('postedBy', 'name profilePhoto')
+                        .exec();
+                    const likes = await PostLikeModel.find({ postId: post._id })
+                        .populate('userId', 'name profilePhoto')
+                        .exec();
+
+                    const cleanedPost = {
+                        ...post.toObject(),
+                        id: post._id,
+                        comments: comments.map((comment) => ({
+                            ...comment.toObject(),
+                            id: comment._id,
+                            postedBy: {
+                                ...comment.postedBy.toObject(),
+                                id: comment.postedBy._id,
+                            },
+                        })),
+                        likes: likes.map((like) => ({
+                            ...like.toObject(),
+                            id: like._id,
+                            userId: {
+                                ...like.userId.toObject(),
+                                id: like.userId._id,
+                            },
+                        })),
+                    };
+
+                    delete cleanedPost._id; // Remove _id
+                    return cleanedPost;
+                }
             }
             return null; // Default deny
         })
@@ -81,38 +144,82 @@ const getAllPosts = async (page = 1, limit = 10, search = '', currentUserId) => 
 // Fetch a post by ID
 const getPostById = async (id) => {
     const post = await PostModel.findById(id)
-        .populate('userId', 'name profilePhoto')
-        .populate('likeCount')
-        .populate('commentCount')
+        .populate('userId', 'name profilePhoto') // Populate user details
+        .populate('likeCount') // Ensure like count is populated
+        .populate('commentCount') // Ensure comment count is populated
         .exec();
-    if (!post) { throw new Error(CONSTANTS.NOT_FOUND) }
 
+    if (!post) {
+        throw new Error(CONSTANTS.NOT_FOUND);
+    }
+
+    // Fetch and populate comments
     const comments = await PostCommentModel.find({ postId: post._id })
         .populate('postedBy', 'name profilePhoto _id')
         .exec();
-    return {
-        ...post.toObject(),
-        comments,
-    };
+
+    // Fetch and populate likes
+    const likes = await PostLikeModel.find({ postId: post._id })
+        .populate('userId', 'name profilePhoto _id')
+        .exec();
+
+    const postObject = post.toObject();
+
+    // Remove duplicate `id` fields and control the structure
+    postObject.comments = comments.map((comment) => {
+        const commentObj = comment.toObject();
+        delete commentObj._id; // Optionally remove `_id`
+        return {
+            ...commentObj,
+            id: commentObj._id, // Map `_id` to `id`
+        };
+    });
+
+    postObject.likes = likes.map((like) => {
+        const likeObj = like.toObject();
+        delete likeObj._id; // Optionally remove `_id`
+        return {
+            ...likeObj,
+            id: likeObj._id, // Map `_id` to `id`
+        };
+    });
+
+    // Replace `_id` with `id` at the top level if needed
+    postObject.id = postObject._id;
+    delete postObject._id;
+
+    return postObject;
 };
 
 // Fetch posts by userId
-const getPostsByUserId = async (user, userId, page = 1, limit = 10, search = '') => {
-    if (user.type === 'partner') { throw new Error(CONSTANTS.PERMISSION_DENIED) }
+const getPostsByUser = async (user, page = 1, limit = 10, search = '') => {
+    // Check if user is a partner
+    if (user.type === 'partner') {
+        throw new Error(CONSTANTS.PERMISSION_DENIED);
+    }
+
     const options = {
         page,
         limit,
         populate: [
             { path: 'userId', select: 'name profilePhoto' },
             { path: 'likeCount' },
-            { path: 'commentCount' }
+            { path: 'commentCount' },
         ],
         sort: { createdAt: -1 },
     };
-    const query = { userId };
+
+    // Query for fetching posts by logged-in user
+    const query = { userId: user._id };
+
     // Add search condition if search query is provided
-    if (search && search.trim() !== '') { query.caption = { $regex: search, $options: 'i' }; }
+    if (search && search.trim() !== '') {
+        query.caption = { $regex: search, $options: 'i' };
+    }
+
     const posts = await PostModel.paginate(query, options);
+
+    // Fetch detailed comments and likes for each post
     const postsWithDetails = await Promise.all(
         posts.docs.map(async (post) => {
             const comments = await PostCommentModel.find({ postId: post._id })
@@ -121,13 +228,28 @@ const getPostsByUserId = async (user, userId, page = 1, limit = 10, search = '')
             const likes = await PostLikeModel.find({ postId: post._id })
                 .populate('userId', 'name profilePhoto')
                 .exec();
-            return {
-                ...post.toObject(),
-                comments,
-                likes,
-            };
+
+            // Format the post to remove `_id` or `id` duplication
+            const postObj = post.toObject();
+            postObj.comments = comments.map((comment) => {
+                const commentObj = comment.toObject();
+                commentObj.id = commentObj._id; // Map `_id` to `id`
+                delete commentObj._id; // Remove `_id`
+                return commentObj;
+            });
+            postObj.likes = likes.map((like) => {
+                const likeObj = like.toObject();
+                likeObj.id = likeObj._id; // Map `_id` to `id`
+                delete likeObj._id; // Remove `_id`
+                return likeObj;
+            });
+            postObj.id = postObj._id; // Map `_id` to `id`
+            delete postObj._id; // Remove `_id`
+
+            return postObj;
         })
     );
+
     return { ...posts, docs: postsWithDetails };
 };
 
@@ -281,30 +403,62 @@ const getSavedPosts = async (userId, page = 1, limit = 10) => {
         page,
         limit,
         populate: [
-            { path: 'userId', select: 'name profilePhoto' }
+            { path: 'userId', select: 'name profilePhoto' },
         ],
-        sort: { createdAt: -1 }
+        sort: { createdAt: -1 },
     };
 
+    // Fetch saved posts
     const savedPosts = await PostModel.paginate({ savedBy: userId }, options);
 
-    // Transform savedPosts to include savedBy as an array of IDs
-    const savedPostsWithIdsOnly = savedPosts.docs.map(post => {
-        const savedByIds = post.savedBy.map(savedUser => savedUser._id.toString()); // Extract only IDs
-        return {
-            ...post.toObject(),
-            savedBy: savedByIds
-        };
-    });
+    // Fetch detailed likes and comments for each saved post
+    const postsWithDetails = await Promise.all(
+        savedPosts.docs.map(async (post) => {
+            // Fetch comments
+            const comments = await PostCommentModel.find({ postId: post._id })
+                .populate('postedBy', 'name profilePhoto')
+                .exec();
 
-    return { ...savedPosts, docs: savedPostsWithIdsOnly };
+            // Fetch likes
+            const likes = await PostLikeModel.find({ postId: post._id })
+                .populate('userId', 'name profilePhoto')
+                .exec();
+
+            // Format the post to include likes and comments
+            const postObj = post.toObject();
+
+            postObj.comments = comments.map((comment) => {
+                const commentObj = comment.toObject();
+                return {
+                    ...commentObj,
+                    id: commentObj._id, // Map `_id` to `id`
+                };
+            });
+
+            postObj.likes = likes.map((like) => {
+                const likeObj = like.toObject();
+                return {
+                    ...likeObj,
+                    id: likeObj._id, // Map `_id` to `id`
+                };
+            });
+
+            postObj.id = postObj._id; // Map `_id` to `id`
+            delete postObj._id; // Remove `_id`
+
+            return postObj;
+        })
+    );
+
+    // Return the modified response
+    return { ...savedPosts, docs: postsWithDetails };
 };
 
 module.exports = {
     createPost,
     getAllPosts,
     getPostById,
-    getPostsByUserId,
+    getPostsByUser,
     updatePost,
     deletePost,
     addLike,

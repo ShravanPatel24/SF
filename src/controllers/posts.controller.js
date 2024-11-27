@@ -53,18 +53,21 @@ const getPostById = catchAsync(async (req, res) => {
     res.status(CONSTANTS.SUCCESSFUL).json({
         statusCode: CONSTANTS.SUCCESSFUL,
         message: CONSTANTS.DETAILS,
-        data: post
+        data: post,
     });
 });
 
 // Get posts by userId
-const getPostsByUserId = catchAsync(async (req, res) => {
+const getPostsByUser = catchAsync(async (req, res) => {
     const { user } = req;
-    const { userId } = req.params;
     const { page = 1, limit = 10, search = '' } = req.query;
-    if (!user || !user._id) { return res.status(CONSTANTS.BAD_REQUEST).json({ message: CONSTANTS.NO_TOKEN }) }
+
+    if (!user || !user._id) {
+        return res.status(CONSTANTS.BAD_REQUEST).json({ message: CONSTANTS.NO_TOKEN });
+    }
+
     try {
-        const posts = await PostsService.getPostsByUserId(user, userId, Number(page), Number(limit), search);
+        const posts = await PostsService.getPostsByUser(user, Number(page), Number(limit), search);
 
         res.status(CONSTANTS.SUCCESSFUL).json({
             data: {
@@ -80,7 +83,7 @@ const getPostsByUserId = catchAsync(async (req, res) => {
                 nextPage: posts.nextPage,
             },
             statusCode: CONSTANTS.SUCCESSFUL,
-            message: CONSTANTS.LIST
+            message: CONSTANTS.LIST,
         });
     } catch (error) {
         if (error.message === CONSTANTS.PERMISSION_DENIED) {
@@ -229,7 +232,7 @@ module.exports = {
     createPost,
     getAllPosts,
     getPostById,
-    getPostsByUserId,
+    getPostsByUser,
     updatePost,
     deletePost,
     likePost,

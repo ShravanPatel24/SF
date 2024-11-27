@@ -51,10 +51,18 @@ const deleteRole = {
     }),
 };
 
+const getActiveRoles = {
+    query: Joi.object().keys({
+        companyId: Joi.string().required(),
+        searchBy: Joi.string().optional(),
+    }),
+};
+
 module.exports = {
     createRole,
     getRoles,
     getRole,
     updateRole,
     deleteRole,
+    getActiveRoles
 };

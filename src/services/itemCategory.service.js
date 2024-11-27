@@ -1,18 +1,84 @@
 const mongoose = require('mongoose');
-const { ItemCategoryModel } = require('../models');
+const { ItemCategoryModel, BusinessTypeModel } = require('../models');
 const CONSTANTS = require("../config/constant");
+const pluralize = require('pluralize');
 
 // Create a new category
-const createCategory = async ({ categoryName, categoryType, parentCategory, tax, inheritParentTax }) => {
-    const category = new ItemCategoryModel({
-        categoryName,
-        categoryType,
-        parentCategory: parentCategory || null,
-        tax: parentCategory ? null : tax, // Only set tax if not inheriting from parent
-        inheritParentTax: inheritParentTax !== undefined ? inheritParentTax : !!parentCategory // Default to true if parentCategory exists
-    });
-    await category.save();
-    return category;
+const createCategory = async ({ categoryName, categoryType, parentCategory, tax, inheritParentTax, businessType }) => {
+    try {
+        // Validate the provided businessType ID
+        if (!parentCategory && (!businessType || !mongoose.Types.ObjectId.isValid(businessType))) {
+            throw new Error("Valid business type ID is required for parent categories.");
+        }
+
+        let inheritedBusinessType = null;
+
+        // If this is a subcategory, validate the parentCategory and inherit the businessType
+        if (parentCategory) {
+            const parent = await ItemCategoryModel.findById(parentCategory);
+            if (!parent) {
+                throw new Error("Parent category not found.");
+            }
+            inheritedBusinessType = parent.businessType;
+
+            // Ensure subcategories don't have their own businessType directly
+            if (businessType && businessType !== inheritedBusinessType.toString()) {
+                throw new Error("Subcategories must inherit the business type from their parent.");
+            }
+        }
+
+        // Validate the businessType for parent categories
+        if (!parentCategory) {
+            const existingBusinessType = await BusinessTypeModel.findById(businessType);
+            if (!existingBusinessType) {
+                throw new Error("Business type not found.");
+            }
+        }
+
+        // Normalize the category name
+        const normalizedCategoryName = categoryName.trim().toLowerCase();
+        const singularName = pluralize.singular(normalizedCategoryName);
+        const pluralName = pluralize.plural(normalizedCategoryName);
+
+        // Check for duplicates within the same business type and parent category
+        const existingCategory = await ItemCategoryModel.findOne({
+            $or: [
+                { categoryName: { $regex: `^${singularName}$`, $options: 'i' } },
+                { categoryName: { $regex: `^${pluralName}$`, $options: 'i' } },
+            ],
+            businessType: inheritedBusinessType || businessType,
+            parentCategory: parentCategory || null,
+        });
+
+        if (existingCategory) {
+            throw new Error(
+                `Category "${categoryName}" already exists in the selected scope.`
+            );
+        }
+
+        // Create the new category
+        const category = new ItemCategoryModel({
+            categoryName,
+            categoryType,
+            parentCategory: parentCategory || null,
+            tax: parentCategory ? null : tax,
+            inheritParentTax: inheritParentTax !== undefined ? inheritParentTax : !!parentCategory,
+            businessType: inheritedBusinessType || businessType,
+        });
+
+        await category.save();
+        return category;
+
+    } catch (error) {
+        // Handle MongoDB duplicate key errors
+        if (error.code === 11000 && error.keyPattern?.categoryName) {
+            throw new Error(
+                `A category with the name "${categoryName}" already exists.`
+            );
+        }
+        // Rethrow any other errors
+        throw error;
+    }
 };
 
 // Get the applicable tax rate for a category
@@ -49,6 +115,18 @@ const getCategoriesByType = async (categoryType) => {
     }));
 
     return categoriesWithSubcategories;
+};
+
+const getCategoriesByBusinessType = async (businessTypeId) => {
+    if (!mongoose.Types.ObjectId.isValid(businessTypeId)) {
+        throw new Error("Invalid business type ID.");
+    }
+
+    return await ItemCategoryModel.find({
+        businessType: businessTypeId,
+        parentCategory: null, // Only fetch parent categories
+        isDelete: 1,
+    });
 };
 
 // Get all categories with optional filters, pagination, and sorting
@@ -129,13 +207,28 @@ const deleteCategory = async (categoryId) => {
     return deletedCategory;
 };
 
+const getActiveCategories = async () => {
+    const query = {
+        status: 1, // Only active categories
+        isDelete: 1, // Not deleted
+    };
+
+    const activeCategories = await ItemCategoryModel.find(query)
+        .sort({ categoryName: 1 }) // Sort by category name
+        .populate('parentCategory', 'categoryName'); // Optional: Populate parentCategory
+
+    return activeCategories;
+};
+
 module.exports = {
     createCategory,
     getCategoryTax,
     getCategoriesByType,
+    getCategoriesByBusinessType,
     getCategoryById,
     getSubcategoriesByParent,
     getAllCategories,
     updateCategory,
-    deleteCategory
+    deleteCategory,
+    getActiveCategories
 };

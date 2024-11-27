@@ -9,6 +9,7 @@ const router = express.Router();
 router.route('/create').post(adminAuth('createRole'), validate(adminRoleValidation.createRole), adminRoleController.createRole);
 router.route('/list').get(adminAuth('getRoles'), validate(adminRoleValidation.getRoles), adminRoleController.getRoles);
 router.route('/list/dropdown').get(adminAuth('dropdown'), adminRoleController.getRolesWithoutPagination);
+router.route('/list/active').get(adminAuth('getRoles'), adminRoleController.getActiveRoles);
 router
     .route('/:roleId')
     .get(adminAuth('getRole'), validate(adminRoleValidation.getRole), adminRoleController.getRole)

@@ -51,22 +51,13 @@ const getPost = {
 };
 
 // Validation for getting a single post by User ID
-const getPostsByUserId = {
-    params: Joi.object().keys({
-        userId: Joi.string().custom(objectId).required().messages({
-            'string.empty': 'User ID is required.',
-            'any.required': 'User ID is required.',
-        }),
-    }),
+const getPostsByUser = Joi.object({
     query: Joi.object().keys({
-        sortBy: Joi.string().valid('createdAt', 'likes', 'comments').optional(),
-        limit: Joi.number().integer().optional(),
-        page: Joi.number().integer().optional(),
-        search: Joi.string().min(3).optional().messages({
-            'string.min': 'Search query must be at least 3 characters long.'
-        }),
+        page: Joi.number().integer().min(1).default(1),
+        limit: Joi.number().integer().min(1).default(10),
+        search: Joi.string().allow('').optional(),
     }),
-};
+});
 
 // Validation for updating a post
 const updatePost = {
@@ -100,7 +91,7 @@ module.exports = {
     createPost,
     getPosts,
     getPost,
-    getPostsByUserId,
+    getPostsByUser,
     updatePost,
     deletePost,
 };

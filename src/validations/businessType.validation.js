@@ -30,17 +30,17 @@ const getById = {
 
 const update = {
   params: Joi.object().keys({
-    id: Joi.required().custom(objectId),
+    id: Joi.string().required().custom(objectId),
   }),
   body: Joi.object()
     .keys({
-      name: Joi.string().required(),
-      isProduct: Joi.allow('').allow(null),
-      status: Joi.allow('').allow(null),
-      isDelete: Joi.allow('').allow(null),
-      createdAt: Joi.allow('').allow(null),
-      updatedAt: Joi.allow('').allow(null),
-      id: Joi.string(),
+      name: Joi.string().optional(),
+      isProduct: Joi.boolean().optional(),
+      status: Joi.string().optional(),
+      isDelete: Joi.boolean().optional(),
+      createdAt: Joi.date().optional(),
+      updatedAt: Joi.date().optional(),
+      id: Joi.string().optional(),
     })
     .min(1),
 };

@@ -4,7 +4,7 @@ const CONSTANTS = require("../config/constant");
 
 // Create a new category
 const createCategory = catchAsync(async (req, res) => {
-    const { categoryName, categoryType, parentCategory, tax, inheritParentTax } = req.body;
+    const { categoryName, categoryType, parentCategory, tax, inheritParentTax, businessType } = req.body;
 
     try {
         const categoryData = {
@@ -12,29 +12,28 @@ const createCategory = catchAsync(async (req, res) => {
             categoryType,
             parentCategory: categoryType === 'room' ? null : parentCategory, // Only allow parent for product and food
             tax,
-            inheritParentTax: inheritParentTax || false // Default to false if not provided
+            inheritParentTax: inheritParentTax || false, // Default to false if not provided
+            businessType,
         };
 
-        // Use the service function to create a new category
+        // Create the category
         const newCategory = await ItemCategoryService.createCategory(categoryData);
         res.status(201).json({
-            statusCode: 200,
+            statusCode: 201,
             message: CONSTANTS.CATEGORY_CREATED,
-            data: newCategory
+            data: newCategory,
         });
     } catch (error) {
-        // Handle specific validation errors
-        if (error.name === 'ValidationError') {
+        if (error.message.includes('Category')) {
             return res.status(400).json({
                 statusCode: 400,
-                message: "Invalid category data.",
-                error: error.message
+                message: error.message,
             });
         }
         res.status(500).json({
             statusCode: 500,
-            message: "Error creating category.",
-            error: error.message
+            message: 'Error creating category.',
+            error: error.message,
         });
     }
 });
@@ -58,6 +57,17 @@ const getCategoriesByType = catchAsync(async (req, res) => {
     try {
         const categories = await ItemCategoryService.getCategoriesByType(categoryType);
         if (categories.length === 0) { return res.status(404).json({ statusCode: 404, message: `No categories found for type: ${categoryType}` }) }
+        res.status(200).json({ statusCode: 200, data: categories });
+    } catch (error) {
+        res.status(400).json({ statusCode: 400, message: error.message });
+    }
+});
+
+const getCategoriesByBusinessType = catchAsync(async (req, res) => {
+    const { businessTypeId } = req.params;
+
+    try {
+        const categories = await ItemCategoryService.getCategoriesByBusinessType(businessTypeId);
         res.status(200).json({ statusCode: 200, data: categories });
     } catch (error) {
         res.status(400).json({ statusCode: 400, message: error.message });
@@ -168,13 +178,32 @@ const deleteCategory = catchAsync(async (req, res) => {
     }
 });
 
+const getActiveCategories = catchAsync(async (req, res) => {
+    try {
+        const activeCategories = await ItemCategoryService.getActiveCategories();
+        res.status(200).json({
+            statusCode: 200,
+            message: "Active categories retrieved successfully.",
+            data: activeCategories,
+        });
+    } catch (error) {
+        res.status(500).json({
+            statusCode: 500,
+            message: "Failed to retrieve active categories.",
+            error: error.message,
+        });
+    }
+});
+
 module.exports = {
     createCategory,
     getCategoryTax,
     getCategoriesByType,
+    getCategoriesByBusinessType,
     getAllCategories,
     getCategoryById,
     getSubcategoriesByParent,
     updateCategory,
-    deleteCategory
+    deleteCategory,
+    getActiveCategories
 };

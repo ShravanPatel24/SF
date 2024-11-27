@@ -256,11 +256,6 @@ const getFoodByBusiness = async (businessId, page = 1, limit = 10, sortOrder = '
         ? `${business.businessAddress.street}, ${business.businessAddress.city}, ${business.businessAddress.state}, ${business.businessAddress.country}, ${business.businessAddress.postalCode}`
         : 'No address available';
 
-    // Format the contact
-    // const contact = business.mobile && business.email
-    //     ? `Phone: ${business.mobile}, Email: ${business.email}`
-    //     : 'No contact available';
-
     // Determine sort order
     const sort = { createdAt: sortOrder === 'desc' ? -1 : 1 };
 
@@ -269,7 +264,7 @@ const getFoodByBusiness = async (businessId, page = 1, limit = 10, sortOrder = '
         business: businessId,
         itemType: 'food',
     })
-        .populate('parentCategory', 'categoryName')
+        .populate('parentCategory', '_id categoryName') // Include _id in parentCategory
         .populate('subCategory', 'categoryName')
         .select('dishName dishDescription dishPrice foodDeliveryCharge available images createdAt parentCategory subCategory')
         .sort(sort)
@@ -285,16 +280,20 @@ const getFoodByBusiness = async (businessId, page = 1, limit = 10, sortOrder = '
     // Group items by parent category and subcategory
     const groupedData = foods.reduce((result, item) => {
         const parentCategoryName = item.parentCategory?.categoryName || 'Uncategorized';
+        const parentCategoryId = item.parentCategory?._id || null;
         const subCategoryName = item.subCategory?.categoryName || 'Uncategorized';
 
         if (!result[parentCategoryName]) {
-            result[parentCategoryName] = [];
+            result[parentCategoryName] = {
+                _id: parentCategoryId, // Include parent category ID
+                subCategories: [],
+            };
         }
 
-        let subCategory = result[parentCategoryName].find(sub => sub[subCategoryName]);
+        let subCategory = result[parentCategoryName].subCategories.find(sub => sub[subCategoryName]);
         if (!subCategory) {
             subCategory = { [subCategoryName]: [] };
-            result[parentCategoryName].push(subCategory);
+            result[parentCategoryName].subCategories.push(subCategory);
         }
 
         subCategory[subCategoryName].push({
@@ -317,7 +316,6 @@ const getFoodByBusiness = async (businessId, page = 1, limit = 10, sortOrder = '
             name: business.businessName,
             description: business.businessDescription || 'No description available',
             address,
-            // contact,
         },
         categories: groupedData,
         totalDocs,
@@ -460,8 +458,9 @@ const deleteItemById = async (itemId) => {
 // Guest Users
 
 // Get all items (products, food, rooms)
-const getAllItems = async () => {
-    return await ItemModel.find({}); // Adjust criteria based on your requirements
+const getAllItems = async (itemType) => {
+    const filter = itemType ? { itemType } : {};
+    return await ItemModel.find(filter);
 };
 
 // Search items by query

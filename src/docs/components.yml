@@ -3211,6 +3211,25 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /admin/roles/list/active:
+    get:
+      summary: Get all Active Roles
+      tags:
+        - Role
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Roles retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Role"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /admin/roles/{roleId}:
     get:
       summary: Get Role by ID
@@ -3319,16 +3338,22 @@ paths:
                 parentCategory:
                   type: string
                   description: The ID of the parent category (optional)
+                  example: 648d6b47f41a2c5c88b823a1
                 tax:
                   type: number
                 inheritParentTax:
                   type: string
                   example: false
+                businessType:
+                  type: string
+                  description: The ID of the busines type
+                  example: 648d6b47f41a2c5c88b823a1
               required:
                 - categoryName
                 - categoryType
                 - tax
                 - inheritParentTax
+                - businessType
       responses:
         "201":
           description: Category created successfully
@@ -3507,6 +3532,51 @@ paths:
                   $ref: "#/components/schemas/ItemCategory"
         "404":
           description: Subcategories not found
+
+  /item-category/{businessTypeId}:
+    get:
+      summary: Retrieve categories by business type id
+      tags:
+        - Item Category (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: businessTypeId
+          in: path
+          required: true
+          description: The ID of the buisness type to retrieve categories
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Categories retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ItemCategory"
+        "404":
+          description: Categories not found
+
+  /item-category/category/active:
+    get:
+      summary: Get All Active Categories
+      tags:
+        - Item Category (Admin)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Active categories retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ItemCategory"
+        "404":
+          $ref: "#/components/responses/Unauthorized"
 
   /item-category/update/{categoryId}:
     patch:
@@ -4017,6 +4087,25 @@ paths:
       responses:
         "200":
           description: Business type deleted successfully
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /business-type/list/active:
+    get:
+      summary: Get List of Active business type
+      tags:
+        - Business Type (Admin)
+      security:
+        - bearerAuth: [] # Bearer token required for this route
+      responses:
+        "200":
+          description: Business type details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessType"
         "404":
           $ref: "#/components/responses/NotFound"
         "401":
@@ -10433,48 +10522,86 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /posts/user/{userId}:
+  /posts/user:
     get:
-      summary: Get post by user ID
+      summary: Get posts by user ID or logged-in user
+      description: Retrieve posts created by a specific user using their ID or by the logged-in user if no user ID is provided.
       tags:
         - Post
       parameters:
-        - name: userId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: User ID
         - in: query
           name: page
           schema:
             type: integer
             example: 1
-          description: Page number for pagination (optional)
+          description: Page number for pagination (optional).
         - in: query
           name: limit
           schema:
             type: integer
             example: 10
-          description: Number of posts per page (optional)
+          description: Number of posts per page (optional).
         - in: query
           name: search
           schema:
             type: string
-          description: Search query to filter posts by caption (optional)
+          description: Search query to filter posts by caption (optional).
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Post found
+          description: Posts found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Post"
-        "404":
-          description: Post not found
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      docs:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Post"
+                      totalDocs:
+                        type: integer
+                        description: Total number of posts.
+                      limit:
+                        type: integer
+                        description: Number of posts per page.
+                      totalPages:
+                        type: integer
+                        description: Total number of pages.
+                      page:
+                        type: integer
+                        description: Current page number.
+                      pagingCounter:
+                        type: integer
+                        description: Index of the first post on this page.
+                      hasPrevPage:
+                        type: boolean
+                        description: Indicates if there is a previous page.
+                      hasNextPage:
+                        type: boolean
+                        description: Indicates if there is a next page.
+                      prevPage:
+                        type: integer
+                        nullable: true
+                        description: Previous page number (null if none).
+                      nextPage:
+                        type: integer
+                        nullable: true
+                        description: Next page number (null if none).
+                  statusCode:
+                    type: integer
+                    description: HTTP status code.
+                  message:
+                    type: string
+                    description: Response message.
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Posts not found
 
   /posts/{id}:
     get:
@@ -10749,14 +10876,44 @@ paths:
   # GUEST USERS ITEMS
   /items/guest:
     get:
-      summary: Get All Items for guest user (Product, Room, Food)
+      summary: Get All Items for Guest User (Product, Room, Food)
       tags:
         - Guest User
+      parameters:
+        - in: query
+          name: itemType
+          schema:
+            type: string
+            enum: [product, food, room]
+          description: Filter items by type (product, food, room)
       responses:
         "200":
-          description: Post found
-        "404":
-          description: Post not found
+          description: List of items retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                        name:
+                          type: string
+                        itemType:
+                          type: string
+                          enum: [product, food, room]
+                        price:
+                          type: number
+                        description:
+                          type: string
+        "400":
+          description: Bad Request
         "401":
           $ref: "#/components/responses/Unauthorized"
 

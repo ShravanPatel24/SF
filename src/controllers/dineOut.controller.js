@@ -141,11 +141,13 @@ const getDineOutRequestById = catchAsync(async (req, res) => {
 const getDineOutRequestsForBusiness = catchAsync(async (req, res) => {
     const { businessId } = req.params;
 
+    // Validate the existence of the business
     const business = await BusinessModel.findById(businessId);
     if (!business) {
         return res.status(CONSTANTS.NOT_FOUND).json({ statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.BUSINESS_NOT_FOUND });
     }
 
+    // Ensure the requesting partner has access to the business
     if (business.partner.toString() !== req.user._id.toString()) {
         return res.status(CONSTANTS.UNAUTHORIZED).json({
             statusCode: CONSTANTS.UNAUTHORIZED,
@@ -153,6 +155,7 @@ const getDineOutRequestsForBusiness = catchAsync(async (req, res) => {
         });
     }
 
+    // Fetch dine-out requests for the business
     const requests = await DineOutRequestService.getDineOutRequestsForBusiness(businessId);
 
     if (!requests || requests.length === 0) {
@@ -162,11 +165,14 @@ const getDineOutRequestsForBusiness = catchAsync(async (req, res) => {
         });
     }
 
-    // Add reservationTime to each request
+    // Format the response to include all required fields
     const responseData = requests.map((request) => ({
+        id: request._id, // Include the dineOutRequest ID
         requestNumber: request.requestNumber,
         status: request.status,
-        reservationTime: request.dateTime,
+        reservationDate: request.dateTime, // Reservation date and time
+        mealType: request.dinnerType, // Include meal type
+        numberOfGuests: request.guests, // Include number of guests
         user: {
             name: request.user.name,
             email: request.user.email,
@@ -176,15 +182,27 @@ const getDineOutRequestsForBusiness = catchAsync(async (req, res) => {
         },
         business: {
             businessName: request.business.businessName,
-            businessAddress: request.business.businessAddress,
+            businessAddress: {
+                location: request.business.businessAddress.location,
+                street: request.business.businessAddress.street,
+                city: request.business.businessAddress.city,
+                state: request.business.businessAddress.state,
+                country: request.business.businessAddress.country,
+                postalCode: request.business.businessAddress.postalCode,
+                latitude: request.business.businessAddress.latitude,
+                longitude: request.business.businessAddress.longitude,
+            },
         },
     }));
 
+    // Return the formatted response
     res.status(CONSTANTS.SUCCESSFUL).json({
         statusCode: CONSTANTS.SUCCESSFUL,
         requests: responseData,
     });
 });
+
+
 
 // Get dine-out requests details 
 const getDineOutDetailsForUser = catchAsync(async (req, res) => {

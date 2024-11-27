@@ -14,6 +14,7 @@ const create = catchAsync(async (req, res) => {
             throw new Error(CONSTANT.S3_BUCKET_UPLOAD_FAILED);
         }
     }
+
     const result = await BusinessTypeService.create(req.body);
     if (result.code !== CONSTANT.SUCCESSFUL) {
         return res.status(result.code).json({
@@ -68,11 +69,21 @@ const getListWithoutPagination = catchAsync(async (req, res) => {
     res.status(CONSTANT.SUCCESSFUL).json({ statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.LIST, data: result });
 });
 
+const getActiveBusinessTypes = catchAsync(async (req, res) => {
+    const result = await BusinessTypeService.getActiveBusinessTypes();
+    res.status(CONSTANT.SUCCESSFUL).json({
+        statusCode: CONSTANT.SUCCESSFUL,
+        message: CONSTANT.LIST,
+        data: result,
+    });
+});
+
 module.exports = {
     create,
     getLists,
     getById,
     updateById,
     deleteById,
-    getListWithoutPagination
+    getListWithoutPagination,
+    getActiveBusinessTypes
 };

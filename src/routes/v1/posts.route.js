@@ -6,10 +6,9 @@ const router = express.Router();
 const { userAuth } = require('../../middlewares');
 const validate = require('../../middlewares/validate');
 const { postsValidation } = require('../../validations');
-const { canAccessUser } = require('../../middlewares/privacyCheck');
 
 // Get saved posts list - place specific routes first
-router.get('/saved-posts', userAuth(), canAccessUser, PostsController.getSavedPosts);
+router.get('/saved-posts', userAuth(), PostsController.getSavedPosts);
 
 // Save/Unsave routes for posts
 router.post('/:postId/save', userAuth(), PostsController.savePost);  // Save a post
@@ -24,11 +23,12 @@ router.post('/', userAuth(), upload.fields([
 // Get all posts
 router.get('/', userAuth(), validate(postsValidation.getPosts), PostsController.getAllPosts);
 
-// Get a post by ID - place less specific routes after
-router.get('/:id', userAuth(), canAccessUser, validate(postsValidation.getPost), PostsController.getPostById);
+// Get posts by user
+router.get('/user', userAuth(), validate(postsValidation.getPostsByUser), PostsController.getPostsByUser);
 
-// Get posts by user ID
-router.get('/user/:userId', userAuth(), canAccessUser, validate(postsValidation.getPostsByUserId), PostsController.getPostsByUserId);
+// Get a post by ID - place less specific routes after
+router.get('/:id', userAuth(), validate(postsValidation.getPost), PostsController.getPostById);
+
 
 // Update a post
 router.patch('/:id', userAuth(), upload.array('images', 10), validate(postsValidation.updatePost), PostsController.updatePost);
