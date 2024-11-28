@@ -237,9 +237,10 @@ const followUser = catchAsync(async (req, res) => {
   const { followingId } = req.params;
   const followerId = req.user._id;
   const result = await UserService.followUser(followerId, followingId);
+
   return res.status(result.statusCode).json({
     statusCode: result.statusCode,
-    message: result.message
+    message: result.message || "Action completed successfully.", // Fallback message
   });
 });
 
@@ -315,17 +316,114 @@ const approveFollowRequest = catchAsync(async (req, res) => {
 
 const rejectFollowRequest = catchAsync(async (req, res) => {
   const { requestId } = req.params;
-  const userId = req.user._id;
+  const userId = req.user._id; // Current logged-in user ID (the one rejecting the request)
+
+  // Find the pending follow request for the logged-in user
   const followRequest = await FollowRequestModel.findOne({ _id: requestId, following: userId, status: 'pending' });
 
   if (!followRequest) {
     return res.status(404).send({ statusCode: 404, message: CONSTANTS.FOLLOW_ERROR });
   }
 
-  followRequest.status = 'rejected';
-  await followRequest.save();
+  // Delete the follow request
+  await FollowRequestModel.deleteOne({ _id: requestId });
 
   res.status(200).send({ statusCode: 200, message: CONSTANTS.FOLLOW_REQUEST_REJECTED });
+});
+
+// List of all followers of personal
+const getMyFollowers = catchAsync(async (req, res) => {
+  const userId = req.user._id; // Logged-in user's ID from token
+  const { page = 1, limit = 10, search = '' } = req.query;
+
+  // Build a search filter
+  const searchFilter = search
+    ? { name: { $regex: search, $options: 'i' } }
+    : {};
+
+  const followers = await FollowModel.find({ following: userId })
+    .populate({
+      path: 'follower',
+      select: 'name profilePhoto',
+      match: searchFilter,
+    })
+    .skip((page - 1) * limit)
+    .limit(Number(limit));
+
+  // Filter out entries where populated `follower` is null
+  const filteredFollowers = followers.filter(f => f.follower !== null);
+
+  // Check if the logged-in user is following back each follower
+  const formattedData = await Promise.all(
+    filteredFollowers.map(async f => {
+      const isFollowing = await FollowModel.exists({
+        follower: userId,
+        following: f.follower._id,
+      });
+
+      return {
+        _id: f._id,
+        user: f.follower,
+        isFollowing: !!isFollowing, // True if the logged-in user is following back
+      };
+    })
+  );
+
+  const total = await FollowModel.countDocuments({ following: userId });
+
+  return res.status(200).json({
+    statusCode: 200,
+    message: 'Followers fetched successfully.',
+    data: formattedData,
+    pagination: {
+      total,
+      page: Number(page),
+      limit: Number(limit),
+    },
+  });
+});
+
+// List of all followings of personal
+const getMyFollowing = catchAsync(async (req, res) => {
+  const userId = req.user._id; // Logged-in user's ID from token
+  const { page = 1, limit = 10, search = '' } = req.query;
+
+  // Build a search filter
+  const searchFilter = search
+    ? { name: { $regex: search, $options: 'i' } }
+    : {};
+
+  const following = await FollowModel.find({ follower: userId })
+    .populate({
+      path: 'following',
+      select: 'name profilePhoto',
+      match: searchFilter,
+    })
+    .skip((page - 1) * limit)
+    .limit(Number(limit));
+
+  // Filter out entries where populated `following` is null
+  const filteredFollowing = following.filter(f => f.following !== null);
+
+  // Add `isFollowing` flag for each user
+  const formattedData = filteredFollowing.map(f => ({
+    _id: f._id,
+    user: f.following,
+    isFollowing: true, // Because these are users the logged-in user is following
+  }));
+
+  const total = await FollowModel.countDocuments({ follower: userId });
+
+  return res.status(200).json({
+    statusCode: 200,
+    message: 'Following list fetched successfully.',
+    data: formattedData,
+    pagination: {
+      total,
+      page: Number(page),
+      limit: Number(limit),
+    },
+  });
 });
 
 // List of all followers of user
@@ -344,17 +442,39 @@ const getFollowers = catchAsync(async (req, res) => {
     : {};
 
   // Fetch followers with pagination
-  const followers = await FollowModel.find({ following: userId, ...searchFilter })
-    .populate('follower', 'name email profilePhoto')
+  const followers = await FollowModel.find({ following: userId })
+    .populate({
+      path: 'follower',
+      select: 'name email profilePhoto',
+      match: searchFilter // Apply search filter to the populated field
+    })
     .skip((page - 1) * limit)
     .limit(parseInt(limit));
 
-  // Get total count of followers
-  const totalFollowers = await FollowModel.countDocuments({ following: userId, ...searchFilter });
+  // Remove entries where the populated `follower` is null due to search not matching
+  const filteredFollowers = followers.filter(f => f.follower !== null);
+
+  // Add `isFollowing` flag for each follower
+  const formattedData = await Promise.all(
+    filteredFollowers.map(async (f) => {
+      const isFollowing = await FollowModel.exists({
+        follower: userId,
+        following: f.follower._id
+      });
+      return {
+        _id: f._id,
+        user: f.follower,
+        isFollowing: !!isFollowing // Check if the logged-in user follows back
+      };
+    })
+  );
+
+  // Get total count of followers (without pagination)
+  const totalFollowers = await FollowModel.countDocuments({ following: userId });
 
   res.status(200).send({
     data: {
-      docs: followers,
+      docs: formattedData,
       totalDocs: totalFollowers,
       limit: parseInt(limit),
       totalPages: Math.ceil(totalFollowers / limit),
@@ -386,17 +506,31 @@ const getFollowing = catchAsync(async (req, res) => {
     : {};
 
   // Fetch following users with pagination
-  const following = await FollowModel.find({ follower: userId, ...searchFilter })
-    .populate('following', 'name email profilePhoto')
+  const following = await FollowModel.find({ follower: userId })
+    .populate({
+      path: 'following',
+      select: 'name email profilePhoto',
+      match: searchFilter // Apply search filter to the populated field
+    })
     .skip((page - 1) * limit)
     .limit(parseInt(limit));
 
-  // Get total count of following users
-  const totalFollowing = await FollowModel.countDocuments({ follower: userId, ...searchFilter });
+  // Remove entries where the populated `following` is null due to search not matching
+  const filteredFollowing = following.filter(f => f.following !== null);
+
+  // Add `isFollowing` flag for each user (always true for following list)
+  const formattedData = filteredFollowing.map((f) => ({
+    _id: f._id,
+    user: f.following,
+    isFollowing: true // Since these are users the logged-in user is already following
+  }));
+
+  // Get total count of following users (without pagination)
+  const totalFollowing = await FollowModel.countDocuments({ follower: userId });
 
   res.status(200).send({
     data: {
-      docs: following,
+      docs: formattedData,
       totalDocs: totalFollowing,
       limit: parseInt(limit),
       totalPages: Math.ceil(totalFollowing / limit),
@@ -544,6 +678,8 @@ module.exports = {
   getFollowRequests,
   approveFollowRequest,
   rejectFollowRequest,
+  getMyFollowers,
+  getMyFollowing,
   getFollowers,
   getFollowing,
   getAboutUs,

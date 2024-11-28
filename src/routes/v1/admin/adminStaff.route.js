@@ -31,6 +31,6 @@ router.get('/list/all', adminAuth(), adminStaffController.getAdminStaffUsersWith
 router.put('/profile/update', adminAuth(), adminStaffController.updateProfile);
 router.post('/password/change', adminAuth(), adminStaffController.changeStaffPassword);
 
-router.post('/reset-password-staff', adminAuth('manageUsers'), adminStaffController.adminResetStaffPassword);
+router.post('/reset-password', adminAuth('manageUsers'), adminStaffController.adminResetStaffPassword);
 
 module.exports = router;

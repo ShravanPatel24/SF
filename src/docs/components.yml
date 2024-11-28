@@ -49,14 +49,11 @@ components:
     BusinessType:
       type: object
       properties:
-        id:
-          type: string
-          description: Unique identifier for the business type
         name:
           type: string
           description: Name of the business type
         status:
-          type: string
+          type: number
           enum: [1, 0]
           description: Status of the business type (1 for active, 0 for inactive)
         image:
@@ -64,9 +61,8 @@ components:
           format: binary
           description: Image file for the business type
       example:
-        id: "613b6f7a84d1b7f2b09467c5"
         name: "Retail"
-        status: "1"
+        status: 1
 
     Chat:
       type: object
@@ -4646,6 +4642,214 @@ paths:
         "500":
           description: Internal Server Error
 
+  /user/me/followers:
+    get:
+      summary: Get users personal followers list
+      tags:
+        - User
+      parameters:
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination (default is 1)
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            default: 10
+          description: Number of results per page (default is 10)
+        - in: query
+          name: search
+          required: false
+          schema:
+            type: string
+          description: Search by follower's name or email
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Successfully retrieved followers list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      docs:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                              example: 61b8b5b1f2b3f700149adc42
+                            follower:
+                              type: object
+                              properties:
+                                _id:
+                                  type: string
+                                  example: 61b8b589f2b3f700149adc41
+                                name:
+                                  type: string
+                                  example: John Doe
+                                email:
+                                  type: string
+                                  example: john@example.com
+                                profilePhoto:
+                                  type: string
+                                  example: https://example.com/john.jpg
+                      totalDocs:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 10
+                      totalPages:
+                        type: integer
+                        example: 1
+                      page:
+                        type: integer
+                        example: 1
+                      pagingCounter:
+                        type: integer
+                        example: 1
+                      hasPrevPage:
+                        type: boolean
+                        example: false
+                      hasNextPage:
+                        type: boolean
+                        example: false
+                      prevPage:
+                        type: integer
+                        nullable: true
+                        example: null
+                      nextPage:
+                        type: integer
+                        nullable: true
+                        example: null
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Followers retrieved successfully.
+        "400":
+          description: Bad Request
+        "404":
+          description: User Not Found
+        "500":
+          description: Internal Server Error
+
+  /user/me/following:
+    get:
+      summary: Get users personal following list
+      tags:
+        - User
+      parameters:
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination (default is 1)
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            default: 10
+          description: Number of results per page (default is 10)
+        - in: query
+          name: search
+          required: false
+          schema:
+            type: string
+          description: Search by following user's name
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Successfully retrieved following list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      docs:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                              example: 61b8b5b1f2b3f700149adc42
+                            following:
+                              type: object
+                              properties:
+                                _id:
+                                  type: string
+                                  example: 61b8b589f2b3f700149adc41
+                                name:
+                                  type: string
+                                  example: John Doe
+                                email:
+                                  type: string
+                                  example: john@example.com
+                                profilePhoto:
+                                  type: string
+                                  example: https://example.com/john.jpg
+                      totalDocs:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 10
+                      totalPages:
+                        type: integer
+                        example: 1
+                      page:
+                        type: integer
+                        example: 1
+                      pagingCounter:
+                        type: integer
+                        example: 1
+                      hasPrevPage:
+                        type: boolean
+                        example: false
+                      hasNextPage:
+                        type: boolean
+                        example: false
+                      prevPage:
+                        type: integer
+                        nullable: true
+                        example: null
+                      nextPage:
+                        type: integer
+                        nullable: true
+                        example: null
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Following list retrieved successfully.
+        "400":
+          description: Bad Request
+        "404":
+          description: User Not Found
+        "500":
+          description: Internal Server Error
+
   /user/{userId}/followers:
     get:
       summary: Get followers of a user with optional search
@@ -4677,7 +4881,7 @@ paths:
           required: false
           schema:
             type: string
-          description: Search by follower's name or email
+          description: Search by follower's name
       security:
         - bearerAuth: []
       responses:

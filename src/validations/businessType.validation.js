@@ -36,7 +36,7 @@ const update = {
     .keys({
       name: Joi.string().optional(),
       isProduct: Joi.boolean().optional(),
-      status: Joi.string().optional(),
+      status: Joi.number().optional(),
       isDelete: Joi.boolean().optional(),
       createdAt: Joi.date().optional(),
       updatedAt: Joi.date().optional(),

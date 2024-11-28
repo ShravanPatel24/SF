@@ -967,11 +967,26 @@ const followUser = async (followerId, followingId) => {
       return { statusCode: 404, message: CONSTANTS.USER_NOT_FOUND };
     }
 
-    const existingRequest = await FollowRequestModel.findOne({ follower: followerId, following: followingId });
-    if (existingRequest) {
-      return { statusCode: 400, message: CONSTANTS.ALREADY_REQUESTED };
+    const isAlreadyFollowing = await FollowModel.exists({ follower: followerId, following: followingId });
+    if (isAlreadyFollowing) {
+      return { statusCode: 400, message: CONSTANTS.ALREADY_FOLLOWING };
     }
 
+    if (followingUser.isPublic) {
+      // Directly follow the user if their account is public
+      const follow = new FollowModel({ follower: followerId, following: followingId });
+      await follow.save();
+      return { statusCode: 200, message: CONSTANTS.FOLLOWED_SUCCESS };
+    }
+
+    // Check for existing follow requests
+    const existingRequest = await FollowRequestModel.findOne({ follower: followerId, following: followingId });
+    if (existingRequest) {
+      // If the existing request was previously rejected, allow resending
+      await FollowRequestModel.deleteOne({ _id: existingRequest._id });
+    }
+
+    // Create a new follow request for private accounts
     const followRequest = new FollowRequestModel({ follower: followerId, following: followingId });
     await followRequest.save();
 
@@ -990,9 +1005,10 @@ const followUser = async (followerId, followingId) => {
  */
 const unfollowUser = async (followerId, followingId) => {
   try {
+    // Delete the follow relationship
     const followRecord = await FollowModel.findOneAndDelete({ follower: followerId, following: followingId });
 
-    // If no follow record is found, return a 400 status code with an appropriate message
+    // If no follow relationship exists, return an error
     if (!followRecord) {
       return { statusCode: 400, message: CONSTANTS.NOT_FOLLOWING_USER };
     }
@@ -1001,12 +1017,15 @@ const unfollowUser = async (followerId, followingId) => {
     await UserModel.findByIdAndUpdate(followerId, { $inc: { followingCount: -1 } });
     await UserModel.findByIdAndUpdate(followingId, { $inc: { followerCount: -1 } });
 
-    // Return success with 200 status code
+    // Remove any follow requests (accepted or otherwise) between the two users
+    await FollowRequestModel.deleteOne({ follower: followerId, following: followingId });
+
+    // Return success
     return { statusCode: 200, message: CONSTANTS.UNFOLLOWED_SUCCESS };
   } catch (error) {
     console.error("Error in unfollowUser:", error);
 
-    // In case of error, return 500 status code with an error message
+    // Return a server error response
     return { statusCode: 500, message: CONSTANTS.INTERNAL_SERVER_ERROR };
   }
 };
