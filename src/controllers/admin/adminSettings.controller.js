@@ -3,7 +3,7 @@ const CONSTANTS = require('../../config/constant');
 const catchAsync = require('../../utils/catchAsync');
 
 // Create or update system settings
-const createOrUpdateSettings = catchAsync(async (req, res) => {
+const createSettings = catchAsync(async (req, res) => {
     const settingsData = req.body;
     const result = await adminSettingService.createOrUpdateSettings(settingsData);
     res.status(200).json({
@@ -28,11 +28,12 @@ const updateSettings = catchAsync(async (req, res) => {
     const { settingsId } = req.params;
     const settingsData = req.body;
 
-    const updatedSettings = await adminSettingService.updateSettings(settingsId, settingsData);
+    const { systemSettings, message } = await adminSettingService.updateSettings(settingsId, settingsData);
+
     res.status(200).json({
         statusCode: 200,
-        message: CONSTANTS.UPDATED,
-        systemSettings: updatedSettings,
+        message,
+        systemSettings,
     });
 });
 
@@ -47,7 +48,7 @@ const deleteSettings = catchAsync(async (req, res) => {
 });
 
 module.exports = {
-    createOrUpdateSettings,
+    createSettings,
     getSettings,
     updateSettings,
     deleteSettings,

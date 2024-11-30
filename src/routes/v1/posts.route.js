@@ -27,6 +27,9 @@ router.get('/', userAuth(), validate(postsValidation.getPosts), PostsController.
 // Get posts by user
 router.get('/user', userAuth(), validate(postsValidation.getPostsByUser), PostsController.getPostsByUser);
 
+// Get posts by a specific user ID
+router.get('/:userId', userAuth(), canAccessUser, PostsController.getPostsBySpecificUserId);
+
 // Get a post by ID - place less specific routes after
 router.get('/:id', userAuth(), canAccessUser, validate(postsValidation.getPost), PostsController.getPostById);
 

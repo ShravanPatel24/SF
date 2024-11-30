@@ -10,16 +10,16 @@ const createCategory = catchAsync(async (req, res) => {
         const categoryData = {
             categoryName,
             categoryType,
-            parentCategory: categoryType === 'room' ? null : parentCategory, // Only allow parent for product and food
+            parentCategory: categoryType === 'room' ? null : parentCategory,
             tax,
-            inheritParentTax: inheritParentTax || false, // Default to false if not provided
+            inheritParentTax: inheritParentTax || false,
             businessType,
         };
 
         // Create the category
         const newCategory = await ItemCategoryService.createCategory(categoryData);
-        res.status(201).json({
-            statusCode: 201,
+        res.status(200).json({
+            statusCode: 200,
             message: CONSTANTS.CATEGORY_CREATED,
             data: newCategory,
         });
@@ -146,14 +146,18 @@ const updateCategory = catchAsync(async (req, res) => {
     const categoryData = req.body;
 
     try {
-        const updatedCategory = await ItemCategoryService.updateCategory(categoryId, categoryData);
+        const { category, message } = await ItemCategoryService.updateCategory(categoryId, categoryData);
+
         res.status(200).json({
             statusCode: 200,
-            message: CONSTANTS.CATEGORY_UPDATED,
-            data: updatedCategory
+            message,
+            data: category,
         });
     } catch (error) {
-        res.status(400).json({ statusCode: 400, message: error.message });
+        res.status(400).json({
+            statusCode: 400,
+            message: error.message,
+        });
     }
 });
 

@@ -23,6 +23,8 @@ const createOffer = require("./events/VideoAudioCalling/createOffer");
 const createAnswer = require("./events/VideoAudioCalling/createAnswer");
 const sendIceCandidate = require("./events/VideoAudioCalling/sendIceCandidate");
 const hangUp = require("./events/VideoAudioCalling/hangUp");
+const { handleChatListUpdate } = require("./events/Chats/chatListUpdate");
+const handleGetRoomList = require("./events/Chats/getRoomList");
 
 // Create HTTP server
 const server = http.createServer(app);
@@ -66,6 +68,8 @@ mongoose
       // Register Chat event handlers
       socket.on("add-user", (data) => handleAddUser(socket, global.onlineUsers, data));
       socket.on("send-msg", (data) => handleSendMsg(socket, global.onlineUsers, data));
+      socket.on("get-room-list", (data) => handleGetRoomList(socket, global.onlineUsers, data));
+      socket.on("update-chat-list", (data) => handleChatListUpdate(socket, global.onlineUsers, data));
       socket.on("get-chats", (data) => handleGetChats(socket, data));
       socket.on("typing", (data) => handleTyping(socket, global.onlineUsers, data));
       socket.on("stop-typing", (data) => handleStopTyping(socket, global.onlineUsers, data));

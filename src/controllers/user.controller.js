@@ -184,7 +184,15 @@ const getById = catchAsync(async (req, res) => {
       message: CONSTANTS.USER_NOT_FOUND,
     });
   }
+
   const { user, followersCount, followingCount, businessType } = result;
+
+  // Check if the requesting user is following the target user
+  const isFollowing = await FollowModel.exists({
+    follower: req.user._id,
+    following: user._id,
+  });
+
   const userData = {
     ...user.toObject(),
     id: user._id.toString(),
@@ -192,8 +200,10 @@ const getById = catchAsync(async (req, res) => {
     followersCount,
     followingCount,
     businessType,
+    isFollowing: !!isFollowing, // Add isFollowing flag
   };
   delete userData._id;
+
   res.status(CONSTANTS.SUCCESSFUL).send({
     data: userData,
     statusCode: CONSTANTS.SUCCESSFUL,

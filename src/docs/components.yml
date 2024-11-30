@@ -808,37 +808,35 @@ components:
         answer: "Go to the account settings and click on 'Reset Password'."
         status: "active"
 
-    StaticContent:
+    StaticPage:
       type: object
       properties:
-        id:
+        _id:
           type: string
-          description: The unique identifier for the static content
-        type:
+          description: Unique identifier for the static content.
+        slug:
           type: string
-          enum: [terms, refund_policy, shipping_policy, privacy]
-          description: Type of static content
-        title:
+          description: The slug of the static content (e.g., "privacy-policy").
+        pageTitle:
           type: string
-          description: Title of the content
-        content:
+          description: Title of the static content.
+        description:
           type: string
-          description: The static content body
+          description: The description or body of the static content.
         status:
+          type: integer
+          description: Status of the static content (1 for active, 0 for inactive).
+        isDelete:
+          type: integer
+          description: Deletion status (1 for active, 0 for deleted).
+        createdAt:
           type: string
-          enum: [active, inactive]
-          description: Status of the static content
-      required:
-        - id
-        - type
-        - title
-        - content
-      example:
-        id: "content123"
-        type: "terms"
-        title: "Terms and Conditions"
-        content: "These are the terms and conditions for using our service."
-        status: "active"
+          format: date-time
+          description: Creation timestamp.
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp.
     # Other schemas like Admin, VerifyOtpRequestUser, VerifyOtpRequestPartner...
 
   responses:
@@ -1135,6 +1133,155 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/InvalidCurrentPassword"
+
+  /dashboard:
+    get:
+      summary: Retrieve dashboard data
+      description: |
+        Get counts of users, partners, orders, and contact us queries, along with recent listings.
+        Supports filtering partners and orders by businessType ID.
+      tags:
+        - Super Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: businessTypeId
+          schema:
+            type: string
+            description: Optional filter for a specific business type ID (MongoDB ObjectId).
+          example: "67455b96dfd3cc1e75fa8b21"
+      responses:
+        "200":
+          description: Successfully retrieved dashboard data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Dashboard data retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      counts:
+                        type: object
+                        properties:
+                          users:
+                            type: integer
+                            example: 3
+                          partners:
+                            type: integer
+                            example: 5
+                          orders:
+                            type: integer
+                            example: 10
+                          contactUs:
+                            type: integer
+                            example: 2
+                      listings:
+                        type: object
+                        properties:
+                          recentUsers:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                  example: "670d6a5320eae6c090319634"
+                                name:
+                                  type: string
+                                  example: John Doe
+                                email:
+                                  type: string
+                                  example: johndoe@example.com
+                                phone:
+                                  type: string
+                                  example: "1234567890"
+                                createdAt:
+                                  type: string
+                                  format: date-time
+                                  example: "2024-11-29T16:14:48.499Z"
+                          recentPartners:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                  example: "6708ce9f27762037c2bd656a"
+                                name:
+                                  type: string
+                                  example: Partner Name
+                                email:
+                                  type: string
+                                  example: partner@example.com
+                                businessType:
+                                  type: string
+                                  example: "67455b96dfd3cc1e75fa8b21"
+                                createdAt:
+                                  type: string
+                                  format: date-time
+                                  example: "2024-11-29T16:14:48.499Z"
+                          recentOrders:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                  example: "674a0c0bc9962170aecb8bd4"
+                                user:
+                                  type: string
+                                  example: "6708c7f129ca8a1d5d8268b8"
+                                partner:
+                                  type: string
+                                  example: "6708ce9f27762037c2bd656a"
+                                businessType:
+                                  type: string
+                                  example: "67455b96dfd3cc1e75fa8b21"
+                                totalPrice:
+                                  type: number
+                                  format: double
+                                  example: 2122.99
+                                orderStatus:
+                                  type: string
+                                  example: pending
+                                createdAt:
+                                  type: string
+                                  format: date-time
+                                  example: "2024-11-29T18:46:35.613Z"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: Invalid businessTypeId format
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: Something went wrong
 
   # Admin Settings
   /admin/settings/create:
@@ -8975,6 +9122,10 @@ paths:
                   type: number
                   description: Delivery charge of the dish (food items only)
                   example: 2.99
+                quantity:
+                  type: number
+                  description: Total quantity available (required for food and room items only)
+                  example: 100
 
                 # Fields for room items (optional)
                 roomName:
@@ -9051,6 +9202,10 @@ paths:
                   type: number
                   description: Price for the variant (set by the partner)
                   example: 29.99
+                variants[0][quantity]:
+                  type: number
+                  description: Quantity available for the variant
+                  example: 50
                 variants[0][variantImage]:
                   type: string
                   format: binary
@@ -9063,6 +9218,10 @@ paths:
                   type: number
                   description: Price for the variant (set by the partner)
                   example: 29.99
+                variants[1][quantity]:
+                  type: number
+                  description: Quantity available for the variant
+                  example: 50
                 variants[1][variantImage]:
                   type: string
                   format: binary
@@ -9183,6 +9342,10 @@ paths:
                   type: number
                   description: Delivery charge of the dish (food items only)
                   example: 2.99
+                quantity:
+                  type: number
+                  description: Total quantity available (required for food and room items only)
+                  example: 100
 
                 # Fields for room items (optional)
                 roomName:
@@ -9259,6 +9422,10 @@ paths:
                   type: number
                   description: Price for the variant (set by the partner)
                   example: 29.99
+                variants[0][quantity]:
+                  type: number
+                  description: Quantity available for the variant
+                  example: 50
                 variants[0][variantImage]:
                   type: string
                   format: binary
@@ -9620,6 +9787,90 @@ paths:
                   $ref: "#/components/schemas/Items"
         "404":
           description: Business Type not found
+      security:
+        - bearerAuth: []
+
+  /items/{itemId}/images:
+    delete:
+      tags:
+        - Partner Items
+      summary: Delete an image from an item
+      description: Deletes an image for a specific item (food, room, or product variant).
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: string
+          description: The ID of the item from which the image will be deleted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                imageKey:
+                  type: string
+                  description: The key of the image to delete.
+                  example: "path/to/item-image.jpg"
+                variantId:
+                  type: string
+                  description: The ID of the variant (required for product variant images).
+                  example: "63e98c87641f14ad3c88e294"
+      responses:
+        "200":
+          description: Image deleted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "Image deleted successfully."
+        "400":
+          description: Bad Request - Missing or invalid parameters.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: "Image key is required."
+        "404":
+          description: Item or image not found.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: "Item not found."
+        "500":
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: "Internal server error."
       security:
         - bearerAuth: []
 
@@ -10807,6 +11058,32 @@ paths:
         "404":
           description: Posts not found
 
+  /posts/{userId}:
+    get:
+      summary: Get post by user ID
+      tags:
+        - Post
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Post found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "404":
+          description: Post not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /posts/{id}:
     get:
       summary: Get post by ID
@@ -11090,6 +11367,11 @@ paths:
             type: string
             enum: [product, food, room]
           description: Filter items by type (product, food, room)
+        - in: query
+          name: businessId
+          schema:
+            type: string
+          description: Filter items by business ID
       responses:
         "200":
           description: List of items retrieved successfully
@@ -11652,223 +11934,174 @@ paths:
         "400":
           description: Invalid query parameters
 
-  /static-content/for/admin:
+  # Static Content
+  /static-content/pages:
     get:
-      summary: Get a list of static content (Admin)
+      summary: Retrieve all static pages with filters, search, and pagination
+      description: Retrieve a list of static pages. Supports filtering by slug, status, search keywords, and pagination.
       tags:
-        - Static Content (Admin)
+        - Static Content
+      security:
+        - basicAuth: []
       parameters:
-        - name: page
+        - name: slug
           in: query
           required: false
-          description: Page number for pagination
-          schema:
-            type: integer
-            default: 1
-        - name: sortBy
-          in: query
-          required: false
-          description: Sort order (asc/desc)
-          schema:
-            type: string
-            enum: [asc, desc]
-            default: asc
-        - name: limit
-          in: query
-          required: false
-          description: Number of items per page
-          schema:
-            type: integer
-            default: 10
-        - name: searchBy
-          in: query
-          required: false
-          description: Search keyword to filter static content by title or content
+          description: Filter by slug (e.g., "privacy-policy").
           schema:
             type: string
         - name: status
           in: query
           required: false
-          description: Filter by status of the content
+          description: Filter by status. Use 1 for Active and 0 for Inactive.
+          schema:
+            type: integer
+            enum:
+              - 1
+              - 0
+        - name: search
+          in: query
+          required: false
+          description: Search for a keyword in pageTitle or description.
           schema:
             type: string
-            enum: [active, inactive]
-      security:
-        - bearerAuth: []
+        - name: page
+          in: query
+          required: false
+          description: The page number for pagination (default is 1).
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: The number of items per page for pagination (default is 10).
+          schema:
+            type: integer
+            default: 10
       responses:
         "200":
-          description: List of static content retrieved successfully
+          description: List of static pages matching the filters
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/StaticContent"
-        "400":
-          description: Invalid query parameters
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /static-content/for/admin/terms:
-    get:
-      summary: Get Terms and Conditions (Admin)
-      tags:
-        - Static Content (Admin)
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Terms and Conditions content retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StaticContent"
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/StaticPage"
+                  currentPage:
+                    type: integer
+                    description: Current page number.
+                  totalPages:
+                    type: integer
+                    description: Total number of pages.
+                  totalItems:
+                    type: integer
+                    description: Total number of items matching the filters.
+                  statusCode:
+                    type: integer
+                    description: Status code of the response.
+                  message:
+                    type: string
         "404":
-          description: Terms and Conditions content not found
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /static-content/for/admin/refund-policy:
-    get:
-      summary: Get Refund Policy (Admin)
-      tags:
-        - Static Content (Admin)
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Refund Policy content retrieved successfully
+          description: No static pages found matching the criteria
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StaticContent"
-        "404":
-          description: Refund Policy content not found
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: string
+                  statusCode:
+                    type: integer
+                  message:
+                    type: string
 
-  /static-content/for/admin/shipping-policy:
+  /static-content/page/{pageId}:
     get:
-      summary: Get Shipping Policy (Admin)
+      summary: Get a specific static page for authenticated users
       tags:
-        - Static Content (Admin)
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Shipping Policy content retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StaticContent"
-        "404":
-          description: Shipping Policy content not found
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /static-content/for/admin/privacy:
-    get:
-      summary: Get Privacy Policy (Admin)
-      tags:
-        - Static Content (Admin)
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Privacy Policy content retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StaticContent"
-        "404":
-          description: Privacy Policy content not found
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /static-content/for-user/terms:
-    get:
-      summary: Get Terms and Conditions (User)
-      tags:
-        - Static Content (User)
+        - Static Content
+      description: Retrieve a specific static page by its ID or slug.
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          description: The ID or slug of the static page
+          schema:
+            type: string
       security:
         - basicAuth: []
       responses:
         "200":
-          description: Terms and Conditions content retrieved successfully
+          description: Static page details
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StaticContent"
-        "404":
-          description: Terms and Conditions content not found
+                $ref: "#/components/schemas/StaticPage"
 
-  /static-content/for-user/refund-policy:
-    get:
-      summary: Get Refund Policy (User)
+    patch:
+      summary: Update a static page by ID or slug for authenticated users
       tags:
-        - Static Content (User)
+        - Static Content
+      description: Update the content of a static page using its ID or slug.
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          description: The ID of the static page
+          schema:
+            type: string
       security:
         - basicAuth: []
+      requestBody:
+        description: Static page update data
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaticPage"
       responses:
         "200":
-          description: Refund Policy content retrieved successfully
+          description: Updated static page details
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StaticContent"
-        "404":
-          description: Refund Policy content not found
+                $ref: "#/components/schemas/StaticPage"
 
-  /static-content/for-user/shipping-policy:
-    get:
-      summary: Get Shipping Policy (User)
+  /static-content/page-by-slug/{type}:
+    patch:
+      summary: Update a static page by slug for authenticated users
       tags:
-        - Static Content (User)
+        - Static Content
+      description: Update the content of a static page using its slug.
+      parameters:
+        - name: type
+          in: path
+          required: true
+          description: The slug of the static page
+          schema:
+            type: string
       security:
         - basicAuth: []
+      requestBody:
+        description: Static page update data
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaticPage"
       responses:
         "200":
-          description: Shipping Policy content retrieved successfully
+          description: Updated static page details
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StaticContent"
-        "404":
-          description: Shipping Policy content not found
-
-  /static-content/for-user/privacy:
-    get:
-      summary: Get Privacy Policy (User)
-      tags:
-        - Static Content (User)
-      security:
-        - basicAuth: []
-      responses:
-        "200":
-          description: Privacy Policy content retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StaticContent"
-        "404":
-          description: Privacy Policy content not found
-
-  /static-content/for-user/2/about-us:
-    get:
-      summary: Get Refund Policy (User)
-      tags:
-        - Static Content (User)
-      security:
-        - basicAuth: []
-      responses:
-        "200":
-          description: Refund Policy content retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StaticContent"
-        "404":
-          description: Refund Policy content not found
+                $ref: "#/components/schemas/StaticPage"
 
   # Contact US
   /contact-us:

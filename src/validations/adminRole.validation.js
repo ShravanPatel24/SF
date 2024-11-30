@@ -33,14 +33,14 @@ const updateRole = {
     }),
     body: Joi.object()
         .keys({
-            name: Joi.string().required(),
-            resource: Joi.array(),
-            company: Joi.string().allow('').allow(null),
-            status: Joi.number(),
-            isDelete: Joi.number().allow('').allow(null),
-            createdAt: Joi.date(),
-            updatedAt: Joi.date(),
-            id: Joi.string()
+            name: Joi.string().optional(),
+            resource: Joi.array().optional(),
+            company: Joi.string().allow('').allow(null).optional(),
+            status: Joi.number().optional(),
+            isDelete: Joi.number().allow('').allow(null).optional(),
+            createdAt: Joi.date().optional(),
+            updatedAt: Joi.date().optional(),
+            id: Joi.string().optional(),
         })
         .min(1),
 };

@@ -33,5 +33,6 @@ router.get('/:itemId', userAuth(), validate(itemsValidation.getItemById), itemsC
 router.patch('/:itemId', userAuth(), upload.any(), validate(itemsValidation.updateItem), itemsController.updateItem);
 
 router.delete('/:itemId', userAuth(), validate(itemsValidation.deleteItem), itemsController.deleteItem);
+router.delete('/:itemId/images', userAuth(), validate(itemsValidation.deleteImageFromItem), itemsController.deleteImageFromItem);
 
 module.exports = router;

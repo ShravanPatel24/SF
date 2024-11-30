@@ -1,6 +1,6 @@
 // const httpStatus = require('http-status');
 const { AdminModel, AdminRoles } = require('../../models');
-const CONSTANT = require('../../config/constant');
+const CONSTANTS = require('../../config/constant');
 const Token = require('../../models/token.model');
 const { tokenTypes } = require('../../config/tokens');
 const tokenService = require('../token.service');
@@ -29,13 +29,13 @@ const getAdminById = async (id) => {
 const updateAdminById = async (adminId, updateBody, files) => {
   const admin = await getAdminById(adminId);
   if (!admin) {
-    return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.COMPANY_USER_NOT_FOUND };
+    return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.COMPANY_USER_NOT_FOUND };
   }
   if (updateBody.email && (await AdminModel.isEmailTaken(updateBody.email, adminId))) {
-    return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.ADMIN_STAFF_EMAIL_ALREADY_EXISTS };
+    return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.ADMIN_STAFF_EMAIL_ALREADY_EXISTS };
   }
   if (updateBody.phone && (await AdminModel.isMobileTaken(updateBody.phone, adminId))) {
-    return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.ADMIN_STAFF_MOBILE_ALREADY_EXISTS };
+    return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.ADMIN_STAFF_MOBILE_ALREADY_EXISTS };
   }
   var uploadResult;
   if (files && files.length != 0) {
@@ -48,7 +48,7 @@ const updateAdminById = async (adminId, updateBody, files) => {
   await admin.save();
   // console.log('update-role-' + adminId, '>>>>>>>>>>>>>>socketEvent');
   // io.emit('update-role-' + adminId, { status: true });
-  return { data: admin, code: CONSTANT.SUCCESSFUL, message: CONSTANT.ADMIN_STAFF_UPDATE };
+  return { data: admin, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.ADMIN_STAFF_UPDATE };
 };
 
 /**
@@ -66,10 +66,10 @@ const updatePasswordById = async (adminId, newPassword) => {
   );
 
   if (!updatedAdmin) {
-    return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.COMPANY_USER_NOT_FOUND };
+    return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.COMPANY_USER_NOT_FOUND };
   }
 
-  return { data: updatedAdmin, code: CONSTANT.SUCCESSFUL, message: "Password changed successfully." };
+  return { data: updatedAdmin, code: CONSTANTS.SUCCESSFUL, message: "Password changed successfully." };
 };
 
 /**
@@ -122,13 +122,13 @@ const loginUserWithEmailOrPhone = async (emailOrPhone, password, req) => {
         details.type = 'superadmin';
       }
     } else {
-      return { data: {}, code: CONSTANT.BAD_REQUEST, message: 'Invalid email or phone format' };
+      return { data: {}, code: CONSTANTS.BAD_REQUEST, message: 'Invalid email or phone format' };
     }
   }
 
   // Validate password
   if (!details || !(await details.isPasswordMatch(password))) {
-    return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.UNAUTHORIZED_MSG };
+    return { data: {}, code: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.UNAUTHORIZED_MSG };
   }
 
   // Generate tokens
@@ -152,8 +152,8 @@ const loginUserWithEmailOrPhone = async (emailOrPhone, password, req) => {
         },
         tokens,
       },
-      code: CONSTANT.SUCCESSFUL,
-      message: CONSTANT.LOGIN_MSG,
+      code: CONSTANTS.SUCCESSFUL,
+      message: CONSTANTS.LOGIN_MSG,
     };
   }
 
@@ -175,8 +175,8 @@ const loginUserWithEmailOrPhone = async (emailOrPhone, password, req) => {
       },
       tokens,
     },
-    code: CONSTANT.SUCCESSFUL,
-    message: CONSTANT.LOGIN_MSG,
+    code: CONSTANTS.SUCCESSFUL,
+    message: CONSTANTS.LOGIN_MSG,
   };
 };
 
@@ -203,7 +203,7 @@ const validateUserWithEmail = async (email) => {
 const logout = async (refreshToken) => {
   const refreshTokenDoc = await Token.findOne({ token: refreshToken, type: tokenTypes.REFRESH, blacklisted: false });
   if (!refreshTokenDoc) {
-    return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.NOT_FOUND_MSG }
+    return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.NOT_FOUND_MSG }
   }
   await refreshTokenDoc.remove();
 };
@@ -223,7 +223,7 @@ const refreshAuth = async (refreshToken) => {
     await refreshTokenDoc.remove();
     return tokenService.generateAuthTokens(user);
   } catch (error) {
-    return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.UNAUTHORIZED_MSG }
+    return { data: {}, code: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.UNAUTHORIZED_MSG }
   }
 };
 
@@ -235,20 +235,36 @@ const refreshAuth = async (refreshToken) => {
 const forgotPassword = async (email) => {
   try {
     const admin = await getAdminByEmail(email);
-    if (!admin) { return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.ADMIN_NOT_FOUND }; }
+    if (!admin) {
+      return {
+        data: {},
+        code: CONSTANTS.NOT_FOUND,
+        message: CONSTANTS.EMAIL_NOT_FOUND,
+      };
+    }
+
     const emailOtp = crypto.randomInt(1000, 9999).toString();
     admin.passwordResetEmailOTP = emailOtp;
     admin.otpGeneratedAt = new Date();
     await admin.save();
+
     await mailFunctions.sendOtpOnMail(admin.email, admin.name || "Admin", emailOtp);
+
     const resetPasswordToken = await tokenService.generateResetPasswordToken(admin._id);
-    return { data: { id: admin._id, token: resetPasswordToken }, code: CONSTANT.SUCCESSFUL, message: CONSTANT.FORGOT_PASSWORD };
+    return {
+      data: { id: admin._id, token: resetPasswordToken },
+      code: CONSTANTS.SUCCESSFUL,
+      message: CONSTANTS.FORGOT_PASSWORD,
+    };
   } catch (error) {
     console.error("Error in forgotPassword service:", error);
-    return { data: {}, code: CONSTANT.INTERNAL_SERVER_ERROR, message: "An error occurred during the forgot password process." };
+    return {
+      data: {},
+      code: CONSTANTS.INTERNAL_SERVER_ERROR,
+      message: "An error occurred during the forgot password process.",
+    };
   }
 };
-
 
 /**
  * Verify OTP for password reset
@@ -258,19 +274,19 @@ const forgotPassword = async (email) => {
  */
 const verifyOtp = async (email, otp) => {
   const admin = await getAdminByEmail(email);
-  if (!admin) { return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.ADMIN_NOT_FOUND } }
+  if (!admin) { return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.ADMIN_NOT_FOUND } }
 
   const otpExpiryTime = 15 * 60 * 1000;
   const isOtpValid = admin.passwordResetEmailOTP === otp && (new Date() - admin.otpGeneratedAt) < otpExpiryTime;
 
-  if (!isOtpValid) { return { data: {}, code: CONSTANT.UNAUTHORIZED, message: 'Invalid or expired OTP' } }
+  if (!isOtpValid) { return { data: {}, code: CONSTANTS.UNAUTHORIZED, message: 'Invalid or expired OTP' } }
 
   admin.passwordResetEmailOTP = undefined;
   admin.otpGeneratedAt = undefined;
   admin.emailOtpVerificationStatus = true;
   await admin.save();
 
-  return { data: { admin }, code: CONSTANT.SUCCESSFUL, message: 'OTP verified successfully' };
+  return { data: { admin }, code: CONSTANTS.SUCCESSFUL, message: 'OTP verified successfully' };
 };
 
 /**
@@ -284,13 +300,13 @@ const resetPassword = async (resetPasswordToken, newPassword) => {
     const resetPasswordTokenDoc = await tokenService.verifyToken(resetPasswordToken, tokenTypes.RESET_PASSWORD);
     const admin = await AdminModel.findOne({ _id: resetPasswordTokenDoc.user });
 
-    if (!admin) { return { data: {}, code: CONSTANT.NOT_FOUND, message: CONSTANT.ADMIN_NOT_FOUND } }
+    if (!admin) { return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.ADMIN_NOT_FOUND } }
 
-    if (!admin.emailOtpVerificationStatus) { return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.OTP_NOT_VERIFIED } }
+    if (!admin.emailOtpVerificationStatus) { return { data: {}, code: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.OTP_NOT_VERIFIED } }
 
     // Check if the new password is the same as the old password
     const isSameAsOldPassword = await admin.isPasswordMatch(newPassword);
-    if (isSameAsOldPassword) { return { data: {}, code: CONSTANT.BAD_REQUEST, message: CONSTANT.SAME_PASSWORD_ERROR_MSG } }
+    if (isSameAsOldPassword) { return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.SAME_PASSWORD_ERROR_MSG } }
 
     // Update the admin's password
     admin.password = newPassword;
@@ -299,10 +315,10 @@ const resetPassword = async (resetPasswordToken, newPassword) => {
 
     // Remove the token after successful password reset
     await Token.deleteMany({ user: admin._id, type: tokenTypes.RESET_PASSWORD });
-    return { data: {}, code: CONSTANT.SUCCESSFUL, message: CONSTANT.CHANGE_PASSWORD };
+    return { data: {}, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.CHANGE_PASSWORD };
   } catch (error) {
     console.error("Error resetting password:", error);
-    return { data: {}, code: CONSTANT.UNAUTHORIZED, message: CONSTANT.PASSWORD_RESET_FAIL };
+    return { data: {}, code: CONSTANTS.UNAUTHORIZED, message: CONSTANTS.PASSWORD_RESET_FAIL };
   }
 };
 

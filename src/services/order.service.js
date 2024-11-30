@@ -1,13 +1,24 @@
-const { OrderModel, DineOutModel } = require("../models");
+const { OrderModel, DineOutModel, CartModel } = require("../models");
 const CONSTANTS = require("../config/constant");
 const mongoose = require("mongoose");
 const moment = require("moment");
 
 // Create a new order
-const createOrder = async (userId, cart, paymentMethod, orderNote, deliveryAddress) => {
+const createOrder = async (userId, cartId, paymentMethod, orderNote, deliveryAddress) => {
+  // Fetch the cart and populate item, business, and businessType
+  const cart = await CartModel.findById(cartId).populate({
+    path: 'items.item', // Populate the item details in the cart
+    populate: {
+      path: 'business', // Populate the business details of each item
+      select: 'businessType', // Include only the businessType field in the populated business data
+    },
+  });
+
   if (!cart || cart.items.length === 0) {
-    throw new Error(CONSTANTS.CART_EMPTY);
+    throw new Error('Cart not found or empty.');
   }
+
+  console.log('Populated Cart:', JSON.stringify(cart, null, 2)); // Debugging: Log populated cart
 
   const customOrderId = Math.floor(Date.now() / 1000).toString();
   const orderNumber = `#${customOrderId}`;
@@ -31,10 +42,18 @@ const createOrder = async (userId, cart, paymentMethod, orderNote, deliveryAddre
     },
   ];
 
+  // Extract businessType from the first item's business
+  const businessTypeId = cart.items[0]?.item?.business?.businessType;
+  if (!businessTypeId) {
+    console.error('Business data:', cart.items[0]?.item?.business); // Debug if missing
+    throw new Error('Business type not found for the item.');
+  }
+
   const orderData = {
     user: userId,
     partner: cart.items[0].item.partner._id,
     business: cart.items[0].item.business._id,
+    businessType: businessTypeId, // Add inferred businessType
     items,
     totalPrice: cart.totalPrice,
     subtotal: cart.subtotal,
@@ -1653,15 +1672,21 @@ const processRefundOrExchangeDecision = async (
 
 // Process refund requests by admin
 const updateExpiredRefundsToAdmin = async () => {
-  const sevenDaysAgo = moment().subtract(7, "days").toDate();
+  try {
+    const sevenDaysAgo = moment().subtract(7, "days").toDate();
 
-  await OrderModel.updateMany(
-    {
-      "refundDetails.status": "pending_partner",
-      "refundDetails.requestedAt": { $lte: sevenDaysAgo },
-    },
-    { $set: { "refundDetails.status": "pending_admin" } }
-  );
+    const result = await OrderModel.updateMany(
+      {
+        "refundDetails.status": "pending_partner",
+        "refundDetails.requestedDate": { $lte: sevenDaysAgo },
+      },
+      { $set: { "refundDetails.status": "pending_admin" } }
+    );
+
+    console.log("Expired refunds updated:", result.modifiedCount);
+  } catch (error) {
+    console.error("Error updating expired refunds:", error);
+  }
 };
 
 // Get User and Partner Transactions

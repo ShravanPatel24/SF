@@ -40,8 +40,12 @@ const getRole = catchAsync(async (req, res, next) => {
 
 const updateRole = catchAsync(async (req, res, next) => {
     try {
-        const role = await adminRoleService.updateRoleById(req.params.roleId, req.body);
-        return res.status(200).send({ statusCode: 200, message: CONSTANTS.ROLE_UPDATED, data: role });
+        const { role, message } = await adminRoleService.updateRoleById(req.params.roleId, req.body);
+        return res.status(200).send({
+            statusCode: 200,
+            message,
+            data: role,
+        });
     } catch (error) {
         const statusCode = error.statusCode || 500;
         const message = error.message || "Internal server error";

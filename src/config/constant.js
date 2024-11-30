@@ -40,14 +40,12 @@ module.exports = {
     SAME_PASSWORD_ERROR_MSG: "Your new password cannot be the same as your previous password. Please choose a different password.",
     BUSINESS_NOT_FOUND: "Business details not found.",
     BUSINESS_AND_PARTNER_NAME_DUPLICATION: "Business name cannot be the same as the partner\'s name.",
-    INVALID_BUSINESS_TYPE: "Invalid business type provided.",
-    BUSINESS_TYPE_REQUIRED: "Business type is required for partners.",
     SOCIAL_MEDIA_LINKS_CAPACITY: "You can add up to 5 social media links only.",
     S3_BUCKET_UPLOAD_FAILED: "Failed to upload profile photo to S3.",
 
     ACCOUNT_DEACTIVATE: 'Your account appears to be deactivated.',
     ACCOUNT_DELETE: 'Your profile is deleted from admin panel kindly mail us at info@omnisttechhub.com or call us at 7417773034.',
-    USER_NOT_FOUND: 'User details not found.',
+    USER_NOT_FOUND: 'Must provide a valid email or phone number.',
     USER_LIST: 'User list retrieved successfully.',
     USER_DETAILS: 'User details retrieved successfully.',
     USER_STATUS_INACTIVE: 'User status set to inactive successfully.',
@@ -85,27 +83,6 @@ module.exports = {
     INVALID_OTP: "Invalid OTP",
     EXPIRE_OTP: "OTP has expired",
 
-    ADMIN_STAFF_LIST: 'Staff List',
-    ADMIN_NOT_FOUND: 'Admin Not found',
-    ADMIN_STAFF_DETAILS: 'Staff details',
-    ADMIN_STAFF_STATUS_DELETE: 'Staff member deleted successfully',
-    ADMIN_STAFF_STATUS_INACTIVE: 'The status of the staff is inactive successfully',
-    ADMIN_STAFF_STATUS_ACTIVE: 'The status of the staff is active successfully',
-    ADMIN_STAFF_NAME_ALREADY_EXISTS: 'The name already exists. Please use a different name',
-    ADMIN_STAFF_EMAIL_ALREADY_EXISTS: 'The email already exists. Please use a different email',
-    ADMIN_STAFF_MOBILE_ALREADY_EXISTS: 'The mobile number already exists. Please use a different mobile number',
-    ADMIN_STAFF_UPDATE: 'Information has been successfully updated',
-    ADMIN_STAFF_CREATE: 'Information has been successfully created',
-    ADMIN_USER_EMAIL_PHONE_REQUIRED: "Email/Phone and type are required",
-
-    FAQ_LIST: 'FAQ list loaded successfully',
-    FAQ_CREATE: 'FAQ created successfully',
-    FAQ_QUESTION_ALREADY_EXISTS: 'The FAQ question already exists.',
-    FAQ_DELETE: 'FAQ deleted successfully',
-    FAQ_UPDATE: 'FAQ updated successfully',
-    FAQ_NOT_FOUND: 'FAQ details not found',
-    FAQ_DETAILS: 'Details retrieved successfully',
-
     BLOG_LIST: 'Blog list loaded successfully',
     BLOG_CREATE: 'Blog created successfully',
     BLOG_TITLE_ALREADY_EXISTS: 'The blog title already exists.',
@@ -139,11 +116,34 @@ module.exports = {
     LIST: 'List retrieved successfully.',
     DETAILS: 'Details retrieved successfully.',
     STATUS: 'Status updated successfully.',
-    NOTFOUNT: 'Details not amount successfully.',
+    NOTFOUND: 'Details not found.',
+
+    // Super Admin
+    EMAIL_NOT_FOUND: "Email not found. Please enter a registered email address.",
+
+    // Admin Settings
+    COMMISSION_UPDATED: "Commission updated successfully.",
+    SETTINGS_UPDATED: "Admin settings updated successfully.",
+
+    // Admin Staff
+    ADMIN_STAFF_LIST: 'Staff List',
+    ADMIN_NOT_FOUND: 'Admin Not found',
+    ADMIN_STAFF_DETAILS: 'Staff details',
+    ADMIN_STAFF_STATUS_DELETE: 'Staff member deleted successfully',
+    ADMIN_STAFF_STATUS_INACTIVE: 'Staff inactivated successfully.',
+    ADMIN_STAFF_STATUS_ACTIVE: 'Staff activated successfully.',
+    ADMIN_STAFF_NAME_ALREADY_EXISTS: 'The name already exists. Please use a different name',
+    ADMIN_STAFF_EMAIL_ALREADY_EXISTS: 'The email already exists. Please use a different email',
+    ADMIN_STAFF_MOBILE_ALREADY_EXISTS: 'The mobile number already exists. Please use a different mobile number',
+    ADMIN_STAFF_UPDATED: 'Staff updated successfully.',
+    ADMIN_STAFF_CREATED: 'Staff created successfully.',
+    ADMIN_USER_EMAIL_PHONE_REQUIRED: "Email/Phone and type are required",
 
     // Roles
     ROLE_CREATE: "Role created successfully.",
     ROLE_UPDATED: "Role updated successfully.",
+    ROLE_ACTIVATED: "Role activated successfully.",
+    ROLE_INACTIVATED: "Role inactivated successfully.",
     ROLE_DELETED: "Role deleted successfully.",
     ROLE_CREATION_FAILED: "Failed to create role.",
     ROLE_NOT_FOUND: "Role not found.",
@@ -151,7 +151,13 @@ module.exports = {
     ROLE_DETAILS: "Role details.",
 
     // Business Type
-    BUSINESS_TYPE_NOT_FOUND_MSG: "Business Type Not Found",
+    BUSINESS_TYPE_NOT_FOUND_MSG: "Business Type Not Found.",
+    BUSINESS_TYPE_CREATED: "Business Type created successfully.",
+    BUSINESS_TYPE_UPDATED: "Business Type updated successfully.",
+    BUSINESS_TYPE_ACTIVATED: "Business Type activated successfully.",
+    BUSINESS_TYPE_INACTIVATED: "Business Type inactivated successfully.",
+    INVALID_BUSINESS_TYPE: "Invalid business type provided.",
+    BUSINESS_TYPE_REQUIRED: "Business type is required for partners.",
 
     // FOLLOW-UNFOLLOW USER
     FOLLOW_YOURSELF: 'You cannot follow yourself.',
@@ -178,8 +184,9 @@ module.exports = {
     VIDEO_REQUIRED: "Video is required for this post type.",
 
     // ITEM CATEGORY
-    CATEGORY_CREATED: "Category created successfully.",
     CATEGORY_UPDATED: "Category updated successfully.",
+    CATEGORY_ACTIVATED: "Category activated successfully.",
+    CATEGORY_INACTIVATED: "Category inactivated successfully.",
     CATEGORY_DELETED: "Category deleted successfully.",
     CATEGORY_NOT_FOUND: "Category not found.",
     INVALID_PARENT_ID: "No subcategories found for this parent category.",
@@ -211,7 +218,6 @@ module.exports = {
     CART_UPDATED: 'Cart item updated.',
     CART_CLEARED: 'Cart cleared successfully.',
     CART_EMPTY: 'Cart is empty.',
-    VARIANT_NOT_FOUND: 'The selected size and color combination is not available for this product.',
     INVALID_QUANTITY: 'Quantity must be greater than zero.',
     INVALID_ITEM_TYPE: "Invalid item type.",
     INVALID_PRICE: "Invalid price for item.",
@@ -236,11 +242,31 @@ module.exports = {
     UNAUTHORIZED_ORDER_ACCESS: 'You do not have permission to access this order.',
     INVALID_STATUS_FOR_INVOICE: 'Invoice can only be generated for completed room bookings, delivered product items, or delivered food orders.',
 
+    // VARIANTS
+    VARIANT_ADDED: "Variant added successfully.",
+    VARIANT_UPDATED: "Variant updated successfully.",
+    VARIANT_ACTIVATED: "Variant activated successfully.",
+    VARIANT_INACTIVATED: "Variant inactivated successfully.",
+    VARIANT_DELETED: "Variant deleted successfully.",
+    VARIANT_NOT_FOUND: 'The selected size and color combination is not available for this product.',
+
     // TEMPLATES
-    TEMPLATE_CREATE: "Template created successfully.",
+    TEMPLATE_CREATE: "Email template added successfully",
     TEMPLATE_NOT_FOUND: "Template not found.",
-    TEMPLATE_UPDATE: "Template updated successfully.",
-    TEMPLATE_STATUS_DELETE: "Template deleted successfully.",
+    TEMPLATE_UPDATE: " Email template updated successfully",
+    TEMPLATE_STATUS_DELETE: "Email template deleted successfully",
     TEMPLATE_LIST: "Template list retrieved suucessfully.",
     TEMPLATE_DETAILS: "Template details.",
+
+    // FAQ
+    FAQ_LIST: 'FAQ list loaded successfully',
+    FAQ_QUESTION_ALREADY_EXISTS: 'The FAQ question already exists.',
+    FAQ_NOT_FOUND: 'FAQ details not found',
+    FAQ_DETAILS: 'Details retrieved successfully',
+    FAQ_CREATED: "FAQ created successfully.",
+    FAQ_UPDATED: "FAQ updated successfully.",
+    FAQ_ACTIVATED: "FAQ activated successfully.",
+    FAQ_INACTIVATED: "FAQ inactivated successfully.",
+    FAQ_DELETED: "FAQ deleted successfully.",
+    FAQ_QUESTION_ALREADY_EXISTS: "FAQ question already exists.",
 };

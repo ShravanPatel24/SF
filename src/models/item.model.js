@@ -8,6 +8,13 @@ const itemSchema = new mongoose.Schema(
             required: true,
             enum: ['food', 'room', 'product']
         },
+        quantity: {
+            type: Number,
+            required: function () {
+                return this.itemType === 'food' || this.itemType === 'room';
+            },
+            min: [1, 'Quantity must be at least 1'],
+        },
         images: [{ type: String }],
         available: { type: Boolean, default: true },
         business: { type: mongoose.Schema.Types.ObjectId, ref: 'Business', required: true },
@@ -65,6 +72,7 @@ const itemSchema = new mongoose.Schema(
                 {
                     variantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Variant', required: true },
                     productPrice: { type: Number, required: true },
+                    quantity: { type: Number, required: true }, // Quantity for this specific product-variant pair
                     image: { type: String }
                 }
             ],

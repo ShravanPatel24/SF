@@ -1,5 +1,5 @@
 const { BusinessTypeModel } = require('../models');
-const CONSTANT = require('../config/constant');
+const CONSTANTS = require('../config/constant');
 const pluralize = require('pluralize');
 
 /**
@@ -8,29 +8,26 @@ const pluralize = require('pluralize');
  * @returns {Promise<Record>}
  */
 const create = async (requestBody) => {
-    // Normalize the name to singular form and lowercase for consistency
     const normalizedName = pluralize.singular(requestBody.name.trim().toLowerCase());
 
-    // Check for existing business type with a normalized name
     const existingBusinessType = await BusinessTypeModel.findOne({
-        name: { $regex: `^${normalizedName}$`, $options: 'i' }, // Case-insensitive match
+        name: { $regex: `^${normalizedName}$`, $options: 'i' },
     });
 
     if (existingBusinessType) {
         return {
             data: {},
-            code: CONSTANT.BAD_REQUEST,
+            code: CONSTANTS.BAD_REQUEST,
             message: `Business Type "${requestBody.name}" already exists (similar to "${existingBusinessType.name}").`,
         };
     }
 
-    // Create the new business type
     const data = await BusinessTypeModel.create({
         ...requestBody,
-        name: normalizedName, // Store the normalized name
+        name: normalizedName,
     });
 
-    return { data, code: CONSTANT.SUCCESSFUL, message: CONSTANT.CREATED };
+    return { data, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.BUSINESS_TYPE_CREATED };
 };
 
 /**
@@ -144,11 +141,37 @@ const getById = async (id) => {
  */
 const updateById = async (id, updateBody) => {
     const data = await getById(id);
-    if (!data) { return { data: {}, statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.BUSINESS_TYPE_NOT_FOUND_MSG } }
-    if (updateBody.name && await BusinessTypeModel.isFieldValueTaken('name', updateBody.name, id)) { return { data: {}, statusCode: CONSTANT.BAD_REQUEST, message: `Business Type ${updateBody.name} already exists.` } }
+    if (!data) {
+        return {
+            data: {},
+            statusCode: CONSTANTS.NOT_FOUND,
+            message: CONSTANTS.BUSINESS_TYPE_NOT_FOUND_MSG,
+        };
+    }
+
+    // Check if the name is being updated and validate uniqueness
+    if (updateBody.name && await BusinessTypeModel.isFieldValueTaken('name', updateBody.name, id)) {
+        return {
+            data: {},
+            statusCode: CONSTANTS.BAD_REQUEST,
+            message: `Business Type ${updateBody.name} already exists.`,
+        };
+    }
+
+    // Update the business type data
     Object.assign(data, updateBody);
     await data.save();
-    return { data: data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.UPDATED };
+
+    // Determine the appropriate message based on the update
+    let message = CONSTANTS.BUSINESS_TYPE_UPDATED; // Default message for updates
+
+    if (updateBody.status !== undefined) {
+        message = updateBody.status === 1
+            ? CONSTANTS.BUSINESS_TYPE_ACTIVATED
+            : CONSTANTS.BUSINESS_TYPE_INACTIVATED;
+    }
+
+    return { data, statusCode: CONSTANTS.SUCCESSFUL, message };
 };
 
 /**
@@ -159,11 +182,11 @@ const updateById = async (id, updateBody) => {
 const deleteById = async (id) => {
     const data = await getById(id);
     if (!data) {
-        return { statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.BUSINESS_TYPE_NOT_FOUND_MSG, data: {} };
+        return { statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.BUSINESS_TYPE_NOT_FOUND_MSG, data: {} };
     }
     data.isDelete = 0;
     await data.save();
-    return { statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.DELETED, data };
+    return { statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.DELETED, data };
 };
 
 const getListWithoutPagination = async (options) => {

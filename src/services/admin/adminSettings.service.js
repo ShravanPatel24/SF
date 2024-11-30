@@ -1,11 +1,12 @@
 const { AdminSettingModel } = require('../../models');
+const CONSTANTS = require('../../config/constant')
 
 /**
  * Create or update system settings
  * @param {Object} settingsData
  * @returns {Promise<Object>}
  */
-const createOrUpdateSettings = async (settingsData) => {
+const createSettings = async (settingsData) => {
     let settings = await AdminSettingModel.findOne({ settingsId: 1 }); // Look for existing settings with settingsId: 1
     if (settings) {
         // Update existing settings document
@@ -41,11 +42,22 @@ const getSettings = async () => {
 const updateSettings = async (settingsId, settingsData) => {
     let systemSettings = await AdminSettingModel.findById(settingsId);
     if (!systemSettings) {
-        throw new Error("admin settings not found");
+        throw new Error("Admin settings not found");
     }
+
+    // Determine if only commission is being updated
+    const isOnlyCommissionUpdated = Object.keys(settingsData).length === 1 && settingsData.hasOwnProperty('commission');
+
+    // Update the settings
     systemSettings = Object.assign(systemSettings, settingsData);
     await systemSettings.save();
-    return systemSettings;
+
+    // Return appropriate message
+    const message = isOnlyCommissionUpdated
+        ? CONSTANTS.COMMISSION_UPDATED
+        : CONSTANTS.SETTINGS_UPDATED;
+
+    return { systemSettings, message };
 };
 
 /**
@@ -61,7 +73,7 @@ const deleteSettings = async (settingsId) => {
 };
 
 module.exports = {
-    createOrUpdateSettings,
+    createSettings,
     getSettings,
     updateSettings,
     deleteSettings,

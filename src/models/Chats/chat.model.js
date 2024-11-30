@@ -10,7 +10,7 @@ const chatSchema = new Schema(
     participants: [
       {
         type: Schema.Types.ObjectId,
-        ref: "User", // Reference to the User model
+        ref: "user", // Reference to the User model
         required: true,
       },
     ],

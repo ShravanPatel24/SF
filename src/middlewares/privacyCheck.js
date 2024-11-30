@@ -8,16 +8,37 @@ const canAccessUser = async (req, res, next) => {
         const { id, userId } = req.params; // General parameters
         const requestingUserId = req.user?._id; // Logged-in user's ID
 
-        // Check if the route is for a user profile
-        const isProfileRoute = req.originalUrl.includes('/profile/');
-        if (isProfileRoute) {
+        // Helper function to determine if the user is a partner
+        const isPartner = async (userId) => {
+            const user = await UserModel.findById(userId, 'type');
+            return user?.type === 'partner';
+        };
+
+        // Check if the target user (id or userId) is a partner and bypass checks
+        const targetUserId = id || userId;
+        if (await isPartner(targetUserId)) {
+            return next(); // Skip all checks for partners
+        }
+
+        // Case 1: Accessing a user's profile by ID (e.g., /user/profile/:id)
+        const isUserProfileRoute = req.originalUrl.includes('/user/profile') && id;
+        if (isUserProfileRoute) {
             const targetUser = await UserModel.findById(id, 'isPublic privacySettings');
-            if (!targetUser) return res.status(404).json({ statusCode: 404, message: 'User not found.' });
+            if (!targetUser) {
+                return res.status(404).json({ statusCode: 404, message: 'User not found.' });
+            }
 
-            // Public profiles are accessible
-            if (targetUser.isPublic) return next();
+            // Allow access to the user's own profile
+            if (requestingUserId.toString() === targetUser._id.toString()) {
+                return next();
+            }
 
-            // Check if the requesting user is a follower of the target user
+            // Public profiles allow access
+            if (targetUser.isPublic) {
+                return next();
+            }
+
+            // Check if the requesting user is a follower of the target user for private profiles
             const isFollower = await FollowModel.exists({
                 follower: requestingUserId,
                 following: targetUser._id,
@@ -26,24 +47,32 @@ const canAccessUser = async (req, res, next) => {
             if (!isFollower) {
                 return res.status(403).json({
                     statusCode: 403,
-                    message: 'Access denied. User profile is private.',
+                    message: 'Access denied. Profile is private.',
                 });
             }
 
             return next();
         }
 
-        // Check if the route is for followers or following lists
-        const isFollowersOrFollowingRoute =
-            req.originalUrl.includes('/followers') || req.originalUrl.includes('/following');
-        if (isFollowersOrFollowingRoute) {
+        // Case 2: Accessing a user's posts by userId (e.g., /posts/:userId)
+        const isUserPostsRoute = req.originalUrl.includes('/posts') && userId;
+        if (isUserPostsRoute) {
             const targetUser = await UserModel.findById(userId, 'isPublic privacySettings');
-            if (!targetUser) return res.status(404).json({ statusCode: 404, message: 'User not found.' });
+            if (!targetUser) {
+                return res.status(404).json({ statusCode: 404, message: 'User not found.' });
+            }
 
-            // Public profiles allow access to followers and following lists
-            if (targetUser.isPublic) return next();
+            // Allow access to the user's own posts
+            if (requestingUserId.toString() === targetUser._id.toString()) {
+                return next();
+            }
 
-            // Check if the requesting user is a follower of the target user
+            // Public profiles allow access to posts
+            if (targetUser.isPublic) {
+                return next();
+            }
+
+            // Check if the requesting user is a follower of the target user for private profiles
             const isFollower = await FollowModel.exists({
                 follower: requestingUserId,
                 following: targetUser._id,
@@ -52,36 +81,58 @@ const canAccessUser = async (req, res, next) => {
             if (!isFollower) {
                 return res.status(403).json({
                     statusCode: 403,
-                    message: 'Access denied. Cannot view followers or following list of a private profile.',
+                    message: 'Access denied. Posts are private.',
                 });
             }
 
             return next();
         }
 
-        // Handle post access
-        const post = await PostModel.findById(id).populate('userId', 'isPublic privacySettings');
-        if (!post) return res.status(404).json({ statusCode: 404, message: 'Post not found.' });
+        // Case 3: Accessing a single post by id (e.g., /posts/:id)
+        if (id) {
+            const post = await PostModel.findById(id).populate('userId', 'type isPublic privacySettings');
+            if (!post) {
+                return res.status(404).json({ statusCode: 404, message: 'Post not found.' });
+            }
 
-        const postOwner = post.userId;
+            const postOwner = post.userId;
 
-        // Public posts are accessible
-        if (postOwner.isPublic) return next();
+            // Skip checks if the post owner is a partner
+            if (postOwner.type === 'partner') {
+                return next();
+            }
 
-        // Check if the requesting user is a follower of the post owner
-        const isFollower = await FollowModel.exists({
-            follower: requestingUserId,
-            following: postOwner._id,
-        });
+            // Allow access to the user's own post
+            if (requestingUserId.toString() === postOwner._id.toString()) {
+                return next();
+            }
 
-        if (!isFollower) {
-            return res.status(403).json({
-                statusCode: 403,
-                message: 'Access denied. This post is private.',
+            // Public posts are accessible
+            if (postOwner.isPublic) {
+                return next();
+            }
+
+            // Check if the requesting user is a follower of the post owner
+            const isFollower = await FollowModel.exists({
+                follower: requestingUserId,
+                following: postOwner._id,
             });
+
+            if (!isFollower) {
+                return res.status(403).json({
+                    statusCode: 403,
+                    message: 'Access denied. This post is private.',
+                });
+            }
+
+            return next();
         }
 
-        return next();
+        // Default: Fallback for unsupported routes
+        return res.status(400).json({
+            statusCode: 400,
+            message: 'Invalid request. No valid parameters provided.',
+        });
     } catch (error) {
         console.error('Privacy Check Error:', error);
         return res.status(500).json({ statusCode: 500, message: 'Server error' });

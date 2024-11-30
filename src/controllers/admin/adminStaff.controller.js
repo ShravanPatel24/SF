@@ -3,44 +3,43 @@ const catchAsync = require('../../utils/catchAsync');
 const { adminStaffService, adminAuthService, s3Service } = require('../../services');
 const CONSTANTS = require('../../config/constant');
 const { AdminStaffModel } = require('../../models');
-const bcrypt = require('bcryptjs');
 
 const createAdminStaffUser = catchAsync(async (req, res) => {
     try {
         if (req.user.type !== 'superadmin') {
             return res.status(403).send({
                 statusCode: 403,
-                message: 'Only a superadmin can create staff members.'
+                message: 'Only a superadmin can create staff members.',
             });
         }
         const staff = await adminStaffService.createAdminStaffUser(req.body);
         return res.status(200).send({
             data: staff,
             statusCode: CONSTANTS.SUCCESSFUL,
-            message: CONSTANTS.ADMIN_STAFF_CREATE
+            message: CONSTANTS.ADMIN_STAFF_CREATED,
         });
     } catch (error) {
         if (error.message.includes('Email is already in use')) {
             return res.status(400).send({
                 statusCode: 400,
-                message: 'The email address is already registered.'
+                message: 'The email address is already registered.',
             });
         }
         if (error.message.includes('Phone number is already in use')) {
             return res.status(400).send({
                 statusCode: 400,
-                message: 'The phone number is already registered.'
+                message: 'The phone number is already registered.',
             });
         }
         if (error.message.includes('Validation error')) {
             return res.status(400).send({
                 statusCode: 400,
-                message: error.message
+                message: error.message,
             });
         }
         return res.status(500).send({
             statusCode: 500,
-            message: 'An error occurred while creating the staff user.'
+            message: 'An error occurred while creating the staff user.',
         });
     }
 });
@@ -90,11 +89,36 @@ const getAdminStaffUser = catchAsync(async (req, res) => {
 });
 
 const updateAdminStaffUser = catchAsync(async (req, res) => {
-    const staff = await adminStaffService.updateAdminStaffUserById(req.params.staffId, req.body);
+    const updateData = req.body;
+
+    if (!updateData || Object.keys(updateData).length === 0) {
+        return res.status(400).send({
+            statusCode: 400,
+            message: 'No update data provided.',
+        });
+    }
+
+    const staff = await adminStaffService.updateAdminStaffUserById(req.params.staffId, updateData);
+
+    if (!staff) {
+        return res.status(404).send({
+            statusCode: CONSTANTS.NOT_FOUND,
+            message: CONSTANTS.ADMIN_NOT_FOUND,
+        });
+    }
+
+    let message = CONSTANTS.ADMIN_STAFF_UPDATED;
+
+    if (updateData.status !== undefined) {
+        message = updateData.status === 1
+            ? CONSTANTS.ADMIN_STAFF_STATUS_ACTIVE
+            : CONSTANTS.ADMIN_STAFF_STATUS_INACTIVE;
+    }
+
     return res.status(200).send({
         data: staff,
         statusCode: CONSTANTS.SUCCESSFUL,
-        message: CONSTANTS.ADMIN_STAFF_UPDATE
+        message,
     });
 });
 
@@ -194,7 +218,7 @@ const changeStaffPassword = catchAsync(async (req, res) => {
             statusCode: CONSTANTS.UNAUTHORIZED,
             message: CONSTANTS.OLD_PASSWORD_MSG
         });
-    }   
+    }
 
     // Update password using the newly created function
     const result = await adminStaffService.updateStaffPasswordById(req.user._id, newPassword);

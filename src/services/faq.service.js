@@ -93,13 +93,31 @@ const updateFAQById = async (faqId, updateBody) => {
     if (!data) {
         return { data: {}, statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.FAQ_NOT_FOUND };
     }
+
     if (updateBody.question && (await FAQModel.isQuestionTaken(updateBody.question, faqId))) {
         return { data: {}, statusCode: CONSTANT.BAD_REQUEST, message: CONSTANT.FAQ_QUESTION_ALREADY_EXISTS };
     }
 
+    // Handle soft delete
+    if (updateBody.isDelete === 0) {
+        data.isDelete = 0; // Mark as deleted
+        await data.save();
+        return { data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.FAQ_DELETED };
+    }
+
+    // Update fields
     Object.assign(data, updateBody);
+
+    // Check for activation/deactivation
+    let message = CONSTANT.FAQ_UPDATED;
+    if (updateBody.status !== undefined) {
+        message = updateBody.status === 1
+            ? CONSTANT.FAQ_ACTIVATED
+            : CONSTANT.FAQ_INACTIVATED;
+    }
+
     await data.save();
-    return { data: data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.FAQ_UPDATE };
+    return { data: data, statusCode: CONSTANT.SUCCESSFUL, message };
 };
 
 /**
@@ -112,9 +130,11 @@ const deleteFAQById = async (faqId) => {
     if (!data) {
         return { data: {}, statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.FAQ_NOT_FOUND };
     }
+
     data.isDelete = 0;
     await data.save();
-    return { data: data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.FAQ_DELETE };
+
+    return { data: data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.FAQ_DELETED };
 };
 
 /**

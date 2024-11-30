@@ -47,6 +47,25 @@ const addToCart = async (userId, itemId, quantity, variantId, checkIn, checkOut,
     (cartItem.variantId ? cartItem.variantId.toString() === variantId : true) // Match variantId for products
   );
 
+  // Validate quantity for product variants
+  if (item.itemType === 'product') {
+    const variant = item.variants.find(v => v.variantId.toString() === variantId.toString());
+    if (!variant) {
+      throw new Error("Invalid variant selected.");
+    }
+    const availableQuantity = variant.quantity;
+    const currentCartQuantity = itemIndex > -1 ? cart.items[itemIndex].quantity : 0;
+
+    if (currentCartQuantity + quantity > availableQuantity) {
+      throw new Error("Requested quantity exceeds available stock for the selected variant.");
+    }
+  }
+
+  // Validate quantity for food and rooms
+  if ((item.itemType === 'food' || item.itemType === 'room') && item.quantity < (cart.items[itemIndex]?.quantity || 0) + quantity) {
+    throw new Error("Requested quantity exceeds available stock.");
+  }
+
   if (itemIndex > -1) {
     if (item.itemType === "room") {
       cart.items[itemIndex].checkIn = checkIn;

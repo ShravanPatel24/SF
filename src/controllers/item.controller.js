@@ -143,7 +143,7 @@ const deleteItem = catchAsync(async (req, res) => {
 // Get all items (products, food, rooms) for guest users
 const getAllItems = catchAsync(async (req, res) => {
     try {
-        const { itemType } = req.query;
+        const { itemType, businessId } = req.query;
 
         // Validate itemType if provided
         const validItemTypes = ['product', 'food', 'room'];
@@ -154,8 +154,16 @@ const getAllItems = catchAsync(async (req, res) => {
             });
         }
 
-        // Call the service function with the itemType filter
-        const items = await ItemService.getAllItems(itemType);
+        // Validate businessId if provided
+        if (businessId && !businessId.match(/^[0-9a-fA-F]{24}$/)) { // Validate MongoDB ObjectId format
+            return res.status(400).json({
+                statusCode: 400,
+                message: `Invalid businessId. Must be a valid MongoDB ObjectId.`,
+            });
+        }
+
+        // Call the service function with filters
+        const items = await ItemService.getAllItems(itemType, businessId);
 
         res.status(200).json({ statusCode: 200, data: items });
     } catch (error) {
@@ -175,6 +183,33 @@ const searchItems = catchAsync(async (req, res) => {
     }
 });
 
+// Delete image from item
+const deleteImageFromItem = catchAsync(async (req, res) => {
+    const { itemId } = req.params;
+    const { imageKey, variantId } = req.body; // Expect imageKey and optional variantId in request body
+
+    if (!imageKey) {
+        return res.status(400).json({
+            statusCode: 400,
+            message: 'Image key is required.',
+        });
+    }
+
+    try {
+        await ItemService.deleteImageFromItem(itemId, imageKey, variantId);
+        res.status(200).json({
+            statusCode: 200,
+            message: 'Image deleted successfully.',
+        });
+    } catch (error) {
+        console.error('Error in deleteImageFromItem:', error);
+        res.status(400).json({
+            statusCode: 400,
+            message: error.message,
+        });
+    }
+});
+
 module.exports = {
     createItem,
     getItemById,
@@ -186,5 +221,6 @@ module.exports = {
     updateItem,
     deleteItem,
     getAllItems,
-    searchItems
+    searchItems,
+    deleteImageFromItem
 };

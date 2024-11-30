@@ -191,11 +191,34 @@ const updateCategory = async (categoryId, categoryData) => {
         throw new Error(CONSTANTS.INVALID_CATEGORY_TYPE);
     }
 
+    // Handle soft delete
+    if (categoryData.isDelete === 0) {
+        const deletedCategory = await ItemCategoryModel.findByIdAndUpdate(
+            categoryId,
+            { isDelete: 0 }, // Set isDelete to 0 for soft delete
+            { new: true }
+        );
+        if (!deletedCategory) {
+            throw new Error(CONSTANTS.CATEGORY_NOT_FOUND);
+        }
+        return { category: deletedCategory, message: CONSTANTS.CATEGORY_DELETED };
+    }
+
+    // Update category
     const updatedCategory = await ItemCategoryModel.findByIdAndUpdate(categoryId, categoryData, { new: true });
     if (!updatedCategory) {
         throw new Error(CONSTANTS.CATEGORY_NOT_FOUND);
     }
-    return updatedCategory;
+
+    // Determine the message based on the update type
+    let message = CONSTANTS.CATEGORY_UPDATED; // Default message
+    if (categoryData.status !== undefined) {
+        message = categoryData.status === 1
+            ? CONSTANTS.CATEGORY_ACTIVATED
+            : CONSTANTS.CATEGORY_INACTIVATED;
+    }
+
+    return { category: updatedCategory, message };
 };
 
 // Delete a category

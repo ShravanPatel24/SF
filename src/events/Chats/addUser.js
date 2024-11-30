@@ -16,18 +16,32 @@ const handleAddUser = async (socket, onlineUsers, rawData) => {
         return;
     }
 
-    onlineUsers.set(userId, socket.id);
+    onlineUsers.set(userId, socket.id); // Track user as online
     console.log(`User added: ${userId} -> ${socket.id}`);
 
     try {
+        // Fetch all chats where the user is a participant
         const chats = await Chat.find({ participants: userId })
             .populate("lastMessage")
-            .exec();
+            .populate("participants", "username avatar")
+            .lean();
 
-        console.log("Chats loaded for user:", chats);
-        socket.emit("chat-list", chats);
+        // Ensure the response includes roomId
+        const chatList = chats.map((chat) => ({
+            roomId: chat._id,
+            participants: chat.participants,
+            lastMessage: chat.lastMessage,
+            isGroupChat: chat.isGroupChat,
+            groupName: chat.groupName || null,
+        }));
+
+        console.log("Chats loaded for user:", chatList);
+
+        // Emit the chat list to the client
+        socket.emit("chat-list", chatList);
     } catch (error) {
         console.error("Error loading user chats:", error.message);
+        socket.emit("chat-list-error", { message: "Error loading user chats" });
     }
 };
 

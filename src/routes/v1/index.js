@@ -14,13 +14,13 @@ const templateRoute = require('./template.route')
 const AddressRoute = require('./address.route')
 const VariantsRoute = require('./variants.route')
 const InvoiceRoute = require('./invoice.route')
+const ChatRoute = require('./Chats/chat.route')
 
 const AdminAuthRoute = require("./admin/auth.route");
 const AdminStaffRoute = require("./admin/adminStaff.route");
 const AdminRoleRoute = require("./admin/adminRole.route");
 const AdminUserRoute = require('./admin/adminUser.route');
 const DashboardRoute = require('./dashboard.routes');
-const AdminDashboardRoute = require('./admin/dashboard.route');
 const AdminSettingRoute = require('./admin/adminSettings.route');
 
 const ContactUsRoute = require('./contactUs.route');
@@ -40,7 +40,6 @@ const defaultRoutes = [
   { path: '/admin/user', route: AdminUserRoute },
   { path: "/admin", route: AdminAuthRoute },
   { path: '/dashboard', route: DashboardRoute },
-  { path: "/admin/dashboard", route: AdminDashboardRoute },
   { path: "/admin/roles", route: AdminRoleRoute },
   { path: "/admin/staff", route: AdminStaffRoute },
   { path: "/admin/settings", route: AdminSettingRoute },
@@ -60,6 +59,7 @@ const defaultRoutes = [
   { path: '/templates', route: templateRoute },
   { path: '/address', route: AddressRoute },
   { path: '/invoice', route: InvoiceRoute },
+  { path: '/chat-message', route: ChatRoute },
 ];
 
 const devRoutes = [

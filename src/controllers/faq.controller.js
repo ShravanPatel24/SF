@@ -41,17 +41,21 @@ const getFAQByCategory = catchAsync(async (req, res) => {
 });
 
 const updateFAQ = catchAsync(async (req, res) => {
-    var data = await FAQService.updateFAQById(req.params.faqId, req.body)
-    res.send(data);
+    const data = await FAQService.updateFAQById(req.params.faqId, req.body);
+    res.status(data.statusCode).send({
+        statusCode: data.statusCode,
+        message: data.message,
+        data: data.data,
+    });
 });
 
 const deleteFAQ = catchAsync(async (req, res) => {
-    var details = await FAQService.deleteFAQById(req.params.faqId, req.user);
-    if (details) {
-        res.send(details);
-    } else {
-        res.send(details);
-    }
+    const details = await FAQService.deleteFAQById(req.params.faqId);
+    res.status(details.statusCode).send({
+        statusCode: details.statusCode,
+        message: details.message,
+        data: details.data,
+    });
 });
 
 const getFAQsWithoutPagination = catchAsync(async (req, res) => {

@@ -3,106 +3,109 @@ const { StaticContentModel } = require('../models');
 const CONSTANT = require('../config/constant');
 const mongoose = require('mongoose');
 
-// Get static pages for guests
+// Get all static pages
 const getStaticPages = catchAsync(async (req, res) => {
-    const condition = { $and: [{ isDelete: 1, status: 1 }] }; // Allow guest access
-    const result = await StaticContentModel.find(condition).sort({ createdAt: -1 });
-    res.send({ data: result, statusCode: CONSTANT.SUCCESSFUL, message: 'Static Page List' });
+    const { slug, status, search, page = 1, limit = 10 } = req.query;
+
+    // Build dynamic filter
+    const condition = { isDelete: 1 }; // Only include non-deleted items
+
+    if (slug) {
+        condition.slug = slug; // Filter by slug
+    }
+
+    if (status) {
+        condition.status = parseInt(status); // Filter by status
+    }
+
+    if (search) {
+        condition.$or = [
+            { pageTitle: { $regex: search, $options: 'i' } }, // Case-insensitive search in title
+            { description: { $regex: search, $options: 'i' } }, // Case-insensitive search in description
+        ];
+    }
+
+    // Use Mongoose pagination
+    const options = {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        sort: { createdAt: -1 }, // Sort by creation date (newest first)
+        lean: true, // Return plain JavaScript objects instead of Mongoose documents
+    };
+
+    const result = await StaticContentModel.paginate(condition, options);
+
+    // Format the response to match your desired structure
+    const response = {
+        statusCode: CONSTANT.SUCCESSFUL,
+        message: 'Static Page List.',
+        data: {
+            docs: result.docs, // The paginated results
+            totalDocs: result.totalDocs, // Total number of documents
+            limit: result.limit, // Items per page
+            totalPages: result.totalPages, // Total number of pages
+            page: result.page, // Current page
+            pagingCounter: result.pagingCounter, // Counter for the first item on the page
+            hasPrevPage: result.hasPrevPage, // Whether there is a previous page
+            hasNextPage: result.hasNextPage, // Whether there is a next page
+            prevPage: result.prevPage, // Previous page number (if any)
+            nextPage: result.nextPage, // Next page number (if any)
+        },
+    };
+
+    res.send(response);
 });
 
-// Get a specific static page for guests
+// Get a specific static page by ID or slug
 const getStaticPage = catchAsync(async (req, res) => {
-    let data = {};
-    if (req.params && req.params.pageId) {
-        if (mongoose.Types.ObjectId.isValid(req.params.pageId)) {
-            data = await StaticContentModel.findById(req.params.pageId);
-        } else {
-            data = await StaticContentModel.findOne({ slug: req.params.pageId });
-        }
-    }
-    if (req.params && req.params.type && req.params.for) {
-        data = await StaticContentModel.findOne({
-            $and: [
-                {
-                    $or: [
-                        { type: req.params.type },
-                        { slug: req.params.type }
-                    ]
-                },
-                { for: req.params.for } // Ensure that `for` matches the passed param
-            ]
-        });
+    const pageId = req.params.pageId;
+    let data;
+    if (mongoose.Types.ObjectId.isValid(pageId)) {
+        data = await StaticContentModel.findById(pageId);
+    } else {
+        data = await StaticContentModel.findOne({ slug: pageId });
     }
     if (!data) {
-        res.send({ data: {}, statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.NOTFOUNT });
-    } else {
-        res.send({ data: data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.DETAILS });
+        return res.send({ data: {}, statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.NOTFOUND });
     }
+    res.send({ data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.DETAILS });
 });
 
-// Update static page by type
+// Update static page by slug or ID
 const updateStaticPage = catchAsync(async (req, res) => {
+    const identifier = req.params.pageId || req.params.type;
     const data = await StaticContentModel.findOne({
-        $or: [
-            { type: req.params.type },
-            { slug: req.params.type }
-        ]
+        $or: [{ _id: identifier }, { slug: identifier }],
     });
     if (!data) {
-        return res.send({ data: {}, statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.NOTFOUNT });
+        return res.send({ data: {}, statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.NOTFOUND });
     }
     Object.assign(data, req.body);
     await data.save();
-    res.send({ data: data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.UPDATED });
+    res.send({ data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.UPDATED });
 });
 
-// Update static page by ID
-const updateStaticPageByID = catchAsync(async (req, res) => {
-    const data = await StaticContentModel.findById(req.params.pageId);
-    if (!data) {
-        console.log('staticAdminEdit: ', data);
-        return res.send({ data: {}, statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.NOTFOUNT });
-    }
-    Object.assign(data, req.body);
-    await data.save();
-    res.send({ data: data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.UPDATED });
-});
-
-// Create static pages
+// Create a new static page
 const createStaticPages = catchAsync(async (req, res) => {
-    const static = await StaticContentModel.create(req.body);
-    res.send({ data: static, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.CREATED });
+    const staticPage = await StaticContentModel.create(req.body);
+    res.send({ data: staticPage, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.CREATED });
 });
 
-// Delete static page by ID
+// Soft-delete a static page by ID
 const deleteStaticPageById = catchAsync(async (req, res) => {
     const data = await StaticContentModel.findById(req.params.pageId);
     if (!data) {
-        return res.send({ data: {}, statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.NOTFOUNT });
+        return res.send({ data: {}, statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.NOTFOUND });
     }
     data.isDelete = 0;
     await data.save();
-    res.send({ data: data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.DELETED });
-});
-
-// Add admin static pages
-const addAdminStaticPages = catchAsync(async (req, res) => {
-    const condition = {
-        $and: [{ _id: req.query.ids, isDelete: 1, status: 1 }],
-    };
-    const data = await StaticContentModel.find(condition);
-    if (!data) {
-        return res.send({ data: {}, statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.NOTFOUNT });
-    }
-    return res.send({ data: data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.DELETED });
+    res.send({ data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.DELETED });
 });
 
 module.exports = {
     getStaticPages,
     getStaticPage,
     updateStaticPage,
-    updateStaticPageByID,
     createStaticPages,
     deleteStaticPageById,
-    addAdminStaticPages,
 };

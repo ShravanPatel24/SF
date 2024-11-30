@@ -81,9 +81,19 @@ const updateRoleById = async (roleId, updateBody) => {
         error.statusCode = 404;
         throw error;
     }
+
     Object.assign(role, updateBody);
     await role.save();
-    return role;
+
+    let message = CONSTANTS.ROLE_UPDATED;
+
+    if (updateBody.status !== undefined) {
+        message = updateBody.status === 1
+            ? CONSTANTS.ROLE_ACTIVATED
+            : CONSTANTS.ROLE_INACTIVATED;
+    }
+
+    return { role, message };
 };
 
 /**

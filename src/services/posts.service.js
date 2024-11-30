@@ -191,7 +191,7 @@ const getPostById = async (id) => {
     return postObject;
 };
 
-// Fetch posts by userId
+// Fetch posts by user
 const getPostsByUser = async (user, page = 1, limit = 10, search = '') => {
     // Check if user is a partner
     if (user.type === 'partner') {
@@ -251,6 +251,64 @@ const getPostsByUser = async (user, page = 1, limit = 10, search = '') => {
     );
 
     return { ...posts, docs: postsWithDetails };
+};
+
+// Fetch posts by userId
+const getPostsBySpecificUserId = async (userId, page = 1, limit = 10, search = '') => {
+    try {
+        const query = { userId }; // Match the userId
+
+        // Add search filter if a search term is provided
+        if (search && search.trim() !== '') {
+            query.caption = { $regex: search, $options: 'i' }; // Case-insensitive search on caption
+        }
+
+        const options = {
+            page,
+            limit,
+            populate: [
+                { path: 'userId', select: 'name profilePhoto' }, // Include user details
+            ],
+            sort: { createdAt: -1 }, // Sort by most recent posts
+        };
+
+        const posts = await PostModel.paginate(query, options);
+
+        // Add additional details like comments and likes if needed
+        const postsWithDetails = await Promise.all(
+            posts.docs.map(async (post) => {
+                const comments = await PostCommentModel.find({ postId: post._id })
+                    .populate('postedBy', 'name profilePhoto')
+                    .exec();
+
+                const likes = await PostLikeModel.find({ postId: post._id })
+                    .populate('userId', 'name profilePhoto')
+                    .exec();
+
+                const postObj = post.toObject();
+                postObj.comments = comments.map((comment) => ({
+                    ...comment.toObject(),
+                    id: comment._id,
+                }));
+                postObj.likes = likes.map((like) => ({
+                    ...like.toObject(),
+                    id: like._id,
+                }));
+                postObj.id = post._id;
+                delete postObj._id;
+
+                return postObj;
+            })
+        );
+
+        return {
+            ...posts,
+            docs: postsWithDetails, // Replace docs with detailed posts
+        };
+    } catch (error) {
+        console.error('Error in getPostsBySpecificUserId:', error);
+        throw new Error('Failed to fetch posts by user ID');
+    }
 };
 
 // Update a post
@@ -459,6 +517,7 @@ module.exports = {
     getAllPosts,
     getPostById,
     getPostsByUser,
+    getPostsBySpecificUserId,
     updatePost,
     deletePost,
     addLike,

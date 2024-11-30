@@ -19,6 +19,13 @@ const createItem = {
         dishPrice: Joi.number().when('itemType', { is: 'food', then: Joi.required() }),
         foodDeliveryCharge: Joi.number().when('itemType', { is: 'food', then: Joi.required() }),
 
+        // Quantity (required for food and room, optional for product)
+        quantity: Joi.number().min(1).when('itemType', {
+            is: Joi.valid('food', 'room'),
+            then: Joi.required(),
+            otherwise: Joi.optional(),
+        }),
+
         // Specific fields for room items
         roomName: Joi.string().when('itemType', { is: 'room', then: Joi.required() }),
         roomCategory: Joi.string().when('itemType', { is: 'room', then: Joi.required() }),
@@ -42,12 +49,13 @@ const createItem = {
             Joi.object({
                 variantId: Joi.string().custom(objectId).required(), // Reference to admin-defined variant
                 productPrice: Joi.number().required(), // Price set by the partner
+                quantity: Joi.number().min(0).required(), // Quantity for the variant
                 nonReturnable: Joi.boolean().optional(), // Non-returnable status
                 image: Joi.string().optional(), // Variant-specific image
             })
-        ).when('itemType', { is: 'product', then: Joi.optional() }),
+        ).when('itemType', { is: 'product', then: Joi.required() }),
     }),
-}
+};
 
 const getItemById = {
     params: Joi.object().keys({
@@ -119,11 +127,15 @@ const updateItem = {
             dishPrice: Joi.number().optional(),
             foodDeliveryCharge: Joi.number().optional(),
 
+            // Quantity for food and room
+            quantity: Joi.number().min(0).optional(),
+
             // Fields specific to rooms
             roomName: Joi.string().optional(),
             roomCategory: Joi.string().optional(),
             roomDescription: Joi.string().optional(),
             roomPrice: Joi.number().optional(),
+            roomCapacity: Joi.number().optional(),
             roomTax: Joi.number().optional(),
             checkIn: Joi.date().iso().optional(),
             checkOut: Joi.date().iso().optional(),
@@ -140,7 +152,7 @@ const updateItem = {
                 Joi.object({
                     variantId: Joi.string().custom(objectId).optional(), // Admin-defined variant reference
                     productPrice: Joi.number().optional(), // Price update
-                    nonReturnable: Joi.boolean().optional(), // Non-returnable status update
+                    quantity: Joi.number().optional(),
                     image: Joi.string().optional(), // Image update for variants
                 })
             ).optional(),
@@ -154,6 +166,14 @@ const deleteItem = {
     }),
 };
 
+const deleteImageFromItem = Joi.object({
+    imageKey: Joi.string().required().messages({
+        'string.empty': 'Image key is required',
+        'any.required': 'Image key is required',
+    }),
+    variantId: Joi.string().optional(),
+});
+
 module.exports = {
     createItem,
     getItemById,
@@ -163,5 +183,6 @@ module.exports = {
     getFoodByBusinessId,
     getProductByBusinessId,
     updateItem,
-    deleteItem
+    deleteItem,
+    deleteImageFromItem
 };

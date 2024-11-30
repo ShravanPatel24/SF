@@ -38,6 +38,8 @@ const createAdminStaffUser = async (staffData) => {
 const queryAdminStaffUsers = async (options) => {
     const { limit = 10, page = 1, search, status } = options;
     const matchQuery = {};
+
+    // Search criteria
     if (search && search.trim() !== '') {
         matchQuery.$or = [
             { name: { $regex: search, $options: 'i' } },
@@ -46,11 +48,15 @@ const queryAdminStaffUsers = async (options) => {
             { 'role.name': { $regex: search, $options: 'i' } }
         ];
     }
+
+    // Status filter
     if (status !== undefined && status !== '') {
         matchQuery.status = parseInt(status, 10);
     }
+
     const currentPage = page > 0 ? parseInt(page, 10) : 1;
 
+    // Aggregation query with sorting
     const aggregateQuery = mongoose.model('AdminStaff').aggregate([
         {
             $lookup: {
@@ -62,8 +68,10 @@ const queryAdminStaffUsers = async (options) => {
         },
         { $unwind: '$role' },
         { $match: matchQuery },
+        { $sort: { createdAt: -1 } } // Sort by latest created data
     ]);
 
+    // Pagination
     const result = await mongoose.model('AdminStaff').aggregatePaginate(aggregateQuery, {
         page: currentPage,
         limit: parseInt(limit, 10),

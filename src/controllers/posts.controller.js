@@ -57,7 +57,7 @@ const getPostById = catchAsync(async (req, res) => {
     });
 });
 
-// Get posts by userId
+// Get posts by user
 const getPostsByUser = catchAsync(async (req, res) => {
     const { user } = req;
     const { page = 1, limit = 10, search = '' } = req.query;
@@ -90,6 +90,44 @@ const getPostsByUser = catchAsync(async (req, res) => {
             return res.status(CONSTANTS.UNAUTHORIZED).json({ message: CONSTANTS.PERMISSION_DENIED });
         }
         res.status(CONSTANTS.BAD_REQUEST).json({ error: error.message });
+    }
+});
+
+// Get posts by userId
+const getPostsBySpecificUserId = catchAsync(async (req, res) => {
+    const { userId } = req.params; // Extract userId from the route parameter
+    const { page = 1, limit = 10, search = '' } = req.query; // Extract pagination and search query
+
+    try {
+        const posts = await PostsService.getPostsBySpecificUserId(
+            userId,
+            Number(page),
+            Number(limit),
+            search
+        );
+
+        return res.status(CONSTANTS.SUCCESSFUL).json({
+            statusCode: CONSTANTS.SUCCESSFUL,
+            message: 'Posts retrieved successfully',
+            data: {
+                docs: posts.docs,
+                totalDocs: posts.totalDocs,
+                limit: posts.limit,
+                totalPages: posts.totalPages,
+                page: posts.page,
+                pagingCounter: posts.pagingCounter,
+                hasPrevPage: posts.hasPrevPage,
+                hasNextPage: posts.hasNextPage,
+                prevPage: posts.prevPage,
+                nextPage: posts.nextPage,
+            },
+        });
+    } catch (error) {
+        console.error('Error in getPostsBySpecificUserId:', error);
+        res.status(CONSTANTS.BAD_REQUEST).json({
+            statusCode: CONSTANTS.BAD_REQUEST,
+            message: error.message,
+        });
     }
 });
 
@@ -233,6 +271,7 @@ module.exports = {
     getAllPosts,
     getPostById,
     getPostsByUser,
+    getPostsBySpecificUserId,
     updatePost,
     deletePost,
     likePost,

@@ -26,6 +26,11 @@ const createItem = async (itemData, files, partnerId) => {
             subCategory: itemData.subCategory,
         };
 
+        // Add quantity for food and rooms
+        if (itemData.itemType === 'food' || itemData.itemType === 'room') {
+            item.quantity = itemData.quantity;
+        }
+
         // Handle room-specific fields
         if (itemData.itemType === 'room') {
             item.roomName = itemData.roomName;
@@ -38,7 +43,7 @@ const createItem = async (itemData, files, partnerId) => {
             item.amenities = Array.isArray(itemData.amenities) ? itemData.amenities : [];
         }
 
-        // Handle product-specific fields, including variants with images
+        // Handle product-specific fields, including variants with quantity and images
         if (itemData.itemType === 'product') {
             item.productName = itemData.productName;
             item.productDescription = itemData.productDescription;
@@ -68,11 +73,18 @@ const createItem = async (itemData, files, partnerId) => {
                 }
 
                 // Map variants with their details
-                variantsWithImages = variants.map(variant => ({
-                    variantId: variant.variantId,
-                    productPrice: variant.productPrice,
-                    image: variant.image || null,
-                }));
+                variantsWithImages = variants.map(variant => {
+                    if (!variant.quantity || variant.quantity < 0) {
+                        throw new Error(`Quantity must be a positive number for variant: ${variant.variantId}`);
+                    }
+
+                    return {
+                        variantId: variant.variantId,
+                        productPrice: variant.productPrice,
+                        quantity: variant.quantity, // Include quantity for the variant
+                        image: variant.image || null,
+                    };
+                });
             }
 
             item.variants = variantsWithImages;
@@ -143,6 +155,7 @@ const getItemById = async (itemId) => {
 const getItemsByBusiness = async (businessId, page = 1, limit = 10) => {
     const items = await ItemModel.find({ business: businessId })
         .populate('parentCategory', 'tax')
+        .sort({ createdAt: -1 }) // Sort by createdAt in descending order
         .skip((page - 1) * limit)
         .limit(limit)
         .exec();
@@ -437,9 +450,27 @@ const updateItemById = async (itemId, updateData, files) => {
     const combinedImages = [...item.images, ...imageUrls];
     updateData.images = combinedImages;
 
-    // Update item with the new data
-    const updatedItem = await ItemModel.findByIdAndUpdate(itemId, updateData, { new: true });
-    return updatedItem;
+    // Handle quantity update logic
+    if (updateData.quantity !== undefined) {
+        // Ensure quantity is a non-negative value
+        if (updateData.quantity < 0) {
+            throw new Error('Quantity cannot be negative');
+        }
+
+        // Update quantity
+        item.quantity = updateData.quantity;
+    }
+
+    // Update other fields
+    Object.keys(updateData).forEach(key => {
+        if (key !== 'images') {
+            item[key] = updateData[key];
+        }
+    });
+
+    // Save the updated item
+    await item.save();
+    return item;
 };
 
 // Delete an item by ID
@@ -458,8 +489,14 @@ const deleteItemById = async (itemId) => {
 // Guest Users
 
 // Get all items (products, food, rooms)
-const getAllItems = async (itemType) => {
-    const filter = itemType ? { itemType } : {};
+const getAllItems = async (itemType, businessId) => {
+    const filter = {};
+    if (itemType) {
+        filter.itemType = itemType;
+    }
+    if (businessId) {
+        filter.business = businessId;
+    }
     return await ItemModel.find(filter);
 };
 
@@ -474,6 +511,45 @@ const searchItems = async (search) => {
     });
 };
 
+// Delete image from item
+const deleteImageFromItem = async (itemId, imageKey, variantId = null) => {
+    const item = await ItemModel.findById(itemId);
+    if (!item) {
+        throw new Error('Item not found');
+    }
+
+    // If variantId is provided, remove the image from the specific variant
+    if (variantId) {
+        const variant = item.variants.find((v) => v.variantId.toString() === variantId);
+        if (!variant) {
+            throw new Error('Variant not found');
+        }
+
+        const imageIndex = variant.image.indexOf(imageKey);
+        if (imageIndex === -1) {
+            throw new Error('Image not found in the variant');
+        }
+
+        // Remove the image from the variant
+        variant.image.splice(imageIndex, 1);
+    } else {
+        // Remove the image from the main item images
+        const imageIndex = item.images.indexOf(imageKey);
+        if (imageIndex === -1) {
+            throw new Error('Image not found in the item');
+        }
+
+        // Remove the image
+        item.images.splice(imageIndex, 1);
+    }
+
+    // Save changes to the item
+    await item.save();
+
+    // Delete the image from S3
+    await s3Service.deleteFromS3([imageKey]);
+};
+
 module.exports = {
     createItem,
     getItemById,
@@ -485,5 +561,6 @@ module.exports = {
     updateItemById,
     deleteItemById,
     getAllItems,
-    searchItems
+    searchItems,
+    deleteImageFromItem
 };

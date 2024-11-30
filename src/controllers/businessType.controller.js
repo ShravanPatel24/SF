@@ -20,12 +20,12 @@ const create = catchAsync(async (req, res) => {
         return res.status(result.code).json({
             statusCode: result.code,
             message: result.message,
-            data: result.data || {}
+            data: result.data || {},
         });
     }
     res.status(CONSTANT.SUCCESSFUL).json({
         statusCode: CONSTANT.SUCCESSFUL,
-        message: CONSTANT.CREATED,
+        message: CONSTANT.BUSINESS_TYPE_CREATED,
         data: result.data,
     });
 });
@@ -48,9 +48,21 @@ const getById = catchAsync(async (req, res) => {
 
 // Update a business type by ID
 const updateById = catchAsync(async (req, res) => {
-    const data = await BusinessTypeService.updateById(req.params.id, req.body);
-    if (data.statusCode !== CONSTANT.SUCCESSFUL) { return res.status(data.statusCode).json({ statusCode: data.statusCode, message: data.message, data: data.data }) }
-    res.status(CONSTANT.SUCCESSFUL).json({ statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.UPDATED, data: data.data });
+    const result = await BusinessTypeService.updateById(req.params.id, req.body);
+
+    if (result.statusCode !== CONSTANT.SUCCESSFUL) {
+        return res.status(result.statusCode).json({
+            statusCode: result.statusCode,
+            message: result.message,
+            data: result.data || {},
+        });
+    }
+
+    res.status(CONSTANT.SUCCESSFUL).json({
+        statusCode: CONSTANT.SUCCESSFUL,
+        message: result.message,
+        data: result.data,
+    });
 });
 
 // Delete a business type by ID

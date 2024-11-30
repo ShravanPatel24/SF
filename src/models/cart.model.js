@@ -66,6 +66,11 @@ cartSchema.pre('save', async function (next) {
             itemDeliveryCharge = 0;
             const roomCategory = await mongoose.model('ItemCategory').findById(product.roomCategory);
             itemTaxRate = roomCategory ? roomCategory.tax : 0;
+
+            // Validate room quantity
+            if (item.quantity > product.quantity) {
+                return next(new Error('Quantity exceeds available stock for the selected room.'));
+            }
         }
 
         // Handle food items
@@ -74,6 +79,11 @@ cartSchema.pre('save', async function (next) {
             itemDeliveryCharge = product.foodDeliveryCharge || 0;
             const foodCategory = await mongoose.model('ItemCategory').findById(product.parentCategory);
             itemTaxRate = foodCategory ? foodCategory.tax : 0;
+
+            // Validate food quantity
+            if (item.quantity > product.quantity) {
+                return next(new Error('Quantity exceeds available stock for the selected food item.'));
+            }
         }
 
         // Handle product items
@@ -83,9 +93,6 @@ cartSchema.pre('save', async function (next) {
                 console.error('Product variants are missing or invalid:', product.variants);
                 return next(new Error('Invalid product variants.'));
             }
-
-            console.log("Variant ID in cart item before matching:", item.variantId);
-            console.log("Available variants:", product.variants);
 
             // Match variantId, converting both sides to strings
             const variant = product.variants.find(v => {
@@ -99,6 +106,11 @@ cartSchema.pre('save', async function (next) {
             if (!variant) {
                 console.error('No matching variant found for variantId:', item.variantId);
                 return next(new Error('Invalid variant selected.'));
+            }
+
+            // Validate variant quantity
+            if (item.quantity > variant.quantity) {
+                return next(new Error('Quantity exceeds available stock for the selected variant.'));
             }
 
             pricePerUnit = variant.productPrice || 0;
