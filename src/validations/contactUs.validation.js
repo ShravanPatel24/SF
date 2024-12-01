@@ -54,10 +54,20 @@ const deleteContact = {
     }),
 };
 
+const replyToContact = {
+    params: Joi.object().keys({
+        contactId: Joi.string().custom(objectId).required(),
+    }),
+    body: Joi.object().keys({
+        message: Joi.string().required(),
+    }),
+};
+
 module.exports = {
     createContact,
     getContacts,
     getContact,
     updateContact,
     deleteContact,
+    replyToContact
 };

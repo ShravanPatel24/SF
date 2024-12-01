@@ -1,13 +1,17 @@
 const Joi = require('joi');
 const { objectId } = require('./custom.validation');
 
+const passwordComplexity = Joi.string()
+  .pattern(new RegExp("^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$%\^&\*])(?=.{8,})"))
+  .message('Password must contain at least 8 characters, including one uppercase letter, one lowercase letter, one number, and one special character (!, @, #, etc.)');
+
 const createStaff = {
   body: Joi.object().keys({
     name: Joi.string().required(),
     phone: Joi.string().required(),
     countryCode: Joi.string().required(),
     email: Joi.string().required(),
-    password: Joi.string().required(),
+    password: passwordComplexity.required(),
     role: Joi.string().allow('').allow(null)
   }),
 };
@@ -52,7 +56,6 @@ const updateStaff = {
     })
     .min(1),
 };
-
 const deleteStaff = {
   params: Joi.object().keys({
     staffId: Joi.string().custom(objectId),

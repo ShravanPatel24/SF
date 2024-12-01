@@ -292,7 +292,7 @@ const updateDineOutRequestStatus = catchAsync(async (req, res) => {
 
         let bookingId = null;
         if (status === 'Accepted') {
-            bookingId = Math.floor(Date.now() / 1000).toString(); // Generate a booking ID
+            bookingId = (Math.floor(Date.now() / 1000) % 1000000).toString().padStart(7, '0');
         }
 
         const updatedRequest = await DineOutRequestService.updateDineOutRequestStatus(requestId, status, bookingId);

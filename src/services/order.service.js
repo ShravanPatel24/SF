@@ -20,8 +20,8 @@ const createOrder = async (userId, cartId, paymentMethod, orderNote, deliveryAdd
 
   console.log('Populated Cart:', JSON.stringify(cart, null, 2)); // Debugging: Log populated cart
 
-  const customOrderId = Math.floor(Date.now() / 1000).toString();
-  const orderNumber = `#${customOrderId}`;
+  const customOrderId = (Math.floor(Date.now() / 1000) % 1000000).toString().padStart(6, '0');
+  const orderNumber = customOrderId;
 
   const items = cart.items.map(cartItem => ({
     item: cartItem.item._id,
@@ -340,12 +340,14 @@ const getPendingProductRequests = async (partnerId, sortOrder = "desc") => {
 const getOrdersByStatus = async (partnerId, itemType, orderStatus) => {
   const orders = await OrderModel.find({
     partner: partnerId,
-    ...(orderStatus && { orderStatus }),
-  }).populate({
-    path: "items.item",
-    select: "itemType",
-    match: { itemType: itemType },
-  });
+    ...(orderStatus && { orderStatus }), // Filter by orderStatus if provided
+  })
+    .sort({ createdAt: -1 }) // Sort by createdAt in descending order (latest first)
+    .populate({
+      path: "items.item",
+      select: "itemType",
+      match: { itemType: itemType }, // Match items by itemType
+    });
 
   // Filter out orders that do not match the itemType
   return orders.filter((order) =>
@@ -565,7 +567,7 @@ const rebookRoomOrder = async (userId, orderId, itemId, newCheckIn, newCheckOut,
   const deliveryCharge = originalOrder.deliveryCharge || 0;
 
   // Create the rebooking order
-  const customOrderId = Math.floor(Date.now() / 1000).toString();
+  const customOrderId = (Math.floor(Date.now() / 1000) % 1000000).toString().padStart(6, '0');
   const newOrderData = {
     user: userId,
     partner: originalOrder.partner,
@@ -587,7 +589,7 @@ const rebookRoomOrder = async (userId, orderId, itemId, newCheckIn, newCheckOut,
     paymentMethod: originalOrder.paymentMethod,
     orderStatus: "pending", // Start with 'pending' status for rebooked orders
     orderId: customOrderId,
-    orderNumber: `#${customOrderId}`,
+    orderNumber: { customOrderId },
     transactionHistory: [
       {
         type: "Rebooking Created",
@@ -660,7 +662,7 @@ const reorderItems = async (userId, orderId, itemIds, quantities, newDeliveryAdd
   const deliveryCharge = originalOrder.deliveryCharge || 0;
 
   // Create a new order for the reordered items
-  const customOrderId = Math.floor(Date.now() / 1000).toString();
+  const customOrderId = (Math.floor(Date.now() / 1000) % 1000000).toString().padStart(6, '0');
   const reorderedOrder = await OrderModel.create({
     user: userId,
     partner: originalOrder.partner,
@@ -675,7 +677,7 @@ const reorderItems = async (userId, orderId, itemIds, quantities, newDeliveryAdd
     paymentMethod: originalOrder.paymentMethod,
     orderStatus: "pending", // Start with 'pending' status for reordered items
     orderId: customOrderId,
-    orderNumber: `#${customOrderId}`,
+    orderNumber: customOrderId,
     transactionHistory: [
       {
         type: "Reorder Created",
@@ -1084,71 +1086,69 @@ const getAllHistory = async (userId, sortOrder = "desc") => {
   const sort = { createdAt: sortOrder === "asc" ? 1 : -1 };
 
   try {
-    // Fetch orders
-    const orders = await OrderModel.find({ user: userId })
-      .populate({
-        path: "items.item",
-        select: "itemType dishName productName roomName images", // Include fields from Item
-      })
-      .populate({
-        path: "business",
-        select: "businessName businessAddress", // Populate businessName and businessAddress
-      })
-      .sort(sort);
+    // Fetch orders and dine-out reservations
+    const [orders, dineOutReservations] = await Promise.all([
+      OrderModel.find({ user: userId })
+        .populate({
+          path: "items.item",
+          select: "itemType dishName productName roomName images",
+        })
+        .populate({
+          path: "business",
+          select: "businessName businessAddress",
+        })
+        .sort(sort)
+        .lean(), // Ensures plain JavaScript objects
 
-    // Fetch dine-out reservations
-    const dineOutReservations = await DineOutModel.find({ user: userId })
-      .populate({
-        path: "business",
-        select: "businessName businessAddress bannerImages", // Include businessName, businessAddress, and images
-      })
-      .sort(sort);
-
-    // Filter orders by item type
-    const foodOrders = orders.filter((order) =>
-      order.items.some((item) => item.item?.itemType === "food")
-    );
-    const roomBookings = orders.filter((order) =>
-      order.items.some((item) => item.item?.itemType === "room")
-    );
-    const productOrders = orders.filter((order) =>
-      order.items.some((item) => item.item?.itemType === "product")
-    );
+      DineOutModel.find({ user: userId })
+        .populate({
+          path: "business",
+          select: "businessName businessAddress bannerImages",
+        })
+        .sort(sort)
+        .lean(), // Ensures plain JavaScript objects
+    ]);
 
     // Map the response
     return {
-      foodOrders: foodOrders.map((order) => ({
-        ...order.toObject(),
-        businessName: order.business?.businessName || null,
-        businessAddress: order.business?.businessAddress?.street || null, // Adjust based on schema
-        items: order.items.map((item) => ({
-          ...item,
-          image: item.item?.images?.[0] || null, // First image
-          name: item.item?.dishName || null, // Dish name for food
+      foodOrders: orders
+        .filter((order) => order.items.some((item) => item.item?.itemType === "food"))
+        .map((order) => ({
+          ...order,
+          businessName: order.business?.businessName || null,
+          businessAddress: order.business?.businessAddress?.street || null,
+          items: order.items.map((item) => ({
+            ...item,
+            image: item.item?.images?.[0] || null, // First image
+            name: item.item?.dishName || null, // Dish name for food
+          })),
         })),
-      })),
-      roomBookings: roomBookings.map((order) => ({
-        ...order.toObject(),
-        businessName: order.business?.businessName || null,
-        businessAddress: order.business?.businessAddress?.street || null,
-        items: order.items.map((item) => ({
-          ...item,
-          image: item.item?.images?.[0] || null,
-          name: item.item?.roomName || null, // Room name
+      roomBookings: orders
+        .filter((order) => order.items.some((item) => item.item?.itemType === "room"))
+        .map((order) => ({
+          ...order,
+          businessName: order.business?.businessName || null,
+          businessAddress: order.business?.businessAddress?.street || null,
+          items: order.items.map((item) => ({
+            ...item,
+            image: item.item?.images?.[0] || null,
+            name: item.item?.roomName || null, // Room name
+          })),
         })),
-      })),
-      productOrders: productOrders.map((order) => ({
-        ...order.toObject(),
-        businessName: order.business?.businessName || null,
-        businessAddress: order.business?.businessAddress?.street || null,
-        items: order.items.map((item) => ({
-          ...item,
-          image: item.item?.images?.[0] || null,
-          name: item.item?.productName || null, // Product name
+      productOrders: orders
+        .filter((order) => order.items.some((item) => item.item?.itemType === "product"))
+        .map((order) => ({
+          ...order,
+          businessName: order.business?.businessName || null,
+          businessAddress: order.business?.businessAddress?.street || null,
+          items: order.items.map((item) => ({
+            ...item,
+            image: item.item?.images?.[0] || null,
+            name: item.item?.productName || null, // Product name
+          })),
         })),
-      })),
       dineOutReservations: dineOutReservations.map((reservation) => ({
-        ...reservation.toObject(),
+        ...reservation,
         businessName: reservation.business?.businessName || null,
         businessAddress: reservation.business?.businessAddress?.street || null,
         image: reservation.business?.bannerImages?.[0] || null, // First banner image

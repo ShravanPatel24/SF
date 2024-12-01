@@ -106,10 +106,32 @@ const deleteContactById = async (contactId) => {
     return { data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.CONTACT_DELETE };
 };
 
+// Admin related code
+const addReply = async (contactId, reply) => {
+    const contact = await ContactUsModel.findById(contactId);
+
+    if (!contact) {
+        return null;
+    }
+
+    contact.replies.push(reply);
+    await contact.save();
+
+    return contact;
+};
+
+const getChatList = async () => {
+    return await ContactUsModel.find({ isDelete: 1 })
+        .select('name message createdAt')
+        .sort({ createdAt: -1 }); // Sort by latest first
+};
+
 module.exports = {
     createContact,
     queryContact,
     getContactById,
     updateContactById,
-    deleteContactById
+    deleteContactById,
+    addReply,
+    getChatList
 };

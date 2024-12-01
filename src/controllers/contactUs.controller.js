@@ -125,6 +125,77 @@ const getContactDetails = catchAsync(async (req, res) => {
     });
 });
 
+// Admin related code
+const replyToContact = catchAsync(async (req, res) => {
+    const { contactId } = req.params;
+    const adminId = req.user._id; // Admin ID from the auth middleware
+    const { message } = req.body;
+
+    if (!message) {
+        return res.status(400).json({
+            statusCode: 400,
+            message: "Reply message is required.",
+        });
+    }
+
+    const reply = {
+        responder: adminId,
+        message,
+    };
+
+    const contact = await ContactUsService.addReply(contactId, reply);
+
+    if (!contact) {
+        return res.status(404).json({
+            statusCode: 404,
+            message: "Contact query not found.",
+        });
+    }
+
+    res.status(200).json({
+        statusCode: 200,
+        message: "Reply added successfully.",
+        data: contact,
+    });
+});
+
+const getChatList = catchAsync(async (req, res) => {
+    const chats = await ContactUsService.getChatList();
+    res.status(200).json({
+        statusCode: 200,
+        message: "Chat list fetched successfully",
+        data: chats,
+    });
+});
+
+const getConversation = catchAsync(async (req, res) => {
+    const { contactId } = req.params;
+    const contact = await ContactUsService.getContactById(contactId);
+
+    if (!contact) {
+        return res.status(404).json({
+            statusCode: 404,
+            message: "Contact query not found",
+        });
+    }
+
+    res.status(200).json({
+        statusCode: 200,
+        message: "Conversation fetched successfully.",
+        data: {
+            contactId: contact._id,
+            messages: [
+                { sender: "user", message: contact.message, createdAt: contact.createdAt },
+                ...contact.replies.map(reply => ({
+                    sender: "admin",
+                    message: reply.message,
+                    createdAt: reply.createdAt,
+                })),
+            ],
+        },
+    });
+});
+
 module.exports = {
     createContact,
     getContacts,
@@ -132,5 +203,8 @@ module.exports = {
     updateContact,
     deleteContact,
     getContactSummaries,
-    getContactDetails
+    getContactDetails,
+    replyToContact,
+    getChatList,
+    getConversation
 };
