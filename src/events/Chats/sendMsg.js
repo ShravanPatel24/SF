@@ -2,7 +2,7 @@ const Chat = require("../../models/Chats/chat.model");
 const ChatMessage = require("../../models/Chats/message.model");
 
 const handleSendMsg = async (socket, onlineUsers, rawData) => {
-    console.log("handleSendMsg triggered with rawData:", rawData); // Debugging log
+    console.log("🚀 ~ file: sendMsg.js:4 ~ handleSendMsg ~ rawData:", rawData)
 
     let parsedData;
     try {

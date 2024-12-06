@@ -7,12 +7,17 @@ const contactUsSchema = mongoose.Schema({
   email: { type: String },
   phone: { type: String },
   message: { type: String, required: true },
-  status: { type: Number, default: 1 }, // 0 is Inactive, 1 is Active
+  status: {
+    type: String,
+    enum: ["pending", "in_progress", "resolved", "rejected", "closed"],
+    default: "pending",
+  },
   isDelete: { type: Number, default: 1 }, // 0 is delete, 1 is Active
   user: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
   replies: [
     {
-      responder: { type: mongoose.Schema.Types.ObjectId, ref: "admin", required: true }, // Assuming admins are stored in the user collection with a specific type
+      responder: { type: mongoose.Schema.Types.ObjectId, ref: "user" }, // User/Partner or Admin
+      sender: { type: String, enum: ["user", "partner", "admin"], required: true }, // Sender type
       message: { type: String, required: true },
       createdAt: { type: Date, default: Date.now },
     },

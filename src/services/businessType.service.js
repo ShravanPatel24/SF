@@ -18,7 +18,7 @@ const create = async (requestBody) => {
         return {
             data: {},
             code: CONSTANTS.BAD_REQUEST,
-            message: `Business Type "${requestBody.name}" already exists (similar to "${existingBusinessType.name}").`,
+            message: `Business Type ${requestBody.name} already existed`
         };
     }
 

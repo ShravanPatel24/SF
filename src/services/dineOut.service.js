@@ -104,7 +104,14 @@ const updateDineOutRequestStatus = async (requestId, status, bookingId = null) =
 };
 
 // Get all dine-out requests with detailed user and partner information for admin
-const getAllDineOutRequests = async ({ page = 1, limit = 10, search = '', sortBy = 'createdAt', sortOrder = 'desc', status = '' }) => {
+const getAllDineOutRequests = async ({
+    page = 1,
+    limit = 10,
+    search = '',
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    status = ''
+}) => {
     try {
         const options = {
             page: parseInt(page),
@@ -137,11 +144,11 @@ const getAllDineOutRequests = async ({ page = 1, limit = 10, search = '', sortBy
                 select: 'name businessId',
                 populate: {
                     path: 'businessId',
-                    select: 'businessName dineInStatus'
-                }
+                    select: 'businessName dineInStatus',
+                },
             })
             .populate('business', 'businessName dineInStatus')
-            .sort(options.sort)
+            .sort({ createdAt: -1 }) // Force sorting by latest dine-out on top
             .skip((options.page - 1) * options.limit)
             .limit(options.limit)
             .lean();

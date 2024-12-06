@@ -139,6 +139,12 @@ const getOrderById = catchAsync(async (req, res) => {
         businessDetails: order.businessDetails,
         items: order.items, // Properly mapped items array
         deliveryPartner: order.deliveryPartner,
+        partner: {
+            partnerId: order.partner._id,
+            name: order.partner.name,
+            email: order.partner.email,
+            phone: order.partner.phone,
+        },
         user: {
             userId: order.user._id,
             name: order.user.name,
@@ -584,10 +590,10 @@ const getAllHistory = catchAsync(async (req, res) => {
 });
 
 const getAllTransactionHistory = catchAsync(async (req, res) => {
-    const { page = 1, limit = 10, itemType, status, search, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+    const { page = 1, limit = 10, itemType, status, search, sortBy = 'createdAt', sortOrder = 'desc', startDate, endDate } = req.query;
 
     try {
-        const orderSummaries = await OrderService.getAllTransactionHistory({ page, limit, itemType, status, search, sortBy, sortOrder });
+        const orderSummaries = await OrderService.getAllTransactionHistory({ page, limit, itemType, status, search, sortBy, sortOrder, startDate, endDate });
 
         res.status(200).json({
             statusCode: 200,
@@ -684,6 +690,28 @@ const processRefundOrExchangeDecision = catchAsync(async (req, res) => {
     }
 });
 
+// Get refund details for partner
+const getApprovedRefunds = catchAsync(async (req, res) => {
+    const partnerId = req.user._id; // Partner ID from authentication middleware
+    const { page = 1, limit = 10, sortBy = "createdAt", sortOrder = "desc" } = req.query;
+
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+
+    const refunds = await OrderService.getApprovedRefundsByPartner(partnerId, {
+        page: parsedPage,
+        limit: parsedLimit,
+        sortBy,
+        sortOrder,
+    });
+
+    res.status(200).json({
+        statusCode: 200,
+        message: "Approved refunds retrieved successfully",
+        data: refunds,
+    });
+});
+
 // Admin API to Update Refund
 const updateRefundStatusByAdmin = catchAsync(async (req, res) => {
     const { orderId } = req.body;
@@ -773,6 +801,7 @@ module.exports = {
     getRefundDetails,
     requestRefundOrExchange,
     processRefundOrExchangeDecision,
+    getApprovedRefunds,
     updateRefundStatusByAdmin,
     getTransactionHistoryForUserAndPartner
 };

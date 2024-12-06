@@ -69,6 +69,9 @@ router.patch('/partner/product-requests/:orderId', userAuth(), orderController.u
 // Get all refund requests for the partner
 router.get('/partner/refunds', userAuth(), orderController.getPartnerRefunds);
 
+// Get all approved refunds for the partner
+router.get('/partner/refunds/approved', userAuth(), orderController.getApprovedRefunds);
+
 // Request a refund for specific items
 router.post('/user/:orderId/request-refund-or-exchange', userAuth(), orderController.requestRefundOrExchange);
 

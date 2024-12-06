@@ -206,6 +206,7 @@ components:
           example: "account-activation"
         templateType:
           type: integer
+          enum: [0, 1]
           example: 0
         templateDisc:
           type: string
@@ -1957,6 +1958,18 @@ paths:
           schema:
             type: string
             enum: [room, product, food]
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+          description: Start date for filtering transactions (ISO 8601 format, e.g., "2024-01-01").
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+          description: End date for filtering transactions (ISO 8601 format, e.g., "2024-12-31").
       security:
         - bearerAuth: [] # Use Bearer Token for authenticated routes
       responses:
@@ -2379,12 +2392,11 @@ paths:
             type: string
         - name: status
           in: query
-          description: Filter by status (0 for inactive, 1 for active)
+          description: Filter by status (e.g., pending, in_progress, resolved, rejected, closed).
           required: false
           schema:
-            type: integer
-            enum: [0, 1]
-            example: 1
+            type: string
+            enum: [pending, in_progress, resolved, rejected, closed]
         - name: userType
           in: query
           description: Filter by user type (`user` or `partner`).
@@ -2392,7 +2404,6 @@ paths:
           schema:
             type: string
             enum: [user, partner]
-            example: user
       responses:
         "200":
           description: List of contact submissions.
@@ -3828,6 +3839,7 @@ paths:
                   type: integer
                   enum: [0, 1]
                   example: 0
+                  description: "0 for Email, 1 for SMS"
                 templateDisc:
                   type: string
                   example: "<p>Hello {userName},</p><p>Click the link below to activate your account:</p><p>{activationLink}</p>"
@@ -3836,24 +3848,48 @@ paths:
                   format: uuid
                   example: "5f8d0d55b54764421b7156e1"
                   description: "Optional order ID to link the template with a specific order"
-    responses:
       responses:
-        200:
+        201:
           description: Template created successfully
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  code:
+                  statusCode:
                     type: integer
-                    example: 200
+                    example: 201
                   message:
                     type: string
                     example: "Template created successfully"
                   data:
-                    type: object
                     $ref: "#/components/schemas/Template"
+        400:
+          description: Bad request (e.g., duplicate template)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: "A template with this name and purpose already exists."
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  message:
+                    type: string
+                    example: "Authentication required."
     get:
       summary: Retrieve all templates
       tags:
@@ -7875,6 +7911,146 @@ paths:
         "500":
           description: Internal server error
 
+  /order/partner/refunds/approved:
+    get:
+      tags:
+        - Order
+      summary: Fetch approved refunds for a partner
+      description: Retrieve a paginated list of refunds that have been approved for the authenticated partner.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: Page number for pagination (default is 1).
+          schema:
+            type: integer
+            example: 1
+        - name: limit
+          in: query
+          required: false
+          description: Number of records per page (default is 10).
+          schema:
+            type: integer
+            example: 10
+        - name: sortBy
+          in: query
+          required: false
+          description: Field to sort the results by (default is `createdAt`).
+          schema:
+            type: string
+            example: createdAt
+        - name: sortOrder
+          in: query
+          required: false
+          description: Sort order for the results (asc or desc, default is `desc`).
+          schema:
+            type: string
+            enum: [asc, desc]
+            example: desc
+      responses:
+        "200":
+          description: List of approved refunds for the partner
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Approved refunds retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      docs:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            refundId:
+                              type: string
+                              example: 648fb28a5f833c2c480a9f5e
+                            transactionId:
+                              type: string
+                              example: 648fb28a5f833c2c480a9f5d
+                            createdAt:
+                              type: string
+                              format: date-time
+                              example: 2024-12-01T10:00:00.000Z
+                            refundDate:
+                              type: string
+                              format: date-time
+                              example: 2024-12-03T15:00:00.000Z
+                            userName:
+                              type: string
+                              example: John Doe
+                            orderId:
+                              type: string
+                              example: 123456789
+                            amount:
+                              type: number
+                              format: float
+                              example: 100.50
+                            status:
+                              type: string
+                              example: approved
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 10
+                      totalDocs:
+                        type: integer
+                        example: 1
+                      totalPages:
+                        type: integer
+                        example: 1
+                      hasPrevPage:
+                        type: boolean
+                        example: false
+                      hasNextPage:
+                        type: boolean
+                        example: false
+                      prevPage:
+                        type: integer
+                        nullable: true
+                        example: null
+                      nextPage:
+                        type: integer
+                        nullable: true
+                        example: null
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  message:
+                    type: string
+                    example: Unauthorized
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: Internal server error
+
   /order/transactions:
     get:
       tags:
@@ -10003,7 +10179,31 @@ paths:
                 tableManagement[0][seatingCapacity]:
                   type: number
                   description: Seating capacity of the table for dine-in management
+                  example: 3
+                tableManagement[1][tableNumber]:
+                  type: string
+                  description: Table number for dine-in management
+                  example: "Table 2"
+                tableManagement[1][seatingCapacity]:
+                  type: number
+                  description: Seating capacity of the table for dine-in management
                   example: 4
+                tableManagement[2][tableNumber]:
+                  type: string
+                  description: Table number for dine-in management
+                  example: "Table 3"
+                tableManagement[2][seatingCapacity]:
+                  type: number
+                  description: Seating capacity of the table for dine-in management
+                  example: 5
+                tableManagement[3][tableNumber]:
+                  type: string
+                  description: Table number for dine-in management
+                  example: "Table 4"
+                tableManagement[3][seatingCapacity]:
+                  type: number
+                  description: Seating capacity of the table for dine-in management
+                  example: 6
                 bannerImages:
                   type: array
                   description: List of banner images to upload
@@ -12224,34 +12424,33 @@ paths:
             type: integer
             default: 1
           description: Page number for pagination
-        - name: sortBy
-          in: query
-          required: false
-          schema:
-            type: string
-            enum: [asc, desc]
-            default: asc
-          description: Sort order for contact us (asc or desc)
         - name: limit
           in: query
           required: false
           schema:
             type: integer
             default: 10
-          description: Limit number of results per page
-        - name: searchBy
+          description: Limit the number of results per page
+        - name: sortBy
           in: query
           required: false
           schema:
             type: string
-          description: Search contact us by name or any specific field
+            example: createdAt:desc
+          description: Sorting option in the format `field:(asc|desc)` (e.g., `createdAt:desc`)
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search by name, email, or message
         - name: status
           in: query
           required: false
           schema:
             type: string
-            enum: [1, 0]
-          description: Filter by status (active or inactive)
+            enum: [pending, in_progress, resolved, rejected, closed]
+          description: Filter by query status
       responses:
         "200":
           description: List of contact us
@@ -12373,13 +12572,13 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
-  # Chat Support
+  # Chat Support Admin Side
   /contact-us/list:
     get:
       summary: "Get all chat queries"
       description: "Retrieve a list of all contact queries submitted by users."
       tags:
-        - "Chat Support"
+        - Chat Support Admin
       security:
         - bearerAuth: [] # JWT authentication
       responses:
@@ -12433,7 +12632,7 @@ paths:
       summary: "Get conversation for a specific query"
       description: "Retrieve the entire conversation (user query + admin replies) for a specific contact query."
       tags:
-        - "Chat Support"
+        - Chat Support Admin
       security:
         - bearerAuth: [] # JWT authentication
       parameters:
@@ -12514,7 +12713,7 @@ paths:
       summary: "Reply to a contact query by Admin"
       description: "Allows an admin to reply to a contact query raised by a user or partner."
       tags:
-        - "Chat Support"
+        - Chat Support Admin
       security:
         - bearerAuth: [] # Use JWT for authorization
       parameters:
@@ -12641,5 +12840,219 @@ paths:
                   message:
                     type: string
                     example: "Unauthorized access."
+
+  /contact-us/{contactId}/status:
+    patch:
+      tags:
+        - Chat Support Admin
+      summary: Update the status of a contact query
+      description: Allows the admin to update the status of a contact query. Valid statuses include `pending`, `in_progress`, `resolved`, `rejected`, and `closed`.
+      operationId: updateContactStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          description: The ID of the contact query to update.
+          schema:
+            type: string
+            example: "674db69e68d24bef5c8907c9"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - pending
+                    - in_progress
+                    - resolved
+                    - rejected
+                    - closed
+                  description: The new status of the contact query.
+                  example: "resolved"
+      responses:
+        200:
+          description: Status updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "Query status updated successfully."
+                  data:
+                    type: object
+                    properties:
+                      contactId:
+                        type: string
+                        example: "674db69e68d24bef5c8907c9"
+                      status:
+                        type: string
+                        example: "resolved"
+        400:
+          description: Invalid status value or bad request.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: "Invalid status value."
+        404:
+          description: Contact query not found.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: "Contact query not found."
+        401:
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  message:
+                    type: string
+                    example: "Unauthorized access."
+
+  # Chat Support User/Patner Side
+  /contact-us/user/{contactId}/conversation:
+    get:
+      tags:
+        - Chat Support User/Partner
+      security:
+        - bearerAuth: []
+      summary: Fetch conversation with admin
+      description: Fetch a conversation between the user/partner and the admin.
+      produces:
+        - application/json
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          type: string
+          description: The ID of the contact query.
+      responses:
+        200:
+          description: Conversation fetched successfully.
+          schema:
+            type: object
+            properties:
+              statusCode:
+                type: integer
+              message:
+                type: string
+              data:
+                type: object
+                properties:
+                  contactId:
+                    type: string
+                    example: "673ac84811b05bac66e02d61"
+                  messages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        sender:
+                          type: string
+                          example: "user"
+                        message:
+                          type: string
+                          example: "Thank you for your help."
+                        createdAt:
+                          type: string
+                          format: date-time
+                          example: "2024-12-02T15:30:45.123Z"
+        401:
+          description: Unauthorized. Invalid or missing token.
+        404:
+          description: Conversation not found.
+
+  /contact-us/user/{contactId}/reply:
+    post:
+      tags:
+        - Chat Support User/Partner
+      security:
+        - bearerAuth: []
+      summary: Reply to admin
+      description: Send a reply to the admin for a specific contact query.
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          type: string
+          description: The ID of the contact query.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                message:
+                  type: string
+                  description: "The user/partner reply to the contact query"
+                  example: "Thank you for resolving my issue."
+      responses:
+        200:
+          description: Reply sent successfully.
+          schema:
+            type: object
+            properties:
+              statusCode:
+                type: integer
+              message:
+                type: string
+              data:
+                type: object
+                properties:
+                  responder:
+                    type: string
+                    example: "63f2e4b2d9c8e711e4f8d1c3"
+                  sender:
+                    type: string
+                    example: "user"
+                  message:
+                    type: string
+                    example: "Thank you for resolving my issue."
+                  createdAt:
+                    type: string
+                    format: date-time
+                    example: "2024-12-02T15:30:45.123Z"
+        400:
+          description: Bad request. Message is required.
+        401:
+          description: Unauthorized. Invalid or missing token.
+        404:
+          description: Contact query not found or unauthorized access.
 
   # Other routes can be updated similarly for User and Partner with appropriate security mechanism

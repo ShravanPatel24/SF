@@ -7,15 +7,19 @@ const CONSTANTS = require('../../config/constant');
  */
 const createRole = async (roleBody) => {
     try {
+        const existingRole = await AdminRoles.findOne({ name: roleBody.name });
+        if (existingRole) {
+            throw new Error(`Role '${roleBody.name}' already exists.`);
+        }
         const role = await AdminRoles.create(roleBody);
         return role;
     } catch (error) {
         if (error.code === 11000) {
             // Handle duplicate key error
-            throw new Error(`Role "${roleBody.name}" already exists.`);
+            throw new Error(`Role '${roleBody.name}' already exists.`);
         }
         console.error("Error while creating role:", error);
-        throw new Error("Failed to create role.");
+        throw new Error(`Role ${roleBody.name} already exists.`);
     }
 };
 

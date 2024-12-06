@@ -172,6 +172,7 @@ const updateBusinessById = async (businessId, updateBody, files = {}) => {
         businessName,
         businessDescription,
         mobile,
+        countryCode,
         email,
         businessAddress,
         openingDays,
@@ -212,6 +213,7 @@ const updateBusinessById = async (businessId, updateBody, files = {}) => {
     business.businessName = businessName || business.businessName;
     business.businessDescription = businessDescription || business.businessDescription;
     business.mobile = mobile || business.mobile;
+    business.countryCode = countryCode || business.countryCode;
     business.email = email || business.email;
     business.businessAddress = businessAddress || business.businessAddress;
     business.openingDays = openingDays || business.openingDays;
@@ -635,7 +637,14 @@ const getOrderListByType = async (partnerId, type, sort = "desc") => {
 
     const businessIds = businesses.map(business => business._id);
 
-    let query = { business: { $in: businessIds } };
+    // Get today's start and end timestamps
+    const todayStart = moment().utc().startOf('day').toDate();
+    const todayEnd = moment().utc().endOf('day').toDate();
+
+    let query = {
+        business: { $in: businessIds },
+        createdAt: { $gte: todayStart, $lte: todayEnd }, // Add date filter
+    };
 
     switch (type) {
         // Food Orders
@@ -827,6 +836,7 @@ const getOrderListByType = async (partnerId, type, sort = "desc") => {
     }));
     return filteredOrders;
 };
+
 // Get all businesses for guests
 const getAllBusinesses = async (businessType) => {
     let condition = {};

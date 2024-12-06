@@ -2,9 +2,8 @@ const ChatMessage = require("../../models/Chats/message.model");
 const User = require("../../models/user.model");
 
 const handleGetChats = async (socket, rawData) => {
+    console.log("🚀 ~ file: getChats.js:4 ~ handleGetChats ~ rawData:", rawData)
     try {
-        console.log("Received rawData for get-chats:", rawData);
-
         // Parse rawData if it is a string
         let parsedData;
         try {
@@ -16,7 +15,7 @@ const handleGetChats = async (socket, rawData) => {
         }
 
         // Extract userId and optional filters from parsed data
-        const userId = parsedData?.data?.userId;
+        const userId = parsedData?.data?.userId ? parsedData?.data?.userId : parsedData?.userId;
         const { roomId, lastMessageTimeStamp } = parsedData?.data || {};
 
         if (!userId) {

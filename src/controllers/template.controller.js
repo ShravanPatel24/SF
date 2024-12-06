@@ -6,10 +6,11 @@ const CONSTANTS = require('../config/constant');
 const createTemplate = catchAsync(async (req, res) => {
     req.body.adminId = req.user._id;
     const result = await TemplateService.createTemplate(req.body);
-    res.status(201).send({
-        statusCode: 201,
+
+    res.status(result.statusCode).send({
+        statusCode: result.statusCode,
         data: result.data,
-        message: CONSTANTS.TEMPLATE_CREATE
+        message: result.message,
     });
 });
 

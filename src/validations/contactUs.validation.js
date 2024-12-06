@@ -63,11 +63,23 @@ const replyToContact = {
     }),
 };
 
+const updateStatus = {
+    params: Joi.object().keys({
+        contactId: Joi.string().custom(objectId).required(),
+    }),
+    body: Joi.object().keys({
+        status: Joi.string()
+            .valid("pending", "in_progress", "resolved", "rejected", "closed")
+            .required(),
+    }),
+};
+
 module.exports = {
     createContact,
     getContacts,
     getContact,
     updateContact,
     deleteContact,
-    replyToContact
+    replyToContact,
+    updateStatus
 };

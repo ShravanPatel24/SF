@@ -1,6 +1,6 @@
 const ChatMessage = require("../../models/Chats/message.model");
 
-const handleMessageSeen = async (socket, onlineUsers, rawData) => {
+const handleMessageSeen = async (rawData) => {
     let parsedData;
     try {
         parsedData = typeof rawData === "string" ? JSON.parse(rawData) : rawData;

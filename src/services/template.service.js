@@ -6,6 +6,21 @@ const CONSTANTS = require('../config/constant');
  * @returns {Promise<Client>}
  */
 const createTemplate = async (requestBody) => {
+    // Check if a template with the same name already exists
+    const existingTemplate = await TemplateModel.findOne({
+        templateName: { $regex: `^${requestBody.templateName}$`, $options: 'i' },
+    });
+
+    if (existingTemplate) {
+        // Return an error response if duplicate template is found
+        return {
+            data: null,
+            statusCode: 400,
+            message: `Template with name ${requestBody.templateName} already existed`,
+        };
+    }
+
+    // Create a new template if no duplicate is found
     const data = await TemplateModel.create(requestBody);
     return { data, statusCode: 201, message: CONSTANTS.TEMPLATE_CREATE };
 };
@@ -73,10 +88,21 @@ const updateTemplateById = async (templateId, updateBody) => {
     if (!template) {
         return { data: {}, statusCode: 404, message: CONSTANTS.TEMPLATE_NOT_FOUND };
     }
+
     Object.assign(template, updateBody);
     await template.save();
-    return { data: template, statusCode: 200, message: CONSTANTS.TEMPLATE_UPDATE };
+
+    // Determine the message based on the 'status' field
+    let message = CONSTANTS.TEMPLATE_UPDATE; // Default message
+    if (updateBody.status === 1) {
+        message = CONSTANTS.EMAIL_ACTIVATED;
+    } else if (updateBody.status === 0) {
+        message = CONSTANTS.EMAIL_INACTIVATED;
+    }
+
+    return { data: template, statusCode: 200, message };
 };
+
 
 /**
  * Delete ENote by id

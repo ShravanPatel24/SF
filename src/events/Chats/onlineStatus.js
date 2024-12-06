@@ -18,7 +18,7 @@ const onlineStatus = (socket, onlineUsers) => {
         }
 
         // Extract userId from parsedData
-        const userId = parsedData?.data?.userId;
+        const userId = parsedData?.data?.userId ? parsedData?.data?.userId : parsedData?.userId;
 
         if (!userId) {
             console.log("User ID is missing in check-user-status event.");

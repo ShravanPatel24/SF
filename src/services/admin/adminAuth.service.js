@@ -29,26 +29,27 @@ const getAdminById = async (id) => {
 const updateAdminById = async (adminId, updateBody, files) => {
   const admin = await getAdminById(adminId);
   if (!admin) {
-    return { data: {}, code: CONSTANTS.NOT_FOUND, message: CONSTANTS.COMPANY_USER_NOT_FOUND };
+    return { data: {}, statusCode: CONSTANTS.NOT_FOUND, message: CONSTANTS.COMPANY_USER_NOT_FOUND };
   }
   if (updateBody.email && (await AdminModel.isEmailTaken(updateBody.email, adminId))) {
-    return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.ADMIN_STAFF_EMAIL_ALREADY_EXISTS };
+    return { data: {}, statusCode: CONSTANTS.BAD_REQUEST, message: CONSTANTS.ADMIN_STAFF_EMAIL_ALREADY_EXISTS };
   }
   if (updateBody.phone && (await AdminModel.isMobileTaken(updateBody.phone, adminId))) {
-    return { data: {}, code: CONSTANTS.BAD_REQUEST, message: CONSTANTS.ADMIN_STAFF_MOBILE_ALREADY_EXISTS };
+    return { data: {}, statusCode: CONSTANTS.BAD_REQUEST, message: CONSTANTS.ADMIN_STAFF_MOBILE_ALREADY_EXISTS };
   }
+
   var uploadResult;
-  if (files && files.length != 0) {
+  if (files && files.length !== 0) {
     uploadResult = await s3Service.uploadDocuments(files, 'admin-profile-photo', '');
   }
-  if (uploadResult && uploadResult.length != 0) {
+  if (uploadResult && uploadResult.length !== 0) {
     updateBody.profilePhoto = uploadResult[0].key;
   }
+
   Object.assign(admin, updateBody);
   await admin.save();
-  // console.log('update-role-' + adminId, '>>>>>>>>>>>>>>socketEvent');
-  // io.emit('update-role-' + adminId, { status: true });
-  return { data: admin, code: CONSTANTS.SUCCESSFUL, message: CONSTANTS.ADMIN_STAFF_UPDATE };
+
+  return { data: admin, statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.ADMIN_STAFF_UPDATE };
 };
 
 /**
@@ -122,7 +123,7 @@ const loginUserWithEmailOrPhone = async (emailOrPhone, password, req) => {
         details.type = 'superadmin';
       }
     } else {
-      return { data: {}, code: CONSTANTS.BAD_REQUEST, message: 'Invalid email or phone format' };
+      return { data: {}, code: CONSTANTS.BAD_REQUEST, message: 'Invalid email address/phone number' };
     }
   }
 

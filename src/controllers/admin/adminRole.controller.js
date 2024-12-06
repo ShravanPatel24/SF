@@ -5,11 +5,15 @@ const CONSTANTS = require('../../config/constant');
 const createRole = catchAsync(async (req, res, next) => {
     try {
         const role = await adminRoleService.createRole(req.body);
-        return res.status(200).send({ statusCode: 200, message: CONSTANTS.ROLE_CREATE, data: role });
+        return res.status(200).send({
+            statusCode: 200,
+            message: CONSTANTS.ROLE_CREATE,
+            data: role,
+        });
     } catch (error) {
         console.error("Error in createRole:", error.message);
         const statusCode = error.message.includes("already exists") ? 400 : 500;
-        const message = error.message || "Failed to create role.";
+        const message = error.message || "Role is already existed";
         return res.status(statusCode).send({ statusCode, message });
     }
 });

@@ -10,7 +10,7 @@ const handleChatListUpdate = (socket, onlineUsers, rawData) => {
         return;
     }
 
-    const userId = parsedData?.data?.userId; // Access userId from parsedData
+    const userId = parsedData?.data?.userId ? parsedData?.data?.userId : parsedData?.userId;
 
     if (!userId) {
         console.error("User ID is missing in handleChatListUpdate");

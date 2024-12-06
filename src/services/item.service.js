@@ -437,39 +437,67 @@ const getProductByBusiness = async (businessId, page = 1, limit = 10, sortOrder 
 
 // Update an item by ID
 const updateItemById = async (itemId, updateData, files) => {
-    let imageUrls = [];
-    if (files && files.images && files.images.length > 0) {
-        const uploadResults = await s3Service.uploadDocuments(files.images, 'itemImages');
-        imageUrls = uploadResults.map(upload => upload.key);
-    }
-
     const item = await ItemModel.findById(itemId);
     if (!item) throw new Error('Item not found');
 
-    // Combine existing images with newly uploaded ones
-    const combinedImages = [...item.images, ...imageUrls];
-    updateData.images = combinedImages;
+    // Separate files for item and variant images
+    const itemImages = files ? files.filter(file => file.fieldname === 'images') : [];
+    const variantImages = files ? files.filter(file => file.fieldname.startsWith('variants')) : [];
 
-    // Handle quantity update logic
-    if (updateData.quantity !== undefined) {
-        // Ensure quantity is a non-negative value
-        if (updateData.quantity < 0) {
-            throw new Error('Quantity cannot be negative');
-        }
-
-        // Update quantity
-        item.quantity = updateData.quantity;
+    // Handle item image uploads
+    if (itemImages.length > 0) {
+        const uploadResults = await s3Service.uploadDocuments(itemImages, 'itemImages');
+        const imageUrls = uploadResults.map(upload => upload.key);
+        item.images = [...(item.images || []), ...imageUrls];
     }
 
-    // Update other fields
+    // Handle variant image updates
+    if (updateData.variants && Array.isArray(updateData.variants)) {
+        for (const variantUpdate of updateData.variants) {
+            // Find the matching variant by variantId
+            const variant = item.variants.find(v => v.variantId.toString() === variantUpdate.variantId);
+            if (variant) {
+                // Update variant properties if they exist in the update
+                if (variantUpdate.quantity !== undefined) {
+                    if (variantUpdate.quantity < 0) {
+                        throw new Error('Quantity cannot be negative');
+                    }
+                    variant.quantity = variantUpdate.quantity;
+                }
+                if (variantUpdate.productPrice !== undefined) {
+                    variant.productPrice = variantUpdate.productPrice;
+                }
+
+                // Handle variant image updates
+                const variantField = `variants[${variant.variantId}][variantImage]`;
+                const variantFile = variantImages.find(file => file.fieldname === variantField);
+
+                if (variantFile) {
+                    // Await is valid here since this is an async function
+                    const uploadResult = await s3Service.uploadDocuments([variantFile], 'variant-images');
+                    variant.image = uploadResult[0].key;
+                }
+            } else {
+                throw new Error(`Variant with ID ${variantUpdate.variantId} not found`);
+            }
+        }
+    }
+
+    // Handle updates for other fields
     Object.keys(updateData).forEach(key => {
-        if (key !== 'images') {
+        if (key !== 'images' && key !== 'variants') {
             item[key] = updateData[key];
         }
     });
 
     // Save the updated item
-    await item.save();
+    try {
+        await item.save();
+    } catch (error) {
+        console.error('Error saving item:', error);
+        throw new Error('Failed to update the item');
+    }
+
     return item;
 };
 

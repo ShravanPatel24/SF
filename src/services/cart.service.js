@@ -71,7 +71,7 @@ const addToCart = async (userId, itemId, quantity, variantId, checkIn, checkOut,
       cart.items[itemIndex].checkIn = checkIn;
       cart.items[itemIndex].checkOut = checkOut;
       cart.items[itemIndex].guestCount = guestCount;
-      cart.items[itemIndex].quantity = 1; // Room booking is per unit
+      cart.items[itemIndex].quantity += quantity;
     } else {
       cart.items[itemIndex].quantity += quantity;
     }
@@ -79,7 +79,7 @@ const addToCart = async (userId, itemId, quantity, variantId, checkIn, checkOut,
     cart.items.push({
       item: itemId,
       variantId: item.itemType === 'product' ? variantId : null, // Add variantId for products
-      quantity: item.itemType === "room" ? 1 : quantity,
+      quantity,
       checkIn: item.itemType === "room" ? checkIn : null,
       checkOut: item.itemType === "room" ? checkOut : null,
       guestCount: item.itemType === "room" ? guestCount : null,

@@ -118,11 +118,11 @@ const getBusinessesByType = catchAsync(async (req, res) => {
 
 const updateBusiness = catchAsync(async (req, res) => {
     const { businessId } = req.params;
-    const { businessName, businessDescription, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImages, galleryImages, dineInStatus, operatingDetails, tableManagement } = req.body;
+    const { businessName, businessDescription, mobile, countryCode, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImages, galleryImages, dineInStatus, operatingDetails, tableManagement } = req.body;
     try {
         const updatedBusiness = await BusinessService.updateBusinessById(
             businessId,
-            { businessName, businessDescription, mobile, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImages, galleryImages, dineInStatus, operatingDetails, tableManagement },
+            { businessName, businessDescription, mobile, countryCode, email, businessAddress, openingDays, openingTime, closingTime, sameTimeForAllDays, uniformTiming, daywiseTimings, bannerImages, galleryImages, dineInStatus, operatingDetails, tableManagement },
             req.files
         );
         res.status(CONSTANTS.SUCCESSFUL).json({ statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.UPDATED, business: updatedBusiness });

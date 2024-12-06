@@ -271,7 +271,7 @@ const queryUsers = async (options) => {
   if (options.searchBy && options.searchBy != 'undefined') {
     var searchBy = {
       $regex: ".*" + options.searchBy + ".*",
-      $options: "si"  // Case-insensitive search with dot-all mode
+      $options: "si" // Case-insensitive search with dot-all mode
     };
 
     condition.$and.push({
@@ -298,14 +298,14 @@ const queryUsers = async (options) => {
     // Handle past 3 and 6 months
     if (filterRange === 'past_3_months') {
       const pastThreeMonths = new Date();
-      pastThreeMonths.setMonth(currentDate.getMonth() - 3);  // Subtracting 3 months
+      pastThreeMonths.setMonth(currentDate.getMonth() - 3); // Subtracting 3 months
       pastThreeMonths.setHours(0, 0, 0, 0); // Reset time to start of the day
       condition.$and.push({
         createdAt: { $gte: pastThreeMonths, $lte: currentDate }
       });
     } else if (filterRange === 'past_6_months') {
       const pastSixMonths = new Date();
-      pastSixMonths.setMonth(currentDate.getMonth() - 6);  // Subtracting 6 months
+      pastSixMonths.setMonth(currentDate.getMonth() - 6); // Subtracting 6 months
       pastSixMonths.setHours(0, 0, 0, 0); // Reset time to start of the day
       condition.$and.push({
         createdAt: { $gte: pastSixMonths, $lte: currentDate }
@@ -349,8 +349,23 @@ const queryUsers = async (options) => {
       });
     }
   }
+
   // Sort options
   options["sort"] = { createdAt: -1 };
+
+  // Pagination validation
+  const totalDocs = await UserModel.countDocuments(condition);
+  const totalPages = Math.ceil(totalDocs / (options.limit || 10));
+
+  if (options.page > totalPages) {
+    return {
+      docs: [],
+      totalDocs,
+      totalPages,
+      page: options.page,
+      message: `No records found for page ${options.page}. Maximum available pages: ${totalPages}.`
+    };
+  }
 
   // Query database
   const users = await UserModel.paginate(condition, options);

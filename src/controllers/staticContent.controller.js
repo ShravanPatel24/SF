@@ -77,13 +77,31 @@ const updateStaticPage = catchAsync(async (req, res) => {
     const data = await StaticContentModel.findOne({
         $or: [{ _id: identifier }, { slug: identifier }],
     });
+
     if (!data) {
-        return res.send({ data: {}, statusCode: CONSTANT.NOT_FOUND, message: CONSTANT.NOTFOUND });
+        return res.send({
+            data: {},
+            statusCode: CONSTANT.NOT_FOUND,
+            message: CONSTANT.NOTFOUND,
+        });
     }
+
+    // Update static content fields
     Object.assign(data, req.body);
     await data.save();
-    res.send({ data, statusCode: CONSTANT.SUCCESSFUL, message: CONSTANT.UPDATED });
+
+    // Check the `status` field to determine the message
+    const message = data.status === 1
+        ? CONSTANT.STATIC_ACTIVATED
+        : CONSTANT.STATIC_INACTIVATED;
+
+    res.send({
+        data,
+        statusCode: CONSTANT.SUCCESSFUL,
+        message,
+    });
 });
+
 
 // Create a new static page
 const createStaticPages = catchAsync(async (req, res) => {

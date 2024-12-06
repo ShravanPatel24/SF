@@ -13,16 +13,36 @@ router.get('/:contactId/conversation', adminAuth(), ContactUsController.getConve
 router
     .route('/')
     .post(userAuth('createContact'), validate(contactValidation.createContact), ContactUsController.createContact)
-    .get(adminAuth('getContacts'), validate(contactValidation.getContacts), ContactUsController.getContacts);
+    .get(userAuth('getContacts'), validate(contactValidation.getContacts), ContactUsController.getContacts);
 
 router
     .route('/:contactId')
-    .get(adminAuth('getContact'), validate(contactValidation.getContact), ContactUsController.getContact)
+    .get(userAuth('getContact'), validate(contactValidation.getContact), ContactUsController.getContact)
     .patch(adminAuth('updateContact'), validate(contactValidation.updateContact), ContactUsController.updateContact)
     .delete(adminAuth('deleteContact'), validate(contactValidation.deleteContact), ContactUsController.deleteContact);
 
 router
     .route('/:contactId/reply')
     .post(adminAuth('replyToContact'), validate(contactValidation.replyToContact), ContactUsController.replyToContact);
+
+router.patch('/:contactId/status', adminAuth(), validate(contactValidation.updateStatus), ContactUsController.updateQueryStatus);
+
+/**
+ * User/Partner Routes (Prefixed)
+ */
+// Fetch user's/partner's conversation with admin
+router.get(
+    '/user/:contactId/conversation',
+    userAuth(),
+    ContactUsController.getConversationForUserOrPartner
+);
+
+// Allow user/partner to reply to admin
+router.post(
+    '/user/:contactId/reply',
+    userAuth(),
+    validate(contactValidation.replyToContact),
+    ContactUsController.replyToAdmin
+);
 
 module.exports = router;

@@ -18,8 +18,6 @@ const createOrder = async (userId, cartId, paymentMethod, orderNote, deliveryAdd
     throw new Error('Cart not found or empty.');
   }
 
-  console.log('Populated Cart:', JSON.stringify(cart, null, 2)); // Debugging: Log populated cart
-
   const customOrderId = (Math.floor(Date.now() / 1000) % 1000000).toString().padStart(6, '0');
   const orderNumber = customOrderId;
 
@@ -53,7 +51,7 @@ const createOrder = async (userId, cartId, paymentMethod, orderNote, deliveryAdd
     user: userId,
     partner: cart.items[0].item.partner._id,
     business: cart.items[0].item.business._id,
-    businessType: businessTypeId, // Add inferred businessType
+    businessType: businessTypeId,
     items,
     totalPrice: cart.totalPrice,
     subtotal: cart.subtotal,
@@ -166,7 +164,8 @@ const getOrdersByUser = async (userId, page = 1, limit = 10, sortOrder = "desc")
 // Get order by ID
 const getOrderById = async (orderId) => {
   const order = await OrderModel.findById(orderId)
-    .populate("user", "_id name email phone")
+    .populate("user", "_id name email phone") // Populate user details
+    .populate("partner", "_id name email phone") // Populate partner details
     .populate({
       path: "items.item",
       populate: [
@@ -178,12 +177,21 @@ const getOrderById = async (orderId) => {
           path: "variants.variantId",
           select: "name size color price image",
         },
+        {
+          path: "parentCategory", // Populate parent category for food items
+          select: "categoryName tax",
+        },
+        {
+          path: "subCategory", // Populate subcategory for food items
+          select: "categoryName tax",
+        },
       ],
-      select: "itemType roomName roomPrice roomDescription checkIn checkOut guest amenities images dishName productName productDescription dishDescription business variant",
+      select: "itemType roomName roomPrice roomDescription checkIn checkOut guest amenities images dishName dishPrice dishDescription productName productDescription business variant parentCategory subCategory",
     });
 
   if (!order) throw new Error(CONSTANTS.ORDER_NOT_FOUND);
 
+  // Transform the items array
   const items = order.items.map((item) => {
     if (item.item) {
       const { itemType } = item.item;
@@ -203,7 +211,10 @@ const getOrderById = async (orderId) => {
           amenities: item.item.amenities || [],
           checkIn: item.checkIn,
           checkOut: item.checkOut,
-          guests: item.item.guest || item.quantity,
+          partnerCheckIn: item.item.checkIn || null,
+          partnerCheckOut: item.item.checkOut || null,
+          guestCount: item.guestCount || 0,
+          quantity: item.quantity || 0,
           nights,
           roomPrice: item.item.roomPrice,
           price: nights * (item.item.roomPrice || 0),
@@ -218,8 +229,22 @@ const getOrderById = async (orderId) => {
           dishName: item.item.dishName,
           dishDescription: item.item.dishDescription || null,
           quantity: item.quantity,
-          price: item.price,
+          price: item.item.dishPrice * item.quantity,
           images: item.item.images || [],
+          parentCategory: item.item.parentCategory
+            ? {
+              categoryId: item.item.parentCategory._id,
+              categoryName: item.item.parentCategory.categoryName,
+              tax: item.item.parentCategory.tax,
+            }
+            : null,
+          subCategory: item.item.subCategory
+            ? {
+              categoryId: item.item.subCategory._id,
+              categoryName: item.item.subCategory.categoryName,
+              tax: item.item.subCategory.tax,
+            }
+            : null,
         };
       }
 
@@ -230,10 +255,10 @@ const getOrderById = async (orderId) => {
         productName: item.item.productName,
         productDescription: item.item.productDescription,
         quantity: item.quantity,
-        price: item.price,
+        price: item.item.productPrice * item.quantity,
         images: item.item.images || [],
         variants: item.item.variants
-          .filter(variant => variant.variantId)
+          .filter((variant) => variant.variantId)
           .map((variant) => ({
             variantId: variant.variantId?._id,
             name: variant.variantId?.name,
@@ -244,13 +269,13 @@ const getOrderById = async (orderId) => {
           })),
       };
     }
-    // Handle missing item scenario
     return {
       itemId: null,
       itemType: null,
       productName: null,
       quantity: 0,
       price: 0,
+      guestCount: 0,
       selectedSize: null,
       selectedColor: null,
       variants: [],
@@ -258,14 +283,11 @@ const getOrderById = async (orderId) => {
     };
   });
 
-  return {
-    ...order.toObject(),
-    items,
-    deliveryCharge: order.deliveryCharge || 0, // Add deliveryCharge
-    commission: order.commission || 0, // Add commission
-    businessDetails: order.items
-      .filter((item) => item.item && item.item.business)
-      .map((item) => ({
+  const businessDetails = order.items
+    .filter((item) => item.item && item.item.business)
+    .map((item) => {
+      const location = item.item.business.businessAddress.location?.coordinates || [];
+      return {
         itemType: item.item.itemType,
         businessName: item.item.business.businessName,
         businessAddress: [
@@ -277,7 +299,19 @@ const getOrderById = async (orderId) => {
         ]
           .filter(Boolean)
           .join(", "),
-      })),
+        coordinates: {
+          longitude: location[0] || null,
+          latitude: location[1] || null,
+        },
+      };
+    });
+
+  return {
+    ...order.toObject(),
+    items,
+    deliveryCharge: order.deliveryCharge || 0,
+    commission: order.commission || 0,
+    businessDetails,
     deliveryPartner: {
       name: order.deliveryPartner?.name || null,
       phone: order.deliveryPartner?.phone || null,
@@ -957,6 +991,17 @@ const getHistoryByCategory = async (userId, category, status, page = 1, limit = 
     },
     { $unwind: "$businessDetails" },
     {
+      $lookup: {
+        from: "users",
+        let: { partnerId: "$itemDetails.partner" },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$_id", "$$partnerId"] } } }
+        ],
+        as: "partnerDetails",
+      },
+    },
+    { $unwind: { path: "$partnerDetails", preserveNullAndEmptyArrays: true } },
+    {
       $project: {
         createdAt: 1,
         orderStatus: 1,
@@ -971,11 +1016,16 @@ const getHistoryByCategory = async (userId, category, status, page = 1, limit = 
         "itemDetails.roomName": 1,
         "itemDetails.productName": 1,
         "itemDetails.images": 1,
+        "itemDetails.checkIn": 1,
+        "itemDetails.checkOut": 1,
         "businessDetails.businessName": 1,
         "businessDetails.businessAddress": 1,
         "businessDetails.images": 1,
+        "partnerDetails._id": 1,
+        "partnerDetails.name": 1,
+        "partnerDetails.email": 1
       },
-    },
+    }
   ];
 
   if (category === "restaurants") {
@@ -1063,7 +1113,6 @@ const getHistoryByCategory = async (userId, category, status, page = 1, limit = 
       },
     ];
   }
-
   const results = await (category === "dineout"
     ? DineOutModel.aggregate(aggregatePipeline)
     : OrderModel.aggregate(aggregatePipeline));
@@ -1072,7 +1121,6 @@ const getHistoryByCategory = async (userId, category, status, page = 1, limit = 
   const totalPages = Math.ceil(totalDocs / limit);
 
   const data = results[0]?.data || [];
-
   return {
     totalDocs,
     totalPages,
@@ -1091,7 +1139,7 @@ const getAllHistory = async (userId, sortOrder = "desc") => {
       OrderModel.find({ user: userId })
         .populate({
           path: "items.item",
-          select: "itemType dishName productName roomName images",
+          select: "itemType dishName productName roomName images checkIn checkOut",
         })
         .populate({
           path: "business",
@@ -1132,7 +1180,11 @@ const getAllHistory = async (userId, sortOrder = "desc") => {
           items: order.items.map((item) => ({
             ...item,
             image: item.item?.images?.[0] || null,
-            name: item.item?.roomName || null, // Room name
+            name: item.item?.roomName || null,
+            userCheckIn: item.checkIn || null,
+            userCheckOut: item.checkOut || null,
+            partnerCheckIn: item.item?.checkIn || null,
+            partnerCheckOut: item.item?.checkOut || null,
           })),
         })),
       productOrders: orders
@@ -1243,6 +1295,8 @@ const getAllTransactionHistory = async ({
   search,
   sortBy,
   sortOrder,
+  startDate,
+  endDate,
 }) => {
   // Parse page and limit to integers
   const pageNumber = parseInt(page, 10);
@@ -1255,13 +1309,11 @@ const getAllTransactionHistory = async ({
     query["orderStatus"] = status;
   }
 
-  // Search filter for user or partner name, and orderId
-  if (search) {
-    query["$or"] = [
-      { "user.name": { $regex: search, $options: "i" } },
-      { "partner.name": { $regex: search, $options: "i" } },
-      { orderId: { $regex: search, $options: "i" } },
-    ];
+  // Apply date range filter if provided
+  if (startDate || endDate) {
+    query["createdAt"] = {};
+    if (startDate) query["createdAt"]["$gte"] = new Date(startDate);
+    if (endDate) query["createdAt"]["$lte"] = new Date(endDate);
   }
 
   // Aggregation pipeline
@@ -1306,8 +1358,27 @@ const getAllTransactionHistory = async ({
     // Ensure orders have at least one item of the specified type
     { $match: { filteredItems: { $ne: [] } } },
 
+    // Add a search stage if search is provided
+    ...(search
+      ? [
+        {
+          $match: {
+            $or: [
+              { "userDetails.name": { $regex: search, $options: "i" } },
+              { "userDetails.email": { $regex: search, $options: "i" } },
+              { "userDetails.phone": { $regex: search, $options: "i" } },
+              { "partnerDetails.name": { $regex: search, $options: "i" } },
+              { "partnerDetails.email": { $regex: search, $options: "i" } },
+              { "partnerDetails.phone": { $regex: search, $options: "i" } },
+              { orderId: { $regex: search, $options: "i" } },
+            ],
+          },
+        },
+      ]
+      : []),
+
     // Sort and paginate results
-    { $sort: { [sortBy]: sortOrder === "asc" ? 1 : -1 } },
+    { $sort: { createdAt: -1 } },
     { $skip: (pageNumber - 1) * limitNumber },
     { $limit: limitNumber },
 
@@ -1317,6 +1388,8 @@ const getAllTransactionHistory = async ({
         transactionId: "$_id",
         createdAt: 1,
         userName: "$userDetails.name",
+        userEmail: "$userDetails.email",
+        userPhone: "$userDetails.phone",
         orderId: 1,
         amount: "$totalPrice",
         status: "$orderStatus",
@@ -1343,7 +1416,7 @@ const getPartnerRefunds = async (
     limit = 10,
     status,
     search,
-    sortBy = "createdAt",
+    sortBy = "refundDetails.requestedDate", // Default to sorting by refund request date
     sortOrder = "desc",
   }
 ) => {
@@ -1363,7 +1436,7 @@ const getPartnerRefunds = async (
     ];
   }
 
-  // Define sorting
+  // Define sorting explicitly for latest refunds on top
   const sortOption = { [sortBy]: sortOrder === "asc" ? 1 : -1 };
 
   // Convert page and limit to numbers
@@ -1394,7 +1467,7 @@ const getPartnerRefunds = async (
         amount: "$refundDetails.amount",
       },
     },
-    { $sort: sortOption },
+    { $sort: sortOption }, // Explicit sorting for latest refunds
     { $skip: (pageNum - 1) * limitNum },
     { $limit: limitNum },
   ];
@@ -1423,8 +1496,6 @@ const getRefundDetails = async ({
   limit = 10,
   status,
   search,
-  sortBy,
-  sortOrder,
   fromDate,
   toDate,
 }) => {
@@ -1491,7 +1562,8 @@ const getRefundDetails = async ({
         amount: "$refundDetails.amount", // Getting refund amount
       },
     },
-    { $sort: { [sortBy]: sortOrder === "asc" ? 1 : -1 } },
+    // Explicitly sort by createdAt descending to ensure latest refunds are on top
+    { $sort: { createdAt: -1 } },
     { $skip: (pageNum - 1) * limitNum },
     { $limit: limitNum },
   ];
@@ -1511,7 +1583,6 @@ const requestRefundOrExchange = async (
   itemIds,
   reason,
   action,
-  processedBy,
   bankDetails
 ) => {
   const order = await OrderModel.findById(orderId).populate("items.item");
@@ -1670,6 +1741,67 @@ const processRefundOrExchangeDecision = async (
   return order;
 };
 
+// Get refund details for partner
+const getApprovedRefundsByPartner = async (
+  partnerId,
+  { page = 1, limit = 10, sortBy = "createdAt", sortOrder = "desc" }
+) => {
+  const parsedPage = parseInt(page, 10);
+  const parsedLimit = parseInt(limit, 10);
+
+  const matchCondition = {
+    partner: new mongoose.Types.ObjectId(partnerId),
+    "refundDetails.status": "approved", // Fetch only approved refunds
+  };
+
+  const sortOption = { [sortBy]: sortOrder === "asc" ? 1 : -1 };
+
+  const aggregatePipeline = [
+    { $match: matchCondition },
+    {
+      $lookup: {
+        from: "users", // Lookup user details
+        localField: "user",
+        foreignField: "_id",
+        as: "userDetails",
+      },
+    },
+    { $unwind: "$userDetails" },
+    {
+      $project: {
+        refundId: "$refundDetails._id", // Refund ID
+        transactionId: "$transactionHistory._id",
+        createdAt: "$refundDetails.requestedDate",
+        refundDate: "$refundDetails.approvedDate",
+        userName: "$userDetails.name",
+        orderId: "$orderId",
+        amount: "$refundDetails.amount",
+        status: "$refundDetails.status",
+      },
+    },
+    { $sort: sortOption }, // Sort results
+    { $skip: (parsedPage - 1) * parsedLimit },
+    { $limit: parsedLimit },
+  ];
+
+  const refunds = await OrderModel.aggregate(aggregatePipeline);
+
+  // Total count for pagination
+  const totalDocs = await OrderModel.countDocuments(matchCondition);
+
+  return {
+    docs: refunds,
+    page: parsedPage,
+    limit: parsedLimit,
+    totalDocs,
+    totalPages: Math.ceil(totalDocs / parsedLimit),
+    hasPrevPage: parsedPage > 1,
+    hasNextPage: parsedPage < Math.ceil(totalDocs / parsedLimit),
+    prevPage: parsedPage > 1 ? parsedPage - 1 : null,
+    nextPage: parsedPage < Math.ceil(totalDocs / parsedLimit) ? parsedPage + 1 : null,
+  };
+};
+
 // Process refund requests by admin
 const updateExpiredRefundsToAdmin = async () => {
   try {
@@ -1690,6 +1822,15 @@ const updateExpiredRefundsToAdmin = async () => {
 };
 
 // Get User and Partner Transactions
+const getStartOfWeek = (currentDate) => {
+  const dayOfWeek = currentDate.getDay(); // 0 (Sunday) to 6 (Saturday)
+  const distanceToMonday = (dayOfWeek + 6) % 7; // Calculate distance to Monday
+  const startOfWeek = new Date(currentDate);
+  startOfWeek.setDate(currentDate.getDate() - distanceToMonday);
+  startOfWeek.setHours(0, 0, 0, 0); // Reset to start of the day
+  return startOfWeek;
+};
+
 const getTransactionHistoryForUserAndPartner = async ({ type, id, filter, page = 1, limit = 10 }) => {
   const matchCondition = {};
 
@@ -1708,8 +1849,7 @@ const getTransactionHistoryForUserAndPartner = async ({ type, id, filter, page =
   if (filter === 'month') {
     startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
   } else if (filter === 'week') {
-    const startOfWeek = currentDate.getDate() - currentDate.getDay();
-    startDate = new Date(currentDate.setDate(startOfWeek));
+    startDate = getStartOfWeek(currentDate); // Monday-to-Sunday approach
   } else if (filter === 'year') {
     startDate = new Date(currentDate.getFullYear(), 0, 1);
   }
@@ -1791,6 +1931,7 @@ module.exports = {
   getRefundDetails,
   requestRefundOrExchange,
   processRefundOrExchangeDecision,
+  getApprovedRefundsByPartner,
   updateExpiredRefundsToAdmin,
   getTransactionHistoryForUserAndPartner,
 };

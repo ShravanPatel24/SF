@@ -9,7 +9,7 @@ const handleAddUser = async (socket, onlineUsers, rawData) => {
         return;
     }
 
-    const userId = parsedData?.userId || parsedData?.data?.userId;
+    const userId = parsedData?.data?.userId ? parsedData?.data?.userId : parsedData?.userId;
 
     if (!userId) {
         console.log("No userId provided in add-user event.");

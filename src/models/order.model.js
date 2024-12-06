@@ -14,7 +14,8 @@ const orderSchema = new mongoose.Schema({
         checkIn: { type: Date }, // Added field for user's check-in date
         checkOut: { type: Date }, // Added field for user's check-out date
         selectedSize: { type: String },
-        selectedColor: { type: String }
+        selectedColor: { type: String },
+        guestCount: { type: Number },
     }],
     deliveryAddress: {
         name: { type: String, required: function () { return this.requiresDeliveryAddress(); } },

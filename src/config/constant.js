@@ -269,4 +269,12 @@ module.exports = {
     FAQ_INACTIVATED: "FAQ inactivated successfully.",
     FAQ_DELETED: "FAQ deleted successfully.",
     FAQ_QUESTION_ALREADY_EXISTS: "FAQ question already exists.",
+
+    // Static contant
+    STATIC_ACTIVATED: "Static contant activated successfully",
+    STATIC_INACTIVATED: "Static contant inactivated successfully.",
+
+    // email contant
+    EMAIL_ACTIVATED: "Email template activated successfully",
+    EMAIL_INACTIVATED: "Email template inactivated successfully."
 };
