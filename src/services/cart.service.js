@@ -1,4 +1,4 @@
-const { CartModel, ItemModel, UserModel } = require("../models");
+const { CartModel, ItemModel, UserModel, OrderModel } = require("../models");
 const CONSTANTS = require("../config/constant");
 
 // Add an item (food, product or checkout for rooms) to the cart
@@ -326,6 +326,115 @@ const clearGuestCart = async (guestId) => {
   return cart;
 };
 
+// Reorder Function for Food and Product
+const reorderItemsToCart = async (userId, orderId, itemIds, quantities) => {
+  // Fetch the original order
+  const originalOrder = await OrderModel.findById(orderId).populate("items.item");
+  if (!originalOrder) {
+    throw new Error("Order not found.");
+  }
+
+  // Ensure the order belongs to the user
+  if (originalOrder.user.toString() !== userId.toString()) {
+    throw new Error("Unauthorized access to order.");
+  }
+
+  // Filter the items to reorder (only food or product items)
+  const itemsToReorder = originalOrder.items.filter(item =>
+    itemIds.includes(item.item._id.toString()) &&
+    (item.item.itemType === "food" || item.item.itemType === "product")
+  );
+
+  if (itemsToReorder.length === 0) {
+    throw new Error("No valid items found for reorder.");
+  }
+
+  // Map the items to cart format
+  const cartItems = itemsToReorder.map(item => ({
+    item: item.item._id,
+    quantity: quantities[item.item._id.toString()] || item.quantity,
+    selectedSize: item.selectedSize || null,
+    selectedColor: item.selectedColor || null,
+  }));
+
+  // Find or create the user's cart
+  let cart = await CartModel.findOne({ user: userId });
+  if (!cart) {
+    cart = new CartModel({ user: userId, items: cartItems });
+  } else {
+    cart.items = [...cart.items, ...cartItems];
+  }
+
+  await cart.save();
+  return cart;
+};
+
+// Rebook hotel room
+const rebookRoom = async (userId, orderId, itemId, newCheckIn, newCheckOut, newGuestCount) => {
+  // Fetch the original order
+  const originalOrder = await OrderModel.findById(orderId).populate("items.item");
+  if (!originalOrder) {
+    throw new Error("Order not found.");
+  }
+
+  // Ensure the order belongs to the user
+  if (originalOrder.user.toString() !== userId.toString()) {
+    throw new Error("Unauthorized access to order.");
+  }
+
+  // Find the specific room item
+  const roomItem = originalOrder.items.find(
+    (item) => item.item._id.toString() === itemId && item.item.itemType === "room"
+  );
+  if (!roomItem) {
+    throw new Error("Rebooking allowed only for valid room items.");
+  }
+
+  // Validate new check-in and check-out dates
+  if (!newCheckIn || !newCheckOut) {
+    throw new Error("New check-in and check-out dates are required.");
+  }
+  const checkInDate = new Date(newCheckIn);
+  const checkOutDate = new Date(newCheckOut);
+  if (checkInDate >= checkOutDate) {
+    throw new Error("Invalid check-in and check-out date order.");
+  }
+
+  // Calculate new nights and total price
+  const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
+  const roomPrice = roomItem.item.roomPrice;
+
+  if (!roomPrice || isNaN(roomPrice)) {
+    throw new Error("Invalid room price for the selected item.");
+  }
+
+  const newTotalPrice = nights * roomPrice;
+
+  if (isNaN(newTotalPrice) || newTotalPrice <= 0) {
+    throw new Error("Invalid total price calculated for the rebooked room.");
+  }
+
+  // Add the rebooked room to the user's cart
+  const cart = await CartModel.findOneAndUpdate(
+    { user: userId },
+    {
+      $push: {
+        items: {
+          item: roomItem.item._id,
+          quantity: 1,
+          checkIn: newCheckIn,
+          checkOut: newCheckOut,
+          guestCount: newGuestCount || roomItem.guestCount,
+        },
+      },
+      $inc: { totalPrice: newTotalPrice },
+    },
+    { new: true, upsert: true }
+  );
+
+  return cart;
+};
+
 module.exports = {
   addToCart,
   getCartByUser,
@@ -336,4 +445,6 @@ module.exports = {
   getGuestCart,
   removeFromGuestCart,
   clearGuestCart,
+  reorderItemsToCart,
+  rebookRoom
 };

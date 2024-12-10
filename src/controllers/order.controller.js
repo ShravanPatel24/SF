@@ -306,30 +306,6 @@ const getCompletedBookingsController = catchAsync(async (req, res) => {
     });
 });
 
-// Rebook hotel room
-const rebookRoomOrder = catchAsync(async (req, res) => {
-    const { orderId } = req.params;
-    const { itemId, newCheckIn, newCheckOut, newGuestCount } = req.body;
-    const userId = req.user._id;
-
-    // Call service function
-    const rebookedOrder = await OrderService.rebookRoomOrder(
-        userId,
-        orderId,
-        itemId,
-        newCheckIn,
-        newCheckOut,
-        newGuestCount
-    );
-
-    // Return response
-    return res.status(201).json({
-        statusCode: 201,
-        message: 'Room rebooking created successfully.',
-        order: rebookedOrder,
-    });
-});
-
 // Track order status
 const trackOrder = catchAsync(async (req, res) => {
     const { orderId } = req.params;
@@ -340,29 +316,6 @@ const trackOrder = catchAsync(async (req, res) => {
     return res.status(200).json({
         statusCode: 200,
         data: order
-    });
-});
-
-// Reorder Function for Food and Product
-const reorderItems = catchAsync(async (req, res) => {
-    const { orderId } = req.params; // Original order ID
-    const { itemIds, quantities, newDeliveryAddress } = req.body; // Items to reorder
-    const userId = req.user._id; // Authenticated user
-
-    // Call the service function to reorder
-    const reorderedOrder = await OrderService.reorderItems(
-        userId,
-        orderId,
-        itemIds,
-        quantities,
-        newDeliveryAddress
-    );
-
-    // Return the reordered order details
-    return res.status(201).json({
-        statusCode: 201,
-        message: 'Items reordered successfully.',
-        order: reorderedOrder,
     });
 });
 
@@ -787,9 +740,7 @@ module.exports = {
     updateDeliveryPartner,
     cancelOrder,
     getCompletedBookingsController,
-    rebookRoomOrder,
     trackOrder,
-    reorderItems,
     getAllOrdersAdmin,
     getOrdersByUserIdAdmin,
     getOrdersByPartnerId,

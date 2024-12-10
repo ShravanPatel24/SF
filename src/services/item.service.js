@@ -5,7 +5,10 @@ const { s3Service } = require('../services');
 const createItem = async (itemData, files, partnerId) => {
     let imageUrls = [];
     let variantsWithImages = [];
-
+    const business = await BusinessModel.findOne({ _id: itemData.businessId, partner: partnerId });
+    if (!business) {
+        throw new Error('Invalid business ID. The provided business ID does not belong to the authenticated partner.');
+    }
     try {
         // Handle image uploads for the main item
         if (files && files.length > 0) {
@@ -38,9 +41,15 @@ const createItem = async (itemData, files, partnerId) => {
             item.roomPrice = itemData.roomPrice;
             item.roomCapacity = itemData.roomCapacity;
             item.roomCategory = itemData.roomCategory;
-            item.checkIn = new Date(itemData.checkIn);
-            item.checkOut = new Date(itemData.checkOut);
             item.amenities = Array.isArray(itemData.amenities) ? itemData.amenities : [];
+
+            // Only assign checkIn and checkOut if provided
+            if (itemData.checkIn) {
+                item.checkIn = new Date(itemData.checkIn);
+            }
+            if (itemData.checkOut) {
+                item.checkOut = new Date(itemData.checkOut);
+            }
         }
 
         // Handle product-specific fields, including variants with quantity and images
@@ -517,7 +526,9 @@ const deleteItemById = async (itemId) => {
 // Guest Users
 
 // Get all items (products, food, rooms)
-const getAllItems = async (itemType, businessId) => {
+const getAllItems = async (itemType, businessId, page = 1, limit = 10, sortOrder = 'desc') => {
+    const skip = (page - 1) * limit;
+
     const filter = {};
     if (itemType) {
         filter.itemType = itemType;
@@ -525,7 +536,105 @@ const getAllItems = async (itemType, businessId) => {
     if (businessId) {
         filter.business = businessId;
     }
-    return await ItemModel.find(filter);
+
+    // Determine sort order
+    const sort = { createdAt: sortOrder === 'desc' ? -1 : 1 };
+
+    // Fetch items with populated category and business data
+    const items = await ItemModel.find(filter)
+        .populate('parentCategory', 'categoryName tax') // Populate parent category name and tax
+        .populate('subCategory', 'categoryName') // Populate subcategory name
+        .populate('roomCategory', 'categoryName tax') // Populate room category name and tax
+        .populate('business', 'businessName') // Populate business name
+        .populate('businessType', 'name') // Populate business type name
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .lean(); // Return plain JavaScript objects
+
+    const totalDocs = await ItemModel.countDocuments(filter);
+
+    // Group items by categories
+    const categorizedItems = items.reduce((acc, item) => {
+        let categoryName;
+        let subCategoryName = null; // Default to no subcategory
+        let taxRate = 0;
+
+        if (item.itemType === 'room') {
+            // For room items, use only the roomCategory
+            categoryName = item.roomCategory?.categoryName || 'Uncategorized';
+            taxRate = item.roomCategory?.tax || 0;
+
+            if (!acc[categoryName]) {
+                acc[categoryName] = { items: [] };
+            }
+
+            // Add room item directly to the category
+            acc[categoryName].items.push({
+                _id: item._id,
+                name: item.roomName || 'Unknown',
+                description: item.roomDescription || 'No description',
+                price: item.roomPrice || 0,
+                taxRate,
+                quantity: item.quantity || 0,
+                available: item.available || true,
+                images: item.images || [],
+                businessName: item.business?.businessName || 'Unknown',
+                businessTypeName: item.businessType?.name || 'Unknown',
+                createdAt: item.createdAt,
+            });
+        } else {
+            // For product and food items, group by parent and subcategories
+            categoryName = item.parentCategory?.categoryName || 'Uncategorized';
+            subCategoryName = item.subCategory?.categoryName || 'Uncategorized';
+            taxRate = item.parentCategory?.tax || 0;
+
+            if (!acc[categoryName]) {
+                acc[categoryName] = {};
+            }
+            if (!acc[categoryName][subCategoryName]) {
+                acc[categoryName][subCategoryName] = [];
+            }
+
+            acc[categoryName][subCategoryName].push({
+                _id: item._id,
+                name: item.productName || item.dishName || 'Unknown',
+                description: item.productDescription || item.dishDescription || 'No description',
+                price: item.productPrice || item.dishPrice || 0,
+                deliveryCharge: item.productDeliveryCharge || item.foodDeliveryCharge || null,
+                taxRate,
+                quantity: item.quantity || 0,
+                available: item.available || true,
+                images: item.images || [],
+                variants: item.variants?.map(variant => ({
+                    variantId: variant.variantId?._id,
+                    variantName: variant.variantId?.variantName || null,
+                    size: variant.variantId?.size || null,
+                    color: variant.variantId?.color || null,
+                    productPrice: variant.productPrice,
+                    image: variant.image || null,
+                })) || [],
+                businessName: item.business?.businessName || 'Unknown',
+                businessTypeName: item.businessType?.name || 'Unknown',
+                createdAt: item.createdAt,
+            });
+        }
+
+        return acc;
+    }, {});
+
+    return {
+        docs: categorizedItems,
+        totalDocs,
+        limit,
+        totalPages: Math.ceil(totalDocs / limit),
+        page,
+        pagingCounter: (page - 1) * limit + 1,
+        hasPrevPage: page > 1,
+        hasNextPage: page * limit < totalDocs,
+        prevPage: page > 1 ? page - 1 : null,
+        nextPage: page * limit < totalDocs ? page + 1 : null,
+    };
 };
 
 // Search items by query

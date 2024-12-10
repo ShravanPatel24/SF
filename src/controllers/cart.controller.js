@@ -125,6 +125,44 @@ const clearGuestCart = catchAsync(async (req, res) => {
     }
 });
 
+// Reorder Function for Food and Product
+const reorderItems = catchAsync(async (req, res) => {
+    const { orderId } = req.params;
+    const { itemIds, quantities } = req.body;
+    const userId = req.user._id;
+
+    // Call the cart service to add items to the cart
+    const updatedCart = await CartService.reorderItemsToCart(userId, orderId, itemIds, quantities);
+
+    res.status(200).json({
+        statusCode: 200,
+        message: "Items added to cart successfully.",
+        cart: updatedCart,
+    });
+});
+
+// Rebook hotel room
+const rebookRoom = catchAsync(async (req, res) => {
+    const { orderId } = req.params;
+    const { itemId, newCheckIn, newCheckOut, newGuestCount } = req.body;
+    const userId = req.user._id;
+
+    const updatedCart = await CartService.rebookRoom(
+        userId,
+        orderId,
+        itemId,
+        newCheckIn,
+        newCheckOut,
+        newGuestCount
+    );
+
+    return res.status(200).json({
+        statusCode: 200,
+        message: "Room rebooking added to cart successfully.",
+        cart: updatedCart,
+    });
+});
+
 module.exports = {
     addToCart,
     getCart,
@@ -134,5 +172,7 @@ module.exports = {
     addGuestToCart,
     getGuestCart,
     removeFromGuestCart,
-    clearGuestCart
+    clearGuestCart,
+    reorderItems,
+    rebookRoom
 };

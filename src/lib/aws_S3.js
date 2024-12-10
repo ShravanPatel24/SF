@@ -16,28 +16,55 @@ AWS.config.update({
 
 var s3 = new AWS.S3();
 
-// const uploadProfile = async (file, path) => {
-//   // Setting up S3 upload parameters
-//   try {
-//     const uniqueFileName = `${uuidv4()}-${file.originalname}`;
-//     const params = {
-//       Bucket: config.S3_BUCKET + path,
-//       Key: uniqueFileName,
-//       ContentType: file.mimetype,
-//       Body: file.buffer,
-//     };
-//     var data = await s3.upload(params).promise();
-//     // var url = await s3.getSignedUrl("getObject", {
-//     //     Bucket: config.S3_BUCKET,
-//     //     Key: data.Key,
-//     // });
-//     // return url;
-//     return { data: data };
-//   } catch (err) {
-//     console.log(err);
-//   }
-//   //s3.deleteObject for delete file on s3
-// };
+/**
+ * Uploads an image to S3 from a Base64 string.
+ * @param {string} base64Data - The Base64 encoded image string.
+ * @param {string} path - The S3 folder path where the image will be stored.
+ * @param {string} fileName - Optional. The desired file name.
+ * @returns {Promise<Object>} - Returns the S3 upload response, including the public URL.
+ */
+const uploadImageFromBase64 = async (base64Data, path, fileName = null) => {
+    try {
+        console.log("🚀 [Upload Start] Preparing to upload Base64 image...");
+
+        // Validate Base64 string
+        if (!base64Data.startsWith("data:image/") || !base64Data.includes("base64,")) {
+            throw new Error("Invalid Base64 image data.");
+        }
+
+        // Generate unique file name if not provided
+        const extension = base64Data.match(/data:image\/(\w+);base64/)[1] || "jpeg";
+        const uniqueFileName = fileName || `${uuidv4()}.${extension}`;
+
+        // Decode Base64 string to a buffer
+        const buffer = Buffer.from(base64Data.split(",")[1], "base64");
+
+        // S3 upload parameters
+        const params = {
+            Bucket: `${config.S3_BUCKET}/${path}`,
+            Key: uniqueFileName,
+            Body: buffer,
+            ContentType: `image/${extension}`,
+            ACL: "public-read", // Make the image publicly accessible
+        };
+
+        console.log("📂 [S3 Params] Uploading with params:", params);
+
+        // Upload to S3
+        const uploadResponse = await s3.upload(params).promise();
+
+        console.log("✅ [Upload Success] Image uploaded to S3:", uploadResponse);
+
+        return {
+            url: uploadResponse.Location,
+            key: uploadResponse.Key,
+            bucket: uploadResponse.Bucket,
+        };
+    } catch (error) {
+        console.error("❌ [Upload Error] Failed to upload Base64 image:", error.message);
+        throw error;
+    }
+};
 
 const uploadProfile = async (file, path) => {
     try {
@@ -114,7 +141,7 @@ const uploadDocuments = async (files, path, mineType, download) => {
                 location: data.Location,
                 fieldname: file.fieldname,
             };
-            
+
             if (download) {
                 // Generate a pre-signed URL for downloading the uploaded file
                 const oneWeekInSeconds = 60 * 60 * 24 * 7; // One week in seconds
@@ -333,6 +360,7 @@ const getDownloadUrl = async (path) => {
 };
 
 module.exports = {
+    uploadImageFromBase64,
     getDownloadUrl,
     uploadProfile,
     uploadDocuments,

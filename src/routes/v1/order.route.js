@@ -6,12 +6,6 @@ const { orderValidation } = require('../../validations');
 const { orderController } = require('../../controllers');
 
 // --- Order Management Routes ---
-// Rebook a room order
-router.post('/rebook/:orderId', userAuth(), orderController.rebookRoomOrder);
-
-// Reorder food or product items
-router.post('/reorder/:orderId', userAuth(), orderController.reorderItems);
-
 // Get transaction history for user or partner
 router.get('/transactions', userAuth(), orderController.getTransactionHistoryForUserAndPartner);
 
