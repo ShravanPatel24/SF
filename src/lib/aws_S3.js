@@ -92,6 +92,7 @@ const uploadDocuments = async (files, path, mineType, download) => {
                 fieldname: file.fieldname,
             };
 
+
             if (download) {
                 // Generate a pre-signed URL for downloading the uploaded file
                 const oneWeekInSeconds = 60 * 60 * 24 * 7; // One week in seconds
@@ -310,6 +311,7 @@ const getDownloadUrl = async (path) => {
 };
 
 module.exports = {
+    uploadImageFromBase64,
     getDownloadUrl,
     uploadProfile,
     uploadDocuments,
