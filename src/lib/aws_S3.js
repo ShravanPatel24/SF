@@ -311,7 +311,6 @@ const getDownloadUrl = async (path) => {
 };
 
 module.exports = {
-    uploadImageFromBase64,
     getDownloadUrl,
     uploadProfile,
     uploadDocuments,
