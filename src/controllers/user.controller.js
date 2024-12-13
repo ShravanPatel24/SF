@@ -556,6 +556,46 @@ const getFollowing = catchAsync(async (req, res) => {
   });
 });
 
+// Remove follower of the user
+const removeFollower = catchAsync(async (req, res) => {
+  const { followerId } = req.params; // ID of the follower to remove
+  const userId = req.user._id; // ID of the current logged-in user
+
+  try {
+    // Find and delete the follower relationship
+    const followRecord = await FollowModel.findOneAndDelete({
+      follower: followerId,
+      following: userId,
+    });
+
+    // If no record is found, return an error
+    if (!followRecord) {
+      return res.status(400).json({
+        statusCode: 400,
+        message: "The specified user is not a follower.",
+      });
+    }
+
+    // Decrement the follower count of the current user
+    await UserModel.findByIdAndUpdate(userId, { $inc: { followerCount: -1 } });
+
+    // Decrement the following count of the user being removed
+    await UserModel.findByIdAndUpdate(followerId, { $inc: { followingCount: -1 } });
+
+    // Send success response
+    return res.status(200).json({
+      statusCode: 200,
+      message: "Follower removed successfully.",
+    });
+  } catch (error) {
+    console.error("Error in removeFollower:", error);
+    return res.status(500).json({
+      statusCode: 500,
+      message: "Internal Server Error.",
+    });
+  }
+});
+
 // Add or Update "About Us" for a partner
 const addOrUpdateAboutUs = catchAsync(async (req, res) => {
   try {
@@ -692,6 +732,7 @@ module.exports = {
   getMyFollowing,
   getFollowers,
   getFollowing,
+  removeFollower,
   getAboutUs,
   getPrivacySettings,
   updatePrivacySettings

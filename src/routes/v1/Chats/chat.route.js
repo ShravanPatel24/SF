@@ -1,9 +1,14 @@
 const express = require('express');
-const { getRoomMessages } = require('../../../controllers/Chats/message.controller');
-const { getUserChatList } = require('../../../controllers/Chats/chat.controller');
+const multer = require("multer");
+const upload = multer({ storage: multer.memoryStorage() });
+const { ChatController } = require("../../../controllers")
+const { MessageController } = require("../../../controllers")
 const router = express.Router();
 
-router.get("/messages/:roomId", getRoomMessages);
-router.get("/chats/:userId", getUserChatList);
+
+router.get("/messages/:roomId", MessageController.getRoomMessages);
+router.get("/chats/:userId", ChatController.getUserChatList);
+// API for uploading attachments
+router.post("/attachments/upload", upload.array("attachments"), MessageController.uploadAttachment);
 
 module.exports = router;

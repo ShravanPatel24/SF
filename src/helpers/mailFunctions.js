@@ -1,6 +1,7 @@
 const config = require('../config/config');
 var Mailgen = require('mailgen');
 var nodemailer = require('nodemailer');
+const validator = require("validator")
 var sgMail = require('@sendgrid/mail');
 sgMail.setApiKey(config.SENDGRID_API_KEY);
 
@@ -33,22 +34,28 @@ const sendEmail = async (to, subject, htmlBody) => {
 };
 
 async function send_mail(to, template, subject, attachments) {
+    if (!to) {
+        console.error("Invalid email address:", to);
+        return;  // Skip sending email if there's no valid recipient.
+    }
     var emailBody = mailGenerator.generate(template);
     var emailText = mailGenerator.generatePlaintext(template);
     let mailOptions = {
         from: 'Ocean <noreply@apikart.co>',
         to: to,
-        subject: subject, // Subject line
-        text: emailText, // plain text body
-        html: emailBody, // html body
+        subject: subject,
+        text: emailText,
+        html: emailBody,
     };
+
+    console.log("Sending email to:", to);
     sgMail.send(mailOptions, function (error, info) {
         if (error) {
             console.log('error ====>>>', JSON.stringify(error?.response?.body));
         } else {
             console.log('Email send to:- ', to);
         }
-    })
+    });
 }
 
 function sendOtpOnMail(userEmail, name, otp) {
@@ -178,7 +185,12 @@ const sendWelcomeEmail = async (userEmail, userName) => {
     await send_mail(userEmail, emailTemplate, 'Welcome to Ocean');
 };
 
-function sendLoginNotificationEmail(userEmail, device, time, ipAddress) {
+const sendLoginNotificationEmail = (userEmail, device, time, ipAddress) => {
+    if (!userEmail || !validator.isEmail(userEmail)) {
+        console.log('Invalid userEmail in sendLoginNotificationEmail:', userEmail);
+        return;  // Skip sending if there's no valid user email
+    }
+
     const emailTemplate = {
         body: {
             title: 'We noticed a login to your account',

@@ -57,8 +57,8 @@ const itemSchema = new mongoose.Schema(
         roomPrice: { type: Number, required: function () { return this.itemType === 'room'; } },
         roomCapacity: { type: Number, required: function () { return this.itemType === 'room'; } },
         roomTax: { type: Number },
-        checkIn: { type: Date, required: function () { return this.itemType === 'room'; } },
-        checkOut: { type: Date, required: function () { return this.itemType === 'room'; } },
+        checkIn: { type: Date },
+        checkOut: { type: Date },
         amenities: [{ type: String }],
 
         // Fields for products

@@ -16,29 +16,6 @@ AWS.config.update({
 
 var s3 = new AWS.S3();
 
-// const uploadProfile = async (file, path) => {
-//   // Setting up S3 upload parameters
-//   try {
-//     const uniqueFileName = `${uuidv4()}-${file.originalname}`;
-//     const params = {
-//       Bucket: config.S3_BUCKET + path,
-//       Key: uniqueFileName,
-//       ContentType: file.mimetype,
-//       Body: file.buffer,
-//     };
-//     var data = await s3.upload(params).promise();
-//     // var url = await s3.getSignedUrl("getObject", {
-//     //     Bucket: config.S3_BUCKET,
-//     //     Key: data.Key,
-//     // });
-//     // return url;
-//     return { data: data };
-//   } catch (err) {
-//     console.log(err);
-//   }
-//   //s3.deleteObject for delete file on s3
-// };
-
 const uploadProfile = async (file, path) => {
     try {
         const uniqueFileName = `${uuidv4()}-${file.originalname}`;
@@ -114,7 +91,7 @@ const uploadDocuments = async (files, path, mineType, download) => {
                 location: data.Location,
                 fieldname: file.fieldname,
             };
-            
+
             if (download) {
                 // Generate a pre-signed URL for downloading the uploaded file
                 const oneWeekInSeconds = 60 * 60 * 24 * 7; // One week in seconds

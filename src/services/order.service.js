@@ -562,182 +562,12 @@ const getCompletedBookings = async (userId) => {
   }));
 };
 
-// Rebook hotel room
-const rebookRoomOrder = async (userId, orderId, itemId, newCheckIn, newCheckOut, newGuestCount) => {
-  // Fetch the original order
-  const originalOrder = await OrderModel.findById(orderId).populate("items.item");
-  if (!originalOrder) {
-    throw new Error("Order not found.");
-  }
-
-  // Ensure the order belongs to the user
-  if (originalOrder.user.toString() !== userId.toString()) {
-    throw new Error("Unauthorized access to order.");
-  }
-
-  // Find the specific room item
-  const roomItem = originalOrder.items.find(
-    (item) => item.item._id.toString() === itemId && item.item.itemType === "room"
-  );
-  if (!roomItem) {
-    throw new Error("Rebooking allowed only for valid room items.");
-  }
-
-  // Validate new check-in and check-out dates
-  if (!newCheckIn || !newCheckOut) {
-    throw new Error("New check-in and check-out dates are required.");
-  }
-  const checkInDate = new Date(newCheckIn);
-  const checkOutDate = new Date(newCheckOut);
-  if (checkInDate >= checkOutDate) {
-    throw new Error("Invalid check-in and check-out date order.");
-  }
-
-  // Calculate new nights and total price
-  const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
-  const newTotalPrice = nights * roomItem.item.roomPrice;
-
-  // Set a default delivery charge or reuse from the original order
-  const deliveryCharge = originalOrder.deliveryCharge || 0;
-
-  // Create the rebooking order
-  const customOrderId = (Math.floor(Date.now() / 1000) % 1000000).toString().padStart(6, '0');
-  const newOrderData = {
-    user: userId,
-    partner: originalOrder.partner,
-    business: originalOrder.business,
-    items: [
-      {
-        item: roomItem.item._id,
-        quantity: 1,
-        checkIn: newCheckIn,
-        checkOut: newCheckOut,
-        guestCount: newGuestCount || roomItem.guestCount,
-      },
-    ],
-    totalPrice: newTotalPrice + deliveryCharge,
-    subtotal: newTotalPrice,
-    tax: originalOrder.tax, // Reuse tax from the original order
-    commission: originalOrder.commission, // Reuse commission
-    deliveryCharge, // Include delivery charge
-    paymentMethod: originalOrder.paymentMethod,
-    orderStatus: "pending", // Start with 'pending' status for rebooked orders
-    orderId: customOrderId,
-    orderNumber: { customOrderId },
-    transactionHistory: [
-      {
-        type: "Rebooking Created",
-        date: new Date(),
-        amount: newTotalPrice,
-        status: "Pending",
-      },
-    ],
-  };
-
-  const newOrder = await OrderModel.create(newOrderData);
-
-  return {
-    _id: newOrder._id,
-    orderId: newOrder.orderId,
-    orderNumber: newOrder.orderNumber,
-    checkIn: newOrder.items[0].checkIn,
-    checkOut: newOrder.items[0].checkOut,
-    guestCount: newOrder.items[0].guestCount,
-    totalPrice: newOrder.totalPrice,
-    orderStatus: newOrder.orderStatus,
-  };
-};
-
-// Reorder Function for Food and Product
-const reorderItems = async (userId, orderId, itemIds, quantities, newDeliveryAddress) => {
-  // Fetch the original order
-  const originalOrder = await OrderModel.findById(orderId).populate("items.item");
-  if (!originalOrder) {
-    throw new Error("Order not found.");
-  }
-
-  // Ensure the order belongs to the user
-  if (originalOrder.user.toString() !== userId.toString()) {
-    throw new Error("Unauthorized access to order.");
-  }
-
-  // Filter the items to be reordered
-  const itemsToReorder = originalOrder.items.filter(item =>
-    itemIds.includes(item.item._id.toString()) &&
-    (item.item.itemType === 'food' || item.item.itemType === 'product')
-  );
-
-  if (itemsToReorder.length === 0) {
-    throw new Error("No valid items found for reorder.");
-  }
-
-  // Map items for the new order
-  const reorderedItems = itemsToReorder.map(item => {
-    const quantity = quantities[item.item._id.toString()] || item.quantity; // Use new or original quantity
-    return {
-      item: item.item._id,
-      quantity,
-      selectedSize: item.selectedSize || null,
-      selectedColor: item.selectedColor || null,
-    };
-  });
-
-  // Calculate the total price for the reordered items
-  const totalPrice = reorderedItems.reduce((total, item) => {
-    const itemDetails = itemsToReorder.find(i => i.item._id.toString() === item.item.toString());
-    const price =
-      (itemDetails.item.variants?.find(
-        v => v.size === item.selectedSize && v.color === item.selectedColor
-      )?.productPrice || itemDetails.item.dishPrice || 0) * item.quantity;
-    return total + price;
-  }, 0);
-
-  // Include delivery charge if applicable
-  const deliveryCharge = originalOrder.deliveryCharge || 0;
-
-  // Create a new order for the reordered items
-  const customOrderId = (Math.floor(Date.now() / 1000) % 1000000).toString().padStart(6, '0');
-  const reorderedOrder = await OrderModel.create({
-    user: userId,
-    partner: originalOrder.partner,
-    business: originalOrder.business,
-    items: reorderedItems,
-    totalPrice: totalPrice + deliveryCharge,
-    subtotal: totalPrice,
-    tax: originalOrder.tax, // Reuse tax from the original order
-    commission: originalOrder.commission, // Reuse commission
-    deliveryCharge, // Include delivery charge
-    deliveryAddress: newDeliveryAddress || originalOrder.deliveryAddress, // Use new or original address
-    paymentMethod: originalOrder.paymentMethod,
-    orderStatus: "pending", // Start with 'pending' status for reordered items
-    orderId: customOrderId,
-    orderNumber: customOrderId,
-    transactionHistory: [
-      {
-        type: "Reorder Created",
-        date: new Date(),
-        amount: totalPrice,
-        status: "Pending",
-      },
-    ],
-  });
-
-  return {
-    _id: reorderedOrder._id,
-    orderId: reorderedOrder.orderId,
-    orderNumber: reorderedOrder.orderNumber,
-    totalPrice: reorderedOrder.totalPrice,
-    deliveryAddress: reorderedOrder.deliveryAddress,
-    orderStatus: reorderedOrder.orderStatus,
-  };
-};
-
 // Track order status
 const trackOrder = async (orderId) => {
   const order = await OrderModel.findById(orderId)
     .populate({
       path: "items.item",
-      select: "itemType dishName productName productDescription images",
+      select: "itemType dishName roomName productName dishPrice roomPrice productPrice images",
     })
     .populate("user", "name email")
     .populate("partner", "name")
@@ -749,21 +579,40 @@ const trackOrder = async (orderId) => {
   if (!order) {
     return null;
   }
-
   order.items = order.items.map((item) => {
     const itemData = item.item;
-    let itemName = "";
-    if (itemData.itemType === "food") {
-      itemName = itemData.dishName;
-    } else if (itemData.itemType === "product") {
-      itemName = itemData.productName;
+
+    // Validate if itemData exists
+    if (!itemData) {
+      return {
+        ...item.toObject(),
+        item: null, // Ensure invalid items are represented correctly
+      };
     }
 
+    // Extract itemName and price based on itemType
+    const { itemType, dishName, dishPrice, roomName, roomPrice, productName, productPrice } = itemData;
+    let itemName = "";
+    let price = 0;
+
+    if (itemType === "food") {
+      itemName = dishName;
+      price = dishPrice;
+    } else if (itemType === "room") {
+      itemName = roomName;
+      price = roomPrice;
+    } else if (itemType === "product") {
+      itemName = productName;
+      price = productPrice;
+    }
+
+    // Return the updated item structure
     return {
       ...item.toObject(),
       item: {
         ...itemData.toObject(),
         itemName,
+        price, // Add the price field
       },
     };
   });
@@ -1098,7 +947,7 @@ const getHistoryByCategory = async (userId, category, status, page = 1, limit = 
           dinnerType: 1,
           "businessDetails.businessName": 1,
           "businessDetails.businessAddress": 1,
-          "businessDetails.images": 1, // Retrieve business images
+          "businessDetails.images": { $slice: ["$businessDetails.images", 1] } // Slice to include only the first image
         },
       },
       { $sort: sort },
@@ -1917,9 +1766,7 @@ module.exports = {
   cancelOrder,
   getCompletedBookings,
   updateCompletedBookings,
-  rebookRoomOrder,
   trackOrder,
-  reorderItems,
   queryOrder,
   getOrdersByUserIdAdmin,
   getOrdersByPartnerId,

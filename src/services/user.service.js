@@ -149,9 +149,11 @@ const createUser = async (requestBody) => {
     }
   }
 
+  // Generate OTP for mobile
   const mobileOtp = config.env === 'development' ? '1234' : crypto.randomInt(1000, 9999).toString();
   requestBody['mobileOTP'] = mobileOtp;
 
+  // Send email OTP if email is provided
   if (requestBody.email) {
     const emailOtp = crypto.randomInt(1000, 9999).toString();
     requestBody['emailOTP'] = emailOtp;
@@ -159,8 +161,13 @@ const createUser = async (requestBody) => {
     await mailFunctions.sendOtpOnMail(requestBody.email, requestBody.name || requestBody.companyName, emailOtp);
   }
 
+  // Send mobile OTP if phone is provided
+  // if (requestBody.phone) {
+  //   sendMobileOtp(requestBody.phone, requestBody.name || requestBody.companyName, mobileOtp);
+  // }
+
+  // Create user in the database
   const user = await UserModel.create(requestBody);
-  mailFunctions.sendOtpOnMail(user.phone, user.name || user.companyName, mobileOtp);
 
   // Return the user object including _id with statusCode instead of code
   return { data: user, statusCode: CONSTANTS.SUCCESSFUL, message: CONSTANTS.USER_CREATE };

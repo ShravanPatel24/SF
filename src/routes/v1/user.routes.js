@@ -51,6 +51,8 @@ router.patch('/update-phone', userController.updateUserPhone);
 router.get('/lists', userAuth(), userController.getUserListsToFollow);
 router.post('/follow/:followingId', userAuth('followUser'), userController.followUser);
 router.post('/unfollow/:followingId', userAuth('unfollowUser'), userController.unfollowUser);
+router.delete('/remove-follower/:followerId', userAuth(), userController.removeFollower);
+
 // Routes for getting user's own followers and following
 router.get('/me/followers', userAuth(), userController.getMyFollowers);
 router.get('/me/following', userAuth(), userController.getMyFollowing);

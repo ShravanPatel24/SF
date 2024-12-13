@@ -15,5 +15,7 @@ router.post('/guest/add', cartController.addGuestToCart); // Add item to guest c
 router.get('/guest/:guestId', cartController.getGuestCart); // Get guest cart
 router.delete('/guest/remove', cartController.removeFromGuestCart); // Remove item from guest cart
 router.delete('/guest/clear', cartController.clearGuestCart); // Clear guest cart
+router.post('/reorder/:orderId', userAuth(), cartController.reorderItems);
+router.post('/rebook/:orderId', userAuth(), cartController.rebookRoom);
 
 module.exports = router;
